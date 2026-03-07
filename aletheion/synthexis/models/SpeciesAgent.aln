@@ -1,0 +1,26 @@
+// Synthexis core schemas: SpeciesAgent (ALN, no algorithms).
+
+module SynthexisSpeciesModelsV01 {
+
+  record SpeciesAgent {
+    id:            String        // Unique agent identifier.
+    species_name:  String        // Common or scientific name.
+    trophic_role:  String        // e.g., pollinator, predator, decomposer.
+
+    // Habitat requirements (qualitative codes or enum strings).
+    habitat_type:  String        // e.g., "riparian", "urban_tree_canopy".
+    min_area_m2:   Float         // Minimum contiguous habitat area.
+
+    // Tolerances (numeric thresholds in local units).
+    max_light_lux: Float
+    max_noise_db:  Float
+    max_temp_c:    Float
+    min_temp_c:    Float
+
+    // Seasonal windows (e.g., nesting, migration).
+    active_seasons: List<String>
+
+    // Governance bindings (BioticTreaty references).
+    treaty_ids:    List<String>
+  }
+}
