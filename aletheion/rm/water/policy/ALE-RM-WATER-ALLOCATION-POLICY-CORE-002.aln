@@ -1,0 +1,318 @@
+// ALN policy module defining objectives and constraints for
+// AWP-centric water allocation in Phoenix.
+//
+// ERM Layers: L2 (state inputs) → L4 (optimization).
+
+module WaterAllocationPolicyCore002 {
+
+  // -------- Types mirrored from Rust model (conceptually) --------
+
+  type WaterSourceId =
+    | AwpPlant(text)
+    | SurfaceReservoir(text)
+    | GroundwaterBlock(text)
+    | ImportedPortfolio(text);
+
+  type WaterDemandZoneId =
+    | Neighborhood(text)
+    | CoolingCorridor(text)
+    | IndustrialCluster(text)
+    | AgriculturalDistrict(text)
+    | EcologicalReserve(text);
+
+  record SourceState {
+    id: WaterSourceId,
+    storage_af: float,
+    inflow_rate_afy: float,
+    outflow_rate_afy: float,
+    quality_score: float,        // 0.0 – 1.0
+    tags: list<text>
+  }
+
+  record DemandZoneState {
+    id: WaterDemandZoneId,
+    daily_demand_af: float,
+    vulnerability_score: float,  // 0.0 – 1.0
+    equity_weight: float,        // ≥ 0.0
+    tags: list<text>
+  }
+
+  record PortfolioIndicators {
+    total_storage_af: float,
+    total_awp_contribution_af: float,
+    total_groundwater_storage_af: float,
+    colorado_river_exposure_fraction: float, // 0.0 – 1.0
+    awp_reuse_fraction: float                // 0.0 – 1.0
+  }
+
+  record Decision {
+    source: WaterSourceId,
+    zone: WaterDemandZoneId,
+    volume_af: float
+  }
+
+  // -------- Policy parameters (Phoenix-calibrated placeholders) --------
+
+  const MIN_AWP_REUSE_TARGET: float = 0.30;          // 30% reuse baseline
+  const MAX_COLORADO_EXPOSURE: float = 0.40;         // 40% of storage
+  const MIN_ENV_FLOW_FRACTION: float = 0.10;         // 10% reserved for ecological flows
+  const MAX_DAILY_DRAW_GROUNDWATER_FRACTION: float = 0.01; // 1% of GW storage/day
+
+  const VULNERABILITY_WEIGHT: float = 0.6;
+  const EQUITY_WEIGHT: float = 0.4;
+
+  // -------- Helper predicates --------
+
+  fn has_tag(tags: list<text>, t: text) -> bool {
+    exists tag in tags where lower(tag) == lower(t)
+  }
+
+  fn is_awp_source(s: SourceState) -> bool {
+    has_tag(s.tags, "awp") or has_tag(s.tags, "advanced_purified_water")
+  }
+
+  fn is_groundwater_source(s: SourceState) -> bool {
+    has_tag(s.tags, "groundwater")
+  }
+
+  fn is_ecological_zone(z: DemandZoneState) -> bool {
+    has_tag(z.tags, "ecological") or has_tag(z.tags, "riparian")
+  }
+
+  fn heat_vulnerable(z: DemandZoneState) -> bool {
+    has_tag(z.tags, "heat_vulnerable") or z.vulnerability_score >= 0.8
+  }
+
+  // -------- Objective definition (multi-criteria) --------
+
+  // This function expresses a scalar objective score that an external
+  // optimization engine can maximize. Higher is better.
+  //
+  // It rewards:
+  // - coverage of demand, weighted by vulnerability and equity
+  // - higher AWP reuse fraction
+  // - lower Colorado River exposure
+  //
+  // It does not encode algorithms; it defines the scoring semantics.
+  fn objective_score(
+    decisions: list<Decision>,
+    sources: list<SourceState>,
+    zones: list<DemandZoneState>,
+    indicators_before: PortfolioIndicators
+  ) -> float {
+
+    let total_score =
+      demand_coverage_score(decisions, zones) +
+      reuse_score(decisions, sources, indicators_before) +
+      portfolio_risk_score(indicators_before);
+
+    total_score
+  }
+
+  fn demand_coverage_score(
+    decisions: list<Decision>,
+    zones: list<DemandZoneState>
+  ) -> float {
+    let zone_map = index_zones(zones);
+
+    let mut score: float = 0.0;
+
+    for d in decisions {
+      let z = zone_map[d.zone];
+      let coverage_fraction =
+        if z.daily_demand_af > 0.0 then
+          (d.volume_af / z.daily_demand_af)
+        else
+          0.0;
+
+      let demand_weight = (VULNERABILITY_WEIGHT * z.vulnerability_score)
+                        + (EQUITY_WEIGHT * z.equity_weight);
+
+      score = score + (coverage_fraction * demand_weight);
+    }
+
+    score
+  }
+
+  fn reuse_score(
+    decisions: list<Decision>,
+    sources: list<SourceState>,
+    indicators_before: PortfolioIndicators
+  ) -> float {
+    let src_map = index_sources(sources);
+
+    let mut awp_alloc_af: float = 0.0;
+    let mut total_alloc_af: float = 0.0;
+
+    for d in decisions {
+      let s = src_map[d.source];
+      total_alloc_af = total_alloc_af + d.volume_af;
+      if is_awp_source(s) {
+        awp_alloc_af = awp_alloc_af + d.volume_af;
+      }
+    }
+
+    let reuse_fraction =
+      if total_alloc_af > 0.0 then
+        awp_alloc_af / total_alloc_af
+      else
+        indicators_before.awp_reuse_fraction;
+
+    // Reward exceeding the minimum target; penalize under-usage.
+    let delta = reuse_fraction - MIN_AWP_REUSE_TARGET;
+    delta
+  }
+
+  fn portfolio_risk_score(indicators: PortfolioIndicators) -> float {
+    // Reward staying under Colorado River exposure threshold.
+    let exposure = indicators.colorado_river_exposure_fraction;
+    if exposure <= MAX_COLORADO_EXPOSURE {
+      (MAX_COLORADO_EXPOSURE - exposure)
+    } else {
+      - (exposure - MAX_COLORADO_EXPOSURE)
+    }
+  }
+
+  // -------- Constraints (must-hold conditions) --------
+
+  // Constraint 1: No source can allocate more than its available storage.
+  fn constraint_source_balance(
+    decisions: list<Decision>,
+    sources: list<SourceState>
+  ) -> bool {
+    let src_map = index_sources(sources);
+
+    // aggregate per source
+    let mut source_alloc: map<WaterSourceId, float> = {};
+
+    for d in decisions {
+      let current = source_alloc.get_or_default(d.source, 0.0);
+      source_alloc[d.source] = current + d.volume_af;
+    }
+
+    for id, allocated_af in source_alloc {
+      let s = src_map[id];
+      if allocated_af > s.current_storage_af() {
+        return false;
+      }
+    }
+
+    true
+  }
+
+  // Constraint 2: Respect minimum ecological reserve fraction.
+  fn constraint_ecological_reserve(
+    decisions: list<Decision>,
+    zones: list<DemandZoneState>
+  ) -> bool {
+    let zone_map = index_zones(zones);
+
+    let mut ecological_alloc_af: float = 0.0;
+    let mut total_alloc_af: float = 0.0;
+
+    for d in decisions {
+      let z = zone_map[d.zone];
+      total_alloc_af = total_alloc_af + d.volume_af;
+      if is_ecological_zone(z) {
+        ecological_alloc_af = ecological_alloc_af + d.volume_af;
+      }
+    }
+
+    if total_alloc_af == 0.0 {
+      // no allocations; trivially respect.
+      return true;
+    }
+
+    let fraction = ecological_alloc_af / total_alloc_af;
+    fraction >= MIN_ENV_FLOW_FRACTION
+  }
+
+  // Constraint 3: Limit daily groundwater drawdown.
+  fn constraint_groundwater_drawdown(
+    decisions: list<Decision>,
+    sources: list<SourceState>
+  ) -> bool {
+    let src_map = index_sources(sources);
+
+    let mut gw_alloc_af: float = 0.0;
+    let mut gw_storage_af: float = 0.0;
+
+    for s in sources {
+      if is_groundwater_source(s) {
+        gw_storage_af = gw_storage_af + s.storage_af;
+      }
+    }
+
+    for d in decisions {
+      let s = src_map[d.source];
+      if is_groundwater_source(s) {
+        gw_alloc_af = gw_alloc_af + d.volume_af;
+      }
+    }
+
+    if gw_storage_af == 0.0 {
+      return gw_alloc_af == 0.0;
+    }
+
+    let allowed = gw_storage_af * MAX_DAILY_DRAW_GROUNDWATER_FRACTION;
+    gw_alloc_af <= allowed
+  }
+
+  // Constraint 4: Heat-vulnerable zones must not be left completely unserved
+  // when less vulnerable zones are fully satisfied.
+  fn constraint_heat_vulnerability_priority(
+    decisions: list<Decision>,
+    zones: list<DemandZoneState>
+  ) -> bool {
+    let zone_map = index_zones(zones);
+
+    let mut coverage: map<WaterDemandZoneId, float> = {};
+    for d in decisions {
+      let current = coverage.get_or_default(d.zone, 0.0);
+      coverage[d.zone] = current + d.volume_af;
+    }
+
+    for z in zones {
+      if heat_vulnerable(z) {
+        let served = coverage.get_or_default(z.id, 0.0);
+        if served <= 0.0 {
+          // find any less vulnerable zone that is fully satisfied
+          for z2 in zones {
+            if not heat_vulnerable(z2) {
+              let served2 = coverage.get_or_default(z2.id, 0.0);
+              if served2 >= z2.daily_demand_af && z2.daily_demand_af > 0.0 {
+                return false;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    true
+  }
+
+  // -------- Index helpers (pseudo-ALN maps) --------
+
+  fn index_sources(sources: list<SourceState>) -> map<WaterSourceId, SourceState> {
+    let mut m: map<WaterSourceId, SourceState> = {};
+    for s in sources {
+      m[s.id] = s;
+    }
+    m
+  }
+
+  fn index_zones(zones: list<DemandZoneState>) -> map<WaterDemandZoneId, DemandZoneState> {
+    let mut m: map<WaterDemandZoneId, DemandZoneState> = {};
+    for z in zones {
+      m[z.id] = z;
+    }
+    m
+  }
+
+  // Helper method to extract storage from SourceState (ALN doesn't support methods directly,
+  // so we provide a function name compatible with the Rust struct semantics).
+  fn SourceState.current_storage_af(self) -> float {
+    self.storage_af
+  }
+}
