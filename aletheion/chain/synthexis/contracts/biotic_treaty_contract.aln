@@ -1,0 +1,110 @@
+# Role: ALN smart-contract stub for BioticTreaty governance on the Googolswarm-style
+#       consensus layer, aligned with the Synthexis state-model schemas.
+
+namespace aletheion.synthexis.chain
+
+type SpeciesId = string
+type TreatyId  = string
+
+# Minimal mirror of state-model spatial/temporal scopes for on-chain governance.
+record SpatialScopeRef {
+  polygon_ids: [string],
+  corridor_segment_ids: [string]
+}
+
+record TemporalScopeRef {
+  start: string,       # ISO 8601
+  end: string,         # ISO 8601
+  recurrence_rules: [string]
+}
+
+record LightingConstraintsRef {
+  max_lux: float,
+  allowed_spectra: [string],
+  shielding_required: bool,
+  dark_corridor_segments: [string]
+}
+
+record NoiseConstraintsRef {
+  max_db_by_time_band: [(string, float)],
+  forbidden_impulsive_sources: [string]
+}
+
+record ChemicalConstraintsRef {
+  banned_pesticide_classes: [string],
+  spray_blackout_windows: [(string, string)],
+  no_spray_buffers_m: float
+}
+
+record VegetationStructureConstraintsRef {
+  required_native_plant_fraction: float,
+  required_host_plants: [string],
+  snag_roost_requirements: [string]
+}
+
+enum EnforcementMode {
+  HardLimits,
+  Advisory
+}
+
+record TreatyMetricsConfigRef {
+  track_corridor_connectivity_score: bool,
+  track_alan_violation_count: bool,
+  track_pesticide_violation_count: bool,
+  track_species_activity_index: bool
+}
+
+# On-chain representation of a BioticTreaty. This is intentionally close
+# to the state-model schema, but augmented with governance metadata.
+record BioticTreatyOnChain {
+  treaty_id: TreatyId,
+  species_ids: [SpeciesId],
+  spatial_scope: SpatialScopeRef,
+  temporal_scope: TemporalScopeRef,
+  lighting: option<LightingConstraintsRef>,
+  noise: option<NoiseConstraintsRef>,
+  chemicals: option<ChemicalConstraintsRef>,
+  vegetation_structure: option<VegetationStructureConstraintsRef>,
+  enforcement_mode: EnforcementMode,
+  metrics_to_track: TreatyMetricsConfigRef,
+
+  # Governance metadata
+  creator_did: string,
+  created_at_block: int,
+  last_updated_block: int,
+  active: bool
+}
+
+# Events emitted for treaty lifecycle changes.
+event TreatyCreated {
+  treaty_id: TreatyId,
+  creator_did: string
+}
+
+event TreatyUpdated {
+  treaty_id: TreatyId,
+  updater_did: string
+}
+
+event TreatyDeactivated {
+  treaty_id: TreatyId,
+  deactivator_did: string
+}
+
+# Core contract interface. Implementation will run under Googolswarm-style consensus.
+contract BioticTreatyContract {
+
+  # Create a new treaty. Must be called by an authorized DID with appropriate
+  # LexEthos / governance rights (checked off-chain or via a separate rights contract).
+  fn create_treaty(input: BioticTreatyOnChain) -> bool
+
+  # Update an existing treaty (e.g., adjust scope, constraints, or metrics).
+  fn update_treaty(treaty_id: TreatyId, patch: BioticTreatyOnChain) -> bool
+
+  # Soft-deactivate a treaty (keeping history immutable).
+  fn deactivate_treaty(treaty_id: TreatyId) -> bool
+
+  # Read operations (pure, no state change).
+  fn get_treaty(treaty_id: TreatyId) -> option<BioticTreatyOnChain>
+  fn list_active_treaties() -> [BioticTreatyOnChain]
+}
