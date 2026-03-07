@@ -1,0 +1,146 @@
+// Aletheion Path Ontology v0.1
+// Hard policy surface for superpowers × ERM layers × roles × languages.
+// No algorithms here: only structure, to be enforced by pre-commit + CI.
+
+ontology AletheionPathOntologyV01 {
+
+  version "0.1.0"
+  description "Semantic path ontology for Aletheion ERM superpowers and layers (Phoenix-first)."
+
+  // ---- Global conventions -------------------------------------------------
+
+  // All code must live under the aletheion/ root.
+  root "aletheion/"
+
+  // Reserved ERM layer segments.
+  layer {
+    l1_edge  = "l1-edge"
+    l2_state = "l2-state"
+    l3_chain = "l3-chain"
+    l4_opt   = "l4-opt"
+    l5_ui    = "l5-ui"
+    data     = "data"
+  }
+
+  // Language segments (directory or extension hints).
+  language {
+    rust   = "rust"
+    js     = "js"
+    ts     = "ts"
+    lua    = "lua"
+    aln    = "aln"
+    kotlin = "kotlin"
+    cpp    = "cpp"
+  }
+
+  // ---- Thermaphora --------------------------------------------------------
+
+  superpower thermaphora {
+
+    root "aletheion/thermaphora/"
+
+    // Central models (schemas only, shared across layers).
+    models {
+      heat_budget_profile {
+        role  = "models"
+        lang  = [aln, rust, cpp]
+        glob  = "aletheion/thermaphora/models/HeatBudgetProfile.{rs,aln,hpp}"
+      }
+
+      microclimate_field {
+        role  = "models"
+        lang  = [aln, rust, cpp]
+        glob  = "aletheion/thermaphora/models/MicroclimateField.{rs,aln,hpp}"
+      }
+    }
+
+    // Simulation / optimization layer (L4).
+    sim_l4_opt_rust {
+      domain = "sim"
+      layer  = l4_opt
+      role   = "engine"
+      lang   = rust
+      glob   = "aletheion/thermaphora/sim/l4-opt/rust/**/*.rs"
+    }
+
+    // State modeling layer (L2) data structures.
+    state_l2_models {
+      domain = "model"
+      layer  = l2_state
+      role   = "data"
+      lang   = aln
+      glob   = "aletheion/thermaphora/model/l2-state/data/**/*.aln"
+    }
+
+    // Scenario fixtures (Phoenix climate, events).
+    scenarios_phoenix {
+      domain = "scenarios"
+      layer  = data
+      role   = "fixtures"
+      glob   = "aletheion/thermaphora/scenarios/phoenix/**/*.json"
+    }
+  }
+
+  // ---- Synthexis ----------------------------------------------------------
+
+  superpower synthexis {
+
+    root "aletheion/synthexis/"
+
+    // Central models for cross-species agents and treaties binding.
+    models {
+      species_agent {
+        role = "models"
+        lang = [aln, rust, cpp]
+        glob = "aletheion/synthexis/models/SpeciesAgent.{aln,rs,hpp}"
+      }
+
+      biotic_treaty_ref {
+        role = "models"
+        lang = [aln, rust, cpp]
+        glob = "aletheion/synthexis/models/BioticTreatyRef.{aln,rs,hpp}"
+      }
+    }
+
+    // Engine, L3 chain smart contracts (e.g., habitat continuity engine).
+    engine_l3_chain_contracts_ts {
+      domain = "engine"
+      layer  = l3_chain
+      role   = "contracts"
+      lang   = ts
+      glob   = "aletheion/synthexis/engine/l3-chain/contracts/**/*.ts"
+    }
+
+    // Citizen interface components (L1/L5 hybrid: edge + UI).
+    ui_l1_edge_components {
+      domain = "ui"
+      layer  = l1_edge
+      role   = "components"
+      lang   = js
+      glob   = "aletheion/synthexis/ui/l1-edge/components/**/*.{jsx,tsx}"
+    }
+
+    // Scenario fixtures for species / corridor simulations.
+    scenarios_phoenix {
+      domain = "scenarios"
+      layer  = data
+      role   = "fixtures"
+      glob   = "aletheion/synthexis/scenarios/phoenix/**/*.json"
+    }
+  }
+
+  // ---- Hydrosigil (scenarios only in this version) ------------------------
+
+  superpower hydrosigil {
+
+    root "aletheion/hydrosigil/"
+
+    // Water ledger models will be defined in a later pass.
+    scenarios_phoenix_events {
+      domain = "scenarios"
+      layer  = data
+      role   = "events"
+      glob   = "aletheion/hydrosigil/scenarios/phoenix/events/*.json"
+    }
+  }
+}
