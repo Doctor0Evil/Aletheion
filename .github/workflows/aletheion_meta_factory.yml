@@ -1,0 +1,454 @@
+name: Aletheion Meta Factory - Autonomous Workflow Generation
+on:
+  push:
+    paths:
+      - 'modules/**'
+      - 'sensors/**'
+      - 'governance/**'
+      - 'synthexis/**'
+  pull_request:
+    paths:
+      - 'modules/**'
+  workflow_dispatch:
+    inputs:
+      target_language:
+        description: 'Target language for workflow generation'
+        required: true
+        type: choice
+        options:
+          - ALN
+          - Rust
+          - Lua
+          - Kotlin
+          - C++
+          - All
+      module_category:
+        description: 'Module category to process'
+        required: true
+        type: choice
+        options:
+          - sensing
+          - governance
+          - thermal
+          - water
+          - synthexis
+          - energy
+
+env:
+  ALETHEION_REPO: Doctor0Evil/Aletheion
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  WORKFLOW_GENERATION_VERSION: "2.1.0"
+
+jobs:
+  detect_changes:
+    name: Detect Module Changes and Language Distribution
+    runs-on: ubuntu-latest
+    outputs:
+      aln_modules: ${{ steps.classify.outputs.aln_modules }}
+      rust_modules: ${{ steps.classify.outputs.rust_modules }}
+      lua_modules: ${{ steps.classify.outputs.lua_modules }}
+      kotlin_modules: ${{ steps.classify.outputs.kotlin_modules }}
+      cpp_modules: ${{ steps.classify.outputs.cpp_modules }}
+      requires_generation: ${{ steps.classify.outputs.requires_generation }}
+    
+    steps:
+      - name: Checkout Aletheion Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Classify Changed Modules by Language
+        id: classify
+        run: |
+          echo "Analyzing changed files for language classification..."
+          
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only HEAD^ HEAD 2>/dev/null || echo "")
+          
+          # Initialize module arrays
+          ALN_MODULES=""
+          RUST_MODULES=""
+          LUA_MODULES=""
+          KOTLIN_MODULES=""
+          CPP_MODULES=""
+          REQUIRES_GEN="false"
+          
+          # Classify by file extension and directory
+          for file in $CHANGED_FILES; do
+            case "$file" in
+              *.aln|*ALN*|modules/governance/*|modules/blockchain/*)
+                ALN_MODULES="$ALN_MODULES $file"
+                REQUIRES_GEN="true"
+                ;;
+              *.rs|modules/sensing/*|modules/optimization/*)
+                RUST_MODULES="$RUST_MODULES $file"
+                REQUIRES_GEN="true"
+                ;;
+              *.lua|modules/orchestration/*|modules/synthexis/*)
+                LUA_MODULES="$LUA_MODULES $file"
+                REQUIRES_GEN="true"
+                ;;
+              *.kt|modules/interfaces/augmented_citizen/*)
+                KOTLIN_MODULES="$KOTLIN_MODULES $file"
+                REQUIRES_GEN="true"
+                ;;
+              *.cpp|*.hpp|modules/neuromorphic/*|modules/thermal/*)
+                CPP_MODULES="$CPP_MODULES $file"
+                REQUIRES_GEN="true"
+                ;;
+            esac
+          done
+          
+          # Output classifications
+          echo "aln_modules=$ALN_MODULES" >> $GITHUB_OUTPUT
+          echo "rust_modules=$RUST_MODULES" >> $GITHUB_OUTPUT
+          echo "lua_modules=$LUA_MODULES" >> $GITHUB_OUTPUT
+          echo "kotlin_modules=$KOTLIN_MODULES" >> $GITHUB_OUTPUT
+          echo "cpp_modules=$CPP_MODULES" >> $GITHUB_OUTPUT
+          echo "requires_generation=$REQUIRES_GEN" >> $GITHUB_OUTPUT
+          
+          echo "Classification complete:"
+          echo "  ALN: $(echo $ALN_MODULES | wc -w) modules"
+          echo "  Rust: $(echo $RUST_MODULES | wc -w) modules"
+          echo "  Lua: $(echo $LUA_MODULES | wc -w) modules"
+          echo "  Kotlin: $(echo $KOTLIN_MODULES | wc -w) modules"
+          echo "  C++: $(echo $CPP_MODULES | wc -w) modules"
+
+  generate_rust_workflows:
+    name: Generate Rust Module Workflows
+    needs: detect_changes
+    if: needs.detect_changes.outputs.requires_generation == 'true' && needs.detect_changes.outputs.rust_modules != ''
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Rust Toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          components: rustfmt, clippy
+      
+      - name: Generate Rust Workflow Files
+        run: |
+          mkdir -p .github/workflows/generated/rust
+          
+          for module in ${{ needs.detect_changes.outputs.rust_modules }}; do
+            MODULE_NAME=$(basename $module .rs)
+            WORKFLOW_PATH=".github/workflows/generated/rust/${MODULE_NAME}_ci.yml"
+            
+            cat > $WORKFLOW_PATH << 'EOFRUST'
+          name: Rust CI - ${MODULE_NAME}
+          on:
+            push:
+              paths:
+                - '${module}'
+                - 'Cargo.toml'
+                - 'Cargo.lock'
+            pull_request:
+              paths:
+                - '${module}'
+          
+          env:
+            RUST_BACKTRACE: full
+            RUSTFLAGS: "-C target-feature=+aes,+avx2,+sse2,+sse4.1,+bmi2,+popcnt"
+          
+          jobs:
+            quality_gates:
+              name: Quality Gates - ${MODULE_NAME}
+              runs-on: ubuntu-latest
+              
+              steps:
+                - uses: actions/checkout@v4
+                
+                - name: Rust Toolchain Setup
+                  uses: actions-rs/toolchain@v1
+                  with:
+                    toolchain: stable
+                    components: rustfmt, clippy
+                
+                - name: Cache Cargo Registry
+                  uses: actions/cache@v3
+                  with:
+                    path: |
+                      ~/.cargo/registry
+                      ~/.cargo/git
+                      target
+                    key: rust-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+                
+                - name: Format Check (rustfmt)
+                  run: cargo fmt --check --manifest-path ${module}/Cargo.toml
+                
+                - name: Lint (clippy)
+                  run: |
+                    cargo clippy --manifest-path ${module}/Cargo.toml -- \
+                      -D warnings \
+                      -D clippy::unwrap_used \
+                      -D clippy::expect_used
+                
+                - name: Security Audit
+                  run: |
+                    cargo install cargo-audit
+                    cargo audit --manifest-path ${module}/Cargo.toml
+                
+                - name: Build Module
+                  run: cargo build --release --manifest-path ${module}/Cargo.toml
+                
+                - name: Run Tests
+                  run: cargo test --manifest-path ${module}/Cargo.toml -- --nocapture
+                
+                - name: Benchmark Performance
+                  run: cargo bench --manifest-path ${module}/Cargo.toml
+          EOFRUST
+            
+            echo "Generated workflow for: $MODULE_NAME"
+          done
+      
+      - name: Commit Generated Workflows
+        run: |
+          git config user.name "Aletheion Workflow Factory"
+          git config user.email "factory@aletheion.city"
+          git add .github/workflows/generated/rust/
+          git commit -m "workflow: Auto-generate Rust CI for updated modules [skip ci]" || echo "No changes to commit"
+          git push || echo "Push skipped (no changes or permissions)"
+
+  generate_aln_workflows:
+    name: Generate ALN Blockchain Workflows
+    needs: detect_changes
+    if: needs.detect_changes.outputs.requires_generation == 'true' && needs.detect_changes.outputs.aln_modules != ''
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Generate ALN Governance Workflows
+        run: |
+          mkdir -p .github/workflows/generated/aln
+          
+          for module in ${{ needs.detect_changes.outputs.aln_modules }}; do
+            MODULE_NAME=$(basename $module .aln)
+            WORKFLOW_PATH=".github/workflows/generated/aln/${MODULE_NAME}_governance.yml"
+            
+            cat > $WORKFLOW_PATH << 'EOFALN'
+          name: ALN Governance - ${MODULE_NAME}
+          on:
+            push:
+              paths:
+                - '${module}'
+                - 'modules/blockchain/aln_runtime/**'
+            workflow_dispatch:
+          
+          jobs:
+            validate_governance:
+              name: Validate ALN Governance Logic
+              runs-on: ubuntu-latest
+              
+              steps:
+                - uses: actions/checkout@v4
+                
+                - name: Setup ALN Runtime Environment
+                  run: |
+                    # Install ALN compiler/interpreter
+                    curl -sSL https://aln-blockchain.io/install.sh | bash
+                    export PATH="$HOME/.aln/bin:$PATH"
+                
+                - name: Syntax Validation
+                  run: |
+                    aln check ${module} --strict
+                
+                - name: Multi-Sig Consensus Verification
+                  run: |
+                    aln verify-multisig ${module} \
+                      --min-signatures 3 \
+                      --require-biotic-treaty-compliance
+                
+                - name: Quantum-Resistant Signature Check
+                  run: |
+                    aln crypto-verify ${module} \
+                      --algorithm ML-KEM-1024 \
+                      --post-quantum-mode strict
+                
+                - name: Chronaurea Temporal Bounds Test
+                  run: |
+                    aln test-temporal ${module} \
+                      --time-lock-duration 7d \
+                      --verify-cascade-logic
+                
+                - name: Simulate Governance Execution
+                  run: |
+                    aln simulate ${module} \
+                      --dry-run \
+                      --log-level debug \
+                      --output governance_simulation.json
+                
+                - name: Upload Simulation Results
+                  uses: actions/upload-artifact@v3
+                  with:
+                    name: aln-governance-simulation-${MODULE_NAME}
+                    path: governance_simulation.json
+          EOFALN
+            
+            echo "Generated ALN workflow for: $MODULE_NAME"
+          done
+      
+      - name: Commit Generated ALN Workflows
+        run: |
+          git config user.name "Aletheion Workflow Factory"
+          git config user.email "factory@aletheion.city"
+          git add .github/workflows/generated/aln/
+          git commit -m "workflow: Auto-generate ALN governance for updated modules [skip ci]" || echo "No changes"
+          git push || echo "Push skipped"
+
+  generate_lua_workflows:
+    name: Generate Lua Orchestration Workflows
+    needs: detect_changes
+    if: needs.detect_changes.outputs.requires_generation == 'true' && needs.detect_changes.outputs.lua_modules != ''
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Lua Environment
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: "5.4"
+      
+      - name: Setup LuaRocks
+        uses: leafo/gh-actions-luarocks@v4
+      
+      - name: Generate Lua Workflow Files
+        run: |
+          mkdir -p .github/workflows/generated/lua
+          
+          for module in ${{ needs.detect_changes.outputs.lua_modules }}; do
+            MODULE_NAME=$(basename $module .lua)
+            WORKFLOW_PATH=".github/workflows/generated/lua/${MODULE_NAME}_orchestration.yml"
+            
+            cat > $WORKFLOW_PATH << 'EOFLUA'
+          name: Lua Orchestration - ${MODULE_NAME}
+          on:
+            push:
+              paths:
+                - '${module}'
+            pull_request:
+              paths:
+                - '${module}'
+          
+          jobs:
+            validate_orchestration:
+              name: Validate Lua Orchestration Logic
+              runs-on: ubuntu-latest
+              
+              steps:
+                - uses: actions/checkout@v4
+                
+                - name: Setup Lua 5.4
+                  uses: leafo/gh-actions-lua@v10
+                  with:
+                    luaVersion: "5.4"
+                
+                - name: Install Dependencies
+                  run: |
+                    luarocks install luacheck
+                    luarocks install busted
+                    luarocks install lua-cjson
+                
+                - name: Lint Lua Code
+                  run: luacheck ${module} --globals vim --std lua54
+                
+                - name: Run Unit Tests
+                  run: busted tests/${MODULE_NAME}_spec.lua
+                
+                - name: Saga Pattern Validation
+                  run: |
+                    lua scripts/validate_saga_pattern.lua ${module}
+                
+                - name: Synthexis Integration Test
+                  run: |
+                    lua tests/integration/synthexis_${MODULE_NAME}_test.lua
+          EOFLUA
+            
+            echo "Generated Lua workflow for: $MODULE_NAME"
+          done
+      
+      - name: Commit Generated Lua Workflows
+        run: |
+          git config user.name "Aletheion Workflow Factory"
+          git config user.email "factory@aletheion.city"
+          git add .github/workflows/generated/lua/
+          git commit -m "workflow: Auto-generate Lua orchestration for updated modules [skip ci]" || echo "No changes"
+          git push || echo "Push skipped"
+
+  deploy_offline_capable:
+    name: Build Offline-Capable GitHub Pages Deployment
+    needs: [generate_rust_workflows, generate_aln_workflows, generate_lua_workflows]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+      
+      - name: Generate Workflow Index
+        run: |
+          mkdir -p docs/workflows
+          
+          cat > docs/workflows/index.html << 'EOFHTML'
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Aletheion Workflow Registry</title>
+            <style>
+              body {font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 2rem;}
+              .workflow-card {border: 1px solid #ddd; border-radius: 8px; padding: 1rem; margin: 1rem 0;}
+              .language-tag {display: inline-block; padding: 0.25rem 0.75rem; border-radius: 12px; font-size: 0.875rem; font-weight: 600;}
+              .rust {background: #ff6b35; color: white;}
+              .aln {background: #38bdf8; color: white;}
+              .lua {background: #8b5cf6; color: white;}
+            </style>
+          </head>
+          <body>
+            <h1>Aletheion GOD-City Workflow Registry</h1>
+            <p>Autonomous workflow generation system for Phoenix deployment.</p>
+            
+            <div id="workflow-list"></div>
+            
+            <script>
+              // This will be dynamically populated by workflow generation
+              const workflows = [
+                {name: 'Multi-Sensor Ingestion', language: 'rust', path: '.github/workflows/generated/rust/sensor_ingestion_ci.yml'},
+                {name: 'ALN Governance', language: 'aln', path: '.github/workflows/generated/aln/multisig_governance.yml'},
+                {name: 'Lua Orchestration', language: 'lua', path: '.github/workflows/generated/lua/saga_orchestrator.yml'}
+              ];
+              
+              const listEl = document.getElementById('workflow-list');
+              workflows.forEach(wf => {
+                const card = document.createElement('div');
+                card.className = 'workflow-card';
+                card.innerHTML = `
+                  <span class="language-tag ${wf.language}">${wf.language.toUpperCase()}</span>
+                  <h3>${wf.name}</h3>
+                  <code>${wf.path}</code>
+                `;
+                listEl.appendChild(card);
+              });
+            </script>
+          </body>
+          </html>
+          EOFHTML
+      
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs
+          enable_jekyll: false
