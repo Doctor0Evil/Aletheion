@@ -1,0 +1,90 @@
+[package]
+name = "aletheion-core"
+version = "1.0.0"
+edition = "2021"
+authors = ["Aletheion GOD-City Contributors <core@aletheion.city>"]
+description = "Evidence Core and Living Index for Aletheion GOD-City smart-city infrastructure"
+license = "Apache-2.0 WITH Neurorights-Extension"
+repository = "https://github.com/aletheion-god-city/aletheion"
+keywords = ["smart-city", "evidence", "neurorights", "blockchain", "healthcare"]
+categories = ["cryptography", "data-structures", "embedded"]
+
+# Compliance Metadata
+metadata.compliance = ["GDPR", "HIPAA", "EU-AI-Act-2024", "FCC-Part-15", "Neurorights-Charter-v1"]
+metadata.owner_did = "did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7"
+metadata.safety_kernel = "VitalNetSafetyKernel:1.0.0"
+
+[dependencies]
+# Cryptography and DIDs
+sha2 = "0.10"
+sha3 = "0.10"
+ed25519-dalek = "2.0"
+did-core = "0.1"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Time and timestamps
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging and tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Error handling
+thiserror = "1.0"
+anyhow = "1.0"
+
+# Async runtime (for network operations)
+tokio = { version = "1.0", features = ["full"] }
+
+# Configuration
+config = "0.13"
+
+# Validation
+validator = { version = "0.16", features = ["derive"] }
+
+# UUID generation
+uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# Hex encoding
+hex = "0.4"
+
+# Memory-mapped files for ledger storage
+memmap2 = "0.9"
+
+# Zero-knowledge proofs (optional, for privacy-preserving evidence)
+ark-ff = { version = "0.4", optional = true }
+ark-ec = { version = "0.4", optional = true }
+
+[dev-dependencies]
+criterion = "0.5"
+tempfile = "3.0"
+mockall = "0.11"
+
+[features]
+default = ["standard"]
+standard = []
+zkp = ["ark-ff", "ark-ec"]
+consciousness_preservation = []
+
+[[bin]]
+name = "aletheion-core"
+path = "src/main.rs"
+
+[lib]
+name = "aletheion_core"
+path = "src/lib.rs"
+
+[[test]]
+name = "integration_tests"
+path = "tests/integration/main.rs"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+
+[profile.dev]
+opt-level = 0
+debug = true
