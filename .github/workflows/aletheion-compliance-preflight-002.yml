@@ -1,0 +1,37 @@
+# Centralized compliance preflight for Aletheion Phoenix.
+# Runs on every push and PR, scanning for:
+# - Digital Twin Exclusion Protocol violations
+# - Forbidden primitives (hashes, languages, etc.)
+
+name: Aletheion Compliance Preflight v2
+
+on:
+  push:
+    branches: [ main, dev, phoenix-* ]
+  pull_request:
+
+jobs:
+  compliance-preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build compliance engine
+        run: |
+          cargo build \
+            --manifest-path alethion/compliance/core/Cargo.toml \
+            --package alethion-compliance-core
+
+      - name: Run compliance scan
+        run: |
+          cargo run \
+            --manifest-path alethion/compliance/core/Cargo.toml \
+            --package alethion-compliance-core \
+            --bin alethion-compliance-scan \
+            -- \
+            --root .
