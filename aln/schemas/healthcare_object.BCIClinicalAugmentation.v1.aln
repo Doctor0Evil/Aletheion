@@ -1,0 +1,95 @@
+-- ============================================================================
+-- SCHEMA: healthcare_object.BCIClinicalAugmentation.v1
+-- PURPOSE: Clinically governed organic BCI / neuroprosthetic interface
+-- COMPLIANCE: GDPR, HIPAA, EU AI Act 2024, FCC Part 15, Neurorights Charter v1
+-- OWNER: did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+-- ============================================================================
+
+schema healthcare_object.BCIClinicalAugmentation.v1
+  description "Clinically governed organic BCI / neuroprosthetic interface. \
+               This schema ensures medical-grade safeguards and neurorights \
+               protection for all augmented users with organically-integrated \
+               brain/body systems. Exclusion from public gadget catalogs \
+               reflects risk-based classification, not identity discrimination."
+
+  fields
+    -- Unique device identifier (manufacturer + serial or lab ID)
+    device_id             string   -- required, unique, immutable after creation
+
+    -- Device model classification
+    device_model          string   -- e.g., "CyberOrganic_BCI_A1", "Neuralink_X"
+
+    -- Neurophysiological classification (objective, not identity-based)
+    species_neuroclass    string   -- e.g., "human_cortex_v1", "human_PNS"
+
+    -- Maximum safe energy / field exposure (W/kg or mW/cm² per FCC/ICNIRP)
+    biofield_load_ceiling float    -- required, range: 0.0 - 4.0, default: 0.5
+
+    -- Reference to consent profile (FK -> consent_profile.id)
+    consent_profile       string   -- required, must reference valid consent record
+
+    -- Clinical context for deployment
+    clinical_context      string   -- e.g., "rehab", "assistive_comm", "research", \
+                                   --      "assistive_rehab_research", "consciousness_preservation"
+
+    -- Owner's Decentralized Identifier
+    owner_did             string   -- required, e.g., "did:aln:bostrom18..."
+
+    -- Reference to safety kernel module (FK -> VitalNetSafetyKernel.module_id)
+    safety_kernel_ref     string   -- required, must reference active safety kernel
+
+    -- Reference to neurorights policy (FK -> augmentedhumanrightspolicy.id)
+    neurorights_policy    string   -- required, must reference AugmentedHumanRights:v1 or higher
+
+    -- Consciousness preservation flag (for event-of-Death continuity)
+    consciousness_preservation_enabled bool -- default: false, requires explicit consent
+
+    -- Evidence wallet linkage (FK -> healthcare_object.EvidenceWallet.v1.id)
+    evidence_wallet_ref   string   -- optional, links to personal evidence wallet
+
+    -- Creation timestamp (ISO 8601, UTC)
+    created_at            timestamp -- auto-generated, immutable
+
+    -- Last audit timestamp (ISO 8601, UTC)
+    last_audit_at         timestamp -- auto-updated on each audit
+
+    -- Audit status
+    audit_status          string   -- enum: "pending", "compliant", "non_compliant", "under_review"
+
+  indexes
+    by_owner_did (owner_did)
+    by_model_ctx (device_model, clinical_context)
+    by_audit_status (audit_status)
+    by_consciousness_flag (consciousness_preservation_enabled)
+
+  invariants
+    -- Invariant 1: Biofield load must not exceed ICNIRP limits
+    invariant biofield_load_ceiling <= 4.0
+      error_message "Biofield load ceiling exceeds ICNIRP safety limits"
+
+    -- Invariant 2: Safety kernel must be active
+    invariant safety_kernel_ref IS_NOT_NULL
+      error_message "All organic BCI objects must reference an active safety kernel"
+
+    -- Invariant 3: Neurorights policy must be v1 or higher
+    invariant neurorights_policy STARTS_WITH "AugmentedHumanRights:v"
+      error_message "Neurorights policy version must be v1 or higher"
+
+    -- Invariant 4: Consent profile must exist
+    invariant consent_profile IS_NOT_NULL
+      error_message "Explicit informed consent is required for all organic BCI objects"
+
+    -- Invariant 5: No covert neuromorphic control
+    invariant clinical_context NOT_IN ["covert_control", "unmonitored_operation"]
+      error_message "Covert neuromorphic control is prohibited under AugmentedHumanRights policy"
+
+  legal_terms
+    "All organic BCI objects are governed by augmented-human-rights policy, \
+     prohibiting covert neuromorphic control, requiring explicit informed \
+     consent, revocation, immutable audit logs, and independent safety review \
+     for any firmware or stimulation change. Equal protection is guaranteed \
+     regardless of race, disability, or augmentation status."
+
+  version "1.0.0"
+  owner_did "did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7"
+end
