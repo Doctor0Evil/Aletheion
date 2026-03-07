@@ -1,0 +1,16 @@
+name: Aletheion Workflow Factory
+on:
+  push:
+    paths:
+      - 'modules/**'
+  
+jobs:
+  detect_language:
+    # Auto-detect ALN/Lua/Rust/Kotlin/C++ in new modules
+  
+  generate_workflow:
+    # Create language-specific CI/CD for new module
+    # Uses: Tower layers for rate limiting, backpressure
+  
+  deploy_offline_capable:
+    # Build for GitHub Pages (offline-compatible indexing)
