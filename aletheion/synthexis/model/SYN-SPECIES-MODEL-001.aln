@@ -1,0 +1,240 @@
+// Aletheion Synthexis Core Species + Treaty Models (Phoenix / Sonoran context)
+// No blacklisted tech, exclusion-compliant semantics, ALN only.
+
+namespace aletheion.synthexis.model.v1
+
+// ---------- Primitive identifiers ----------
+
+type SpeciesId = string           // e.g. "leptonycteris_yerbabuenai", "native_bee_guild_A"
+type TreatyId  = string           // e.g. "synthexis-treaty-2026-heat-riparian-bats-001"
+type CorridorId = string          // unique id for a corridor proposal or protected corridor
+type BlockId   = string           // city block, parcel, or grid cell id, GIS-aligned
+
+// ---------- Basic value types ----------
+
+type Lux = float                  // approximate illuminance in lux
+type DecibelA = float             // A-weighted sound pressure level in dBA
+type Ppm = float                  // parts per million (dust, particulates, etc.)
+type Meters = float
+type Hours = float
+type Probability = float          // 0.0..1.0
+type Month = int                  // 1..12
+type DayOfMonth = int             // 1..31
+type HourOfDay = int              // 0..23
+
+// ---------- Enumerations ----------
+
+enum TaxonClass {
+    Mammal
+    Bird
+    Insect
+    Plant
+    Reptile
+    Amphibian
+    Fungi
+    Microbial
+    Other
+}
+
+enum LightAverseLevel {
+    StronglyAverse     // e.g. many bat species avoiding lit commuting routes[web:4][file:1]
+    ModeratelyAverse
+    Tolerant
+}
+
+enum NoiseSensitivityLevel {
+    High
+    Medium
+    Low
+}
+
+enum ChemicalSensitivityLevel {
+    High
+    Medium
+    Low
+}
+
+enum InfrastructureDomain {
+    StreetLighting
+    BuildingLighting
+    ParkLighting
+    RoadTraffic
+    RailTraffic
+    AirTraffic
+    LandscapingPractices
+    PesticideApplication
+    ConstructionNoise
+    EventNoise
+}
+
+enum EnforcementMode {
+    HardLimit    // infrastructure must not violate constraint
+    Advisory     // violations are logged + surfaced, but not auto-blocked
+}
+
+// ---------- Seasonal and temporal primitives ----------
+
+record MonthRange {
+    start : Month
+    end   : Month        // inclusive
+}
+
+record DailyTimeWindow {
+    startHour : HourOfDay
+    endHour   : HourOfDay  // exclusive; 18-6 means from 18:00 to next-day 06:00
+}
+
+record SeasonalSensitivity {
+    activeMonths          : list<MonthRange>        // general activity period
+    breedingWindows       : list<MonthRange>        // breeding; highest protection
+    migrationWindows      : list<MonthRange>        // for migratory species
+    criticalDarkWindows   : list<DailyTimeWindow>   // time windows requiring dark corridors
+}
+
+// ---------- Habitat and tolerance models ----------
+
+record StructuralHabitatRequirements {
+    canopyHeightMinM : Meters
+    canopyHeightMaxM : Meters
+    requiresCavities : bool     // roosting / nesting cavities
+    groundNesting    : bool     // ground nesting, sensitive to trampling and soil compaction
+    riparianDependency01 : float  // 0.0 (none) .. 1.0 (fully riparian dependent)
+}
+
+record WaterRequirements {
+    minOpenWaterProximityM : Meters     // typical max distance to drinking / foraging water[web:10][file:1]
+    acceptableSources       : list<string> // e.g. ["drip_irrigation", "birdbath", "riparian", "irrigation_lateral"]
+}
+
+record VegetationRequirements {
+    requiredNativePlantIds : list<string>   // plant ids consistent with Phoenix pollinator guides[web:10][web:4]
+    minNativeFraction01    : float         // fraction of landscape planting that should be native
+}
+
+record LightTolerance {
+    lightAverse           : LightAverseLevel
+    maxLuxMovementCorridor : Lux           // target: dark commuting corridors for bats[web:4][file:1]
+    maxLuxForagingZone     : Lux
+    avoidSpectralBandsNm   : list<(float, float)>  // list of wavelength ranges to avoid (nm)
+}
+
+record NoiseTolerance {
+    sensitivity           : NoiseSensitivityLevel
+    maxNightDbA           : DecibelA        // target ceilings for nighttime noise
+    impulsivePenalty      : float           // weight for impulsive noise (e.g., leaf blowers)
+    continuousPenalty     : float           // weight for continuous noise
+}
+
+record ChemicalTolerance {
+    sensitivity             : ChemicalSensitivityLevel
+    bannedPesticideClasses  : list<string>  // e.g. "neonicotinoid", "broad_spectrum_insecticide"
+    driftDistanceThresholdM : Meters
+    particulateSensitivity  : Ppm           // e.g. dust and particulates in air[web:10]
+}
+
+// ---------- Priority & scoring ----------
+
+record SpeciesPriorityWeights {
+    conservationPriority01 : float   // IUCN / local concern scaled 0..1
+    culturalPriority01     : float   // local cultural significance
+    ecosystemServiceWeight : float   // pollination, pest control, seed dispersal[web:4][web:10]
+}
+
+// ---------- Core entity: SpeciesAgent ----------
+
+record SpeciesAgent {
+    speciesId   : SpeciesId
+    taxonClass  : TaxonClass
+    scientificName : string
+    commonName     : string
+
+    habitat        : StructuralHabitatRequirements
+    waterReq       : WaterRequirements
+    vegetationReq  : VegetationRequirements
+    lightTolerance : LightTolerance
+    noiseTolerance : NoiseTolerance
+    chemicalTolerance : ChemicalTolerance
+    seasonal       : SeasonalSensitivity
+    priority       : SpeciesPriorityWeights
+}
+
+// ---------- Spatial scopes ----------
+
+record SpatialPolygon {
+    id       : string             // unique polygon id, GIS-linked
+    vertices : list<(float, float)> // (lon, lat) coordinates, WGS84
+}
+
+record SpatialScope {
+    blocks   : list<BlockId>      // discrete blocks / parcels
+    polygons : list<SpatialPolygon>
+}
+
+// ---------- BioticTreaty constraints ----------
+
+record LightingConstraint {
+    domains          : list<InfrastructureDomain> // e.g. StreetLighting, ParkLighting
+    maxLux           : Lux
+    allowedSpectra   : list<(float, float)>  // allowed spectral bands
+    requireShielding : bool
+}
+
+record NoiseConstraint {
+    domains          : list<InfrastructureDomain>
+    maxDbAByTime     : list<(DailyTimeWindow, DecibelA)>
+    forbiddenSources : list<string>          // e.g. "leaf_blower", "amplified_music"
+}
+
+record ChemicalConstraint {
+    domains              : list<InfrastructureDomain>
+    bannedClasses        : list<string>
+    blackoutWindows      : list<DailyTimeWindow>   // no spraying windows
+    noSprayBuffersM      : Meters                  // buffers from riparian / nesting polygons
+}
+
+record VegetationStructureConstraint {
+    targetNativeFraction01 : float
+    requiredPlantIds       : list<string>
+    requireSnagsOrCavities : bool
+}
+
+record HabitatConnectivityMetricSpec {
+    minConnectivityScore01 : float      // minimum acceptable connectivity score
+    maxAllowedBarrierIndex : float      // threshold for barriers (lights, noise, roads)
+}
+
+// ---------- Core entity: BioticTreaty ----------
+
+record BioticTreaty {
+    treatyId       : TreatyId
+    species        : list<SpeciesId>
+    scope          : SpatialScope
+
+    temporalActive : list<MonthRange>    // high-level season windows
+    enforcement    : EnforcementMode
+
+    lightingRules      : list<LightingConstraint>
+    noiseRules         : list<NoiseConstraint>
+    chemicalRules      : list<ChemicalConstraint>
+    vegetationRules    : list<VegetationStructureConstraint>
+    connectivityTarget : HabitatConnectivityMetricSpec
+}
+
+// ---------- Corridor proposal primitives ----------
+
+record CorridorSegmentScore {
+    corridorId        : CorridorId
+    blockId           : BlockId
+    connectivityScore : float        // 0.0..1.0, higher better
+    barrierIndex      : float        // combined cost of light, noise, chemicals, traffic
+}
+
+record CorridorProposal {
+    corridorId          : CorridorId
+    speciesId           : SpeciesId
+    pathBlocks          : list<BlockId>    // ordered path across city fabric
+    totalConnectivityScore : float
+    totalDetourCost     : float            // relative to shortest unconstrained path
+    isTreatyCompliant   : bool
+    violatedRuleIds     : list<string>     // references to violated constraints (if any)
+}
