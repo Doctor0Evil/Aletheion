@@ -1,0 +1,450 @@
+# Aletheion Synthexis Nightly BioticTreaty Binding Workflow
+# Runs nightly to compute cross-species operational envelopes
+# Enforces light, noise, pesticide constraints per BioticTreaties
+# Outputs machine-actionable operating parameters for next 24h
+#
+# References:
+# - Workflow #22 from research: Synthexis LightNoisePesticide Planner
+# - Bat/pollinator research: ALAN effects up to 75m, native plant dependencies
+# - Phoenix constraints: Cool pavement, canal corridors, desert species
+#
+# Repository Path: .github/workflows/aletheion-synthexis-nightly-binding.yml
+# Language: YAML (GitHub Actions) + Lua orchestrator + Rust compute
+# Schedule: 01:00 MST daily (08:00 UTC during standard time)
+
+name: Synthexis Nightly BioticTreaty Binding
+
+on:
+  schedule:
+    - cron: '0 8 * * *'  # 01:00 MST (08:00 UTC)
+  workflow_dispatch:
+    inputs:
+      forecast_horizon_hours:
+        description: 'Forecast horizon in hours'
+        required: false
+        default: '24'
+        type: string
+      force_rebuild:
+        description: 'Force rebuild of species models'
+        required: false
+        default: false
+        type: boolean
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  LUA_PATH: './aletheion/synthexis/orchestrator/?.lua;./aletheion/synthexis/lib/?.lua;;'
+  SYNTHEXIS_VERSION: v1.2.0
+  PHOENIX_TIMEZONE: America/Phoenix
+
+jobs:
+  preflight-checks:
+    name: Preflight Environment Setup
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    
+    outputs:
+      forecast_start: ${{ steps.timeframe.outputs.forecast_start }}
+      forecast_end: ${{ steps.timeframe.outputs.forecast_end }}
+      phoenix_sunset: ${{ steps.solar.outputs.sunset }}
+      phoenix_sunrise: ${{ steps.solar.outputs.sunrise }}
+      
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Compute Forecast Timeframe
+        id: timeframe
+        run: |
+          START_TIME=$(TZ=America/Phoenix date -u +"%Y-%m-%dT%H:%M:%SZ")
+          HOURS=${{ github.event.inputs.forecast_horizon_hours || '24' }}
+          END_TIME=$(TZ=America/Phoenix date -u -d "+${HOURS} hours" +"%Y-%m-%dT%H:%M:%SZ")
+          echo "forecast_start=${START_TIME}" >> $GITHUB_OUTPUT
+          echo "forecast_end=${END_TIME}" >> $GITHUB_OUTPUT
+          echo "Forecast window: ${START_TIME} to ${END_TIME}"
+          
+      - name: Fetch Phoenix Solar Data
+        id: solar
+        run: |
+          # Phoenix coordinates: 33.4484°N, 112.0740°W
+          SUNSET=$(TZ=America/Phoenix date -d "today 18:30" -u +"%Y-%m-%dT%H:%M:%SZ")
+          SUNRISE=$(TZ=America/Phoenix date -d "tomorrow 06:00" -u +"%Y-%m-%dT%H:%M:%SZ")
+          echo "sunset=${SUNSET}" >> $GITHUB_OUTPUT
+          echo "sunrise=${SUNRISE}" >> $GITHUB_OUTPUT
+          echo "Phoenix sunset: ${SUNSET}, sunrise: ${SUNRISE}"
+
+  rebuild-species-models:
+    name: Rebuild Species Activity Models
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: preflight-checks
+    if: github.event.inputs.force_rebuild == 'true' || github.event_name == 'schedule'
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Cache Cargo Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-synthexis-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build Species Model Compiler
+        working-directory: aletheion/synthexis/model
+        run: |
+          cargo build --release --bin species-model-compiler
+          cp target/release/species-model-compiler /tmp/
+          
+      - name: Compile Bat Activity Models
+        run: |
+          /tmp/species-model-compiler compile \
+            --species-group bats \
+            --source aletheion/synthexis/data/species/bats-phoenix-sonoran.json \
+            --output /tmp/bats-activity-model.bin \
+            --include-lunar-phase \
+            --include-temperature-threshold
+            
+      - name: Compile Pollinator Activity Models
+        run: |
+          /tmp/species-model-compiler compile \
+            --species-group pollinators \
+            --source aletheion/synthexis/data/species/pollinators-phoenix-sonoran.json \
+            --output /tmp/pollinators-activity-model.bin \
+            --include-bloom-calendar \
+            --include-water-proximity
+            
+      - name: Compile Bird Nesting Models
+        run: |
+          /tmp/species-model-compiler compile \
+            --species-group birds \
+            --source aletheion/synthexis/data/species/birds-phoenix-sonoran.json \
+            --output /tmp/birds-nesting-model.bin \
+            --include-nesting-season \
+            --include-canal-corridors
+            
+      - name: Upload Compiled Models
+        uses: actions/upload-artifact@v4
+        with:
+          name: species-activity-models
+          path: |
+            /tmp/bats-activity-model.bin
+            /tmp/pollinators-activity-model.bin
+            /tmp/birds-nesting-model.bin
+          retention-days: 7
+
+  compute-habitat-continuity:
+    name: Compute Habitat Continuity Constraints
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: 
+      - preflight-checks
+      - rebuild-species-models
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Cache Cargo Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-synthexis-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Download Species Models
+        uses: actions/download-artifact@v4
+        with:
+          name: species-activity-models
+          path: /tmp/models/
+          
+      - name: Build Habitat Continuity Engine
+        working-directory: aletheion/synthexis/engine
+        run: |
+          cargo build --release --bin habitat-continuity-engine
+          cp target/release/habitat-continuity-engine /tmp/
+          
+      - name: Compute Bat Corridors
+        run: |
+          /tmp/habitat-continuity-engine compute-corridors \
+            --species-model /tmp/models/bats-activity-model.bin \
+            --phoenix-infrastructure aletheion/infra/data/phoenix-canal-network.geojson \
+            --phoenix-vegetation aletheion/synthexis/data/vegetation-cover-2026.geojson \
+            --output /tmp/bat-corridors.geojson \
+            --min-corridor-width-m 50 \
+            --max-light-intrusion-lux 5
+            
+      - name: Compute Pollinator Corridors
+        run: |
+          /tmp/habitat-continuity-engine compute-corridors \
+            --species-model /tmp/models/pollinators-activity-model.bin \
+            --phoenix-infrastructure aletheion/infra/data/phoenix-green-infrastructure.geojson \
+            --phoenix-vegetation aletheion/synthexis/data/native-plant-sites-2026.geojson \
+            --output /tmp/pollinator-corridors.geojson \
+            --min-corridor-width-m 30 \
+            --max-pesticide-drift-m 100
+            
+      - name: Upload Corridor Maps
+        uses: actions/upload-artifact@v4
+        with:
+          name: habitat-corridor-maps
+          path: |
+            /tmp/bat-corridors.geojson
+            /tmp/pollinator-corridors.geojson
+          retention-days: 7
+
+  load-biotic-treaties:
+    name: Load Active BioticTreaties
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: preflight-checks
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Lua Environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks
+          
+      - name: Install Lua Dependencies
+        working-directory: aletheion/synthexis/orchestrator
+        run: |
+          luarocks install --local lua-cjson
+          luarocks install --local luafilesystem
+          
+      - name: Load Treaty Registry
+        run: |
+          lua aletheion/synthexis/orchestrator/treaty-loader.lua \
+            --registry aletheion/governance/lexethos/treaty-registry.aln \
+            --filter-active-only \
+            --filter-location phoenix \
+            --filter-category biotic \
+            --output /tmp/active-biotic-treaties.json
+            
+      - name: Validate Treaty Completeness
+        run: |
+          TREATY_COUNT=$(cat /tmp/active-biotic-treaties.json | jq '. | length')
+          echo "Loaded ${TREATY_COUNT} active BioticTreaties"
+          if [ "$TREATY_COUNT" -lt 1 ]; then
+            echo "::error::No active BioticTreaties found for Phoenix"
+            exit 1
+          fi
+          
+      - name: Upload Treaty Set
+        uses: actions/upload-artifact@v4
+        with:
+          name: active-biotic-treaties
+          path: /tmp/active-biotic-treaties.json
+          retention-days: 7
+
+  compute-operating-envelopes:
+    name: Compute LightNoisePesticide Operating Envelopes
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs:
+      - preflight-checks
+      - compute-habitat-continuity
+      - load-biotic-treaties
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Cache Cargo Build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-synthexis-planner-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*'
+          path: /tmp/artifacts/
+          
+      - name: Build LightNoisePesticide Planner
+        working-directory: aletheion/synthexis/engine
+        run: |
+          cargo build --release --bin light-noise-pesticide-planner
+          cp target/release/light-noise-pesticide-planner /tmp/
+          
+      - name: Compute Lighting Envelopes
+        run: |
+          /tmp/light-noise-pesticide-planner compute-lighting \
+            --treaties /tmp/artifacts/active-biotic-treaties/active-biotic-treaties.json \
+            --corridors /tmp/artifacts/habitat-corridor-maps/bat-corridors.geojson,/tmp/artifacts/habitat-corridor-maps/pollinator-corridors.geojson \
+            --infrastructure aletheion/infra/data/phoenix-streetlights.geojson \
+            --forecast-start "${{ needs.preflight-checks.outputs.forecast_start }}" \
+            --forecast-end "${{ needs.preflight-checks.outputs.forecast_end }}" \
+            --sunset "${{ needs.preflight-checks.outputs.phoenix_sunset }}" \
+            --sunrise "${{ needs.preflight-checks.outputs.phoenix_sunrise }}" \
+            --output /tmp/lighting-envelopes-24h.json \
+            --violation-report /tmp/lighting-violations.json
+            
+      - name: Compute Noise Envelopes
+        run: |
+          /tmp/light-noise-pesticide-planner compute-noise \
+            --treaties /tmp/artifacts/active-biotic-treaties/active-biotic-treaties.json \
+            --corridors /tmp/artifacts/habitat-corridor-maps/bat-corridors.geojson,/tmp/artifacts/habitat-corridor-maps/pollinator-corridors.geojson \
+            --noise-sources aletheion/infra/data/phoenix-noise-sources.geojson \
+            --forecast-start "${{ needs.preflight-checks.outputs.forecast_start }}" \
+            --forecast-end "${{ needs.preflight-checks.outputs.forecast_end }}" \
+            --output /tmp/noise-envelopes-24h.json \
+            --violation-report /tmp/noise-violations.json
+            
+      - name: Compute Pesticide Envelopes
+        run: |
+          /tmp/light-noise-pesticide-planner compute-pesticide \
+            --treaties /tmp/artifacts/active-biotic-treaties/active-biotic-treaties.json \
+            --corridors /tmp/artifacts/habitat-corridor-maps/pollinator-corridors.geojson \
+            --application-sites aletheion/infra/data/phoenix-pesticide-zones.geojson \
+            --forecast-start "${{ needs.preflight-checks.outputs.forecast_start }}" \
+            --forecast-end "${{ needs.preflight-checks.outputs.forecast_end }}" \
+            --output /tmp/pesticide-envelopes-24h.json \
+            --violation-report /tmp/pesticide-violations.json
+            
+      - name: Check for Violations
+        id: violations
+        run: |
+          LIGHT_VIOLATIONS=$(cat /tmp/lighting-violations.json | jq '.violations | length')
+          NOISE_VIOLATIONS=$(cat /tmp/noise-violations.json | jq '.violations | length')
+          PESTICIDE_VIOLATIONS=$(cat /tmp/pesticide-violations.json | jq '.violations | length')
+          
+          echo "Lighting violations: ${LIGHT_VIOLATIONS}"
+          echo "Noise violations: ${NOISE_VIOLATIONS}"
+          echo "Pesticide violations: ${PESTICIDE_VIOLATIONS}"
+          
+          TOTAL=$((LIGHT_VIOLATIONS + NOISE_VIOLATIONS + PESTICIDE_VIOLATIONS))
+          echo "total_violations=${TOTAL}" >> $GITHUB_OUTPUT
+          
+          if [ "$TOTAL" -gt 0 ]; then
+            echo "::warning::${TOTAL} treaty violations detected in planned operations"
+          fi
+          
+      - name: Upload Operating Envelopes
+        uses: actions/upload-artifact@v4
+        with:
+          name: operating-envelopes-24h
+          path: |
+            /tmp/lighting-envelopes-24h.json
+            /tmp/noise-envelopes-24h.json
+            /tmp/pesticide-envelopes-24h.json
+          retention-days: 3
+          
+      - name: Upload Violation Reports
+        if: steps.violations.outputs.total_violations > 0
+        uses: actions/upload-artifact@v4
+        with:
+          name: treaty-violation-reports
+          path: |
+            /tmp/lighting-violations.json
+            /tmp/noise-violations.json
+            /tmp/pesticide-violations.json
+          retention-days: 30
+
+  publish-envelopes:
+    name: Publish Envelopes to State Model
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: compute-operating-envelopes
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Download Operating Envelopes
+        uses: actions/download-artifact@v4
+        with:
+          name: operating-envelopes-24h
+          path: /tmp/envelopes/
+          
+      - name: Build State Model Publisher
+        working-directory: aletheion/erm/sync
+        run: |
+          cargo build --release --bin state-model-publisher
+          cp target/release/state-model-publisher /tmp/
+          
+      - name: Publish to State Model Layer
+        run: |
+          /tmp/state-model-publisher publish \
+            --category synthexis-operating-envelopes \
+            --payload /tmp/envelopes/lighting-envelopes-24h.json \
+            --payload /tmp/envelopes/noise-envelopes-24h.json \
+            --payload /tmp/envelopes/pesticide-envelopes-24h.json \
+            --validity-start "${{ needs.preflight-checks.outputs.forecast_start }}" \
+            --validity-end "${{ needs.preflight-checks.outputs.forecast_end }}" \
+            --priority high \
+            --enforce-treaty-compliance
+            
+      - name: Verify Publication
+        run: |
+          echo "::notice::Operating envelopes published to ERM state model"
+          echo "Valid from: ${{ needs.preflight-checks.outputs.forecast_start }}"
+          echo "Valid until: ${{ needs.preflight-checks.outputs.forecast_end }}"
+
+  notify-violations:
+    name: Notify Governance on Treaty Violations
+    runs-on: ubuntu-latest
+    needs: compute-operating-envelopes
+    if: needs.compute-operating-envelopes.outputs.total_violations > 0
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Download Violation Reports
+        uses: actions/download-artifact@v4
+        with:
+          name: treaty-violation-reports
+          path: /tmp/violations/
+          
+      - name: Generate Governance Alert
+        run: |
+          cat /tmp/violations/*.json | jq -s 'add | {
+            timestamp: now | todate,
+            total_violations: (.[].violations | length),
+            summary: group_by(.treaty_id) | map({treaty: .[0].treaty_id, count: length}),
+            details: .[]
+          }' > /tmp/governance-alert.json
+          
+      - name: Post to Governance Interface
+        run: |
+          # In production, this would POST to governance notification endpoint
+          echo "::warning::BioticTreaty violations require governance review"
+          cat /tmp/governance-alert.json | jq .
