@@ -1,0 +1,107 @@
+// Thermaphora Core Model: HeatBudget + MicroclimateField (Phoenix desert context)
+
+namespace aletheion.thermaphora.model.v1
+
+type CitizenId = string
+type BlockId   = string
+type ScheduleId = string
+
+type Celsius = float
+type WPerM2 = float
+type Fraction01 = float
+type Minutes = float
+type Hours = float
+type MetabolicRateMet = float
+type Clo = float
+
+record TimeOfDay {
+    hour   : int  // 0..23
+    minute : int  // 0..59
+}
+
+record TimeInterval {
+    start : TimeOfDay
+    end   : TimeOfDay  // exclusive
+}
+
+// Personal factors for heat balance[web:31][file:1]
+record PersonHeatFactors {
+    ageYears          : int
+    bmi               : float
+    chronicConditions : list<string>   // e.g. "cardiovascular", "kidney"
+    acclimatizedToHeat : bool
+    baselineFitness01 : Fraction01
+}
+
+// Heat-relevant medication modifiers (opt-in)[file:1]
+record MedicationHeatModifier {
+    medCode           : string
+    name              : string
+    increasesDehydration01 : Fraction01
+    impairsSweating01 : Fraction01
+    altersThermoregulation01 : Fraction01
+}
+
+// One activity segment in a schedule
+record ActivitySegment {
+    interval        : TimeInterval
+    description     : string
+    metabolicRateMet : MetabolicRateMet
+    clothingClo      : Clo
+    isOutdoors       : bool
+    blockId          : BlockId
+    usesTransit      : bool
+}
+
+// Microclimate parameters at block scale[web:31][web:36][web:37][file:1]
+record MicroclimateField {
+    blockId         : BlockId
+    airTempC        : Celsius
+    meanRadiantTempC : Celsius
+    relativeHumidity01 : Fraction01
+    windSpeedMs     : float
+    shadeFraction01 : Fraction01
+    surfaceTempC    : Celsius
+    solarIrradianceWm2 : WPerM2
+    hasCoolPavement : bool
+    treeCanopyFraction01 : Fraction01
+    evapCoolingCapacity01 : Fraction01 // AWG/evap towers, misting, water features
+}
+
+// Per-citizen heat budget profile for a day[file:1]
+record HeatBudgetProfile {
+    citizenId       : CitizenId
+    dateIso         : string
+    personFactors   : PersonHeatFactors
+    meds            : list<MedicationHeatModifier>
+    scheduleId      : ScheduleId
+    activities      : list<ActivitySegment>
+}
+
+// Segment-level heat load result
+record SegmentHeatLoad {
+    interval         : TimeInterval
+    blockId          : BlockId
+    predictedCoreTempDeltaC : float
+    heatStrainIndex01       : Fraction01
+    dehydrationRiskIndex01  : Fraction01
+}
+
+// Aggregate indices
+record HeatBudgetResult {
+    citizenId         : CitizenId
+    dateIso           : string
+    segments          : list<SegmentHeatLoad>
+    maxHeatStrainIndex01      : Fraction01
+    minutesAboveSafeThreshold : Minutes
+    recoveryTimeMinutes       : Minutes
+}
+
+// Block-level risk index
+record BlockHeatRisk {
+    blockId         : BlockId
+    avgAirTempC     : Celsius
+    avgHeatStrainIndex01 : Fraction01
+    vulnerablePopulationFraction01 : Fraction01
+    heatRiskScore01 : Fraction01
+}
