@@ -1,0 +1,16 @@
+schema healthcare_object.BCIClinicalAugmentation.v1
+  description "Clinically governed organic BCI / neuroprosthetic interface"
+  fields
+    device_id            string   ; manufacturer + serial or lab ID
+    device_model         string   ; e.g. "Neuralink_X", "CustomLab_BCI"
+    species_neuroclass   string   ; e.g. "human_cortex_v1", "human_PNS"
+    biofield_load_ceiling float   ; max safe energy / field exposure
+    consent_profile      string   ; FK -> consent_profile.id
+    clinical_context     string   ; e.g. "rehab", "assistive_comm", "research"
+    owner_did            string   ; e.g. "did:aln:bostrom18..."
+    safety_kernel_ref    string   ; FK -> VitalNetSafetyKernel.module_id
+    neurorights_policy   string   ; FK -> augmentedhumanrightspolicy.id
+  indexes
+    by_owner_did (owner_did)
+    by_model_ctx (device_model, clinical_context)
+end
