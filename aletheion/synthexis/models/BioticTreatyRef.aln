@@ -1,0 +1,14 @@
+// Synthexis governance binding schemas: BioticTreatyRef (ALN).
+
+module SynthexisTreatyModelsV01 {
+
+  record BioticTreatyRef {
+    id:           String      // Treaty identifier (hash or DID-like string).
+    name:         String      // Human-readable label.
+    scope_region: String      // Spatial scope (e.g., corridor ID, basin, district).
+    scope_time:   String      // Temporal scope descriptor.
+
+    // Domains under governance (lighting, noise, chemicals, vegetation).
+    domains:      List<String>
+  }
+}
