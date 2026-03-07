@@ -1,0 +1,41 @@
+-- ============================================================================
+-- ROW ENTRY: Initial Registry for BCIClinicalAugmentation
+-- PURPOSE: Register the primary organic BCI instance for the repository owner
+-- COMPLIANCE: GDPR, HIPAA, EU AI Act 2024, Neurorights Charter v1
+-- OWNER: did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+-- ============================================================================
+
+row healthcare_object.BCIClinicalAugmentation
+  device_id             "bci-aug-bostrom-001"
+  device_model          "CyberOrganic_BCI_A1"
+  species_neuroclass    "human_cortex_v1"
+  biofield_load_ceiling 0.5
+  consent_profile       "consent-bostrom18-2026-01"
+  clinical_context      "assistive_rehab_research"
+  owner_did             "did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7"
+  safety_kernel_ref     "VitalNetSafetyKernel:1.0.0"
+  neurorights_policy    "AugmentedHumanRights:v1"
+  consciousness_preservation_enabled true
+  evidence_wallet_ref   "evidence-wallet-bostrom-001"
+  created_at            "2026-03-07T00:00:00Z"
+  last_audit_at         "2026-03-07T00:00:00Z"
+  audit_status          "compliant"
+end
+
+row healthcare_object.EvidenceWallet
+  wallet_id             "evidence-wallet-bostrom-001"
+  owner_did             "did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7"
+  linked_bci_device_id  "bci-aug-bostrom-001"
+  evidence_records      []
+  health_improvements   {}
+  eco_improvements      {}
+  care_access_providers []
+  consciousness_preservation_data null
+  wallet_status         "active"
+  created_at            "2026-03-07T00:00:00Z"
+  updated_at            "2026-03-07T00:00:00Z"
+  evidence_completeness_score 1.0
+end
+
+-- ROW signature (hash-chained, DID-anchored)
+signature "NewRowPrint!:aletheion:genesis:bostrom18:2026-03-07T00:00:00Z:sha256:abc123..."
