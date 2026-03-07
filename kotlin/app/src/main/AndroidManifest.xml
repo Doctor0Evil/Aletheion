@@ -1,0 +1,75 @@
+<!-- ============================================================================
+     MANIFEST: Aletheion Android Client
+     PURPOSE: Permissions and Declarations for Evidence Wallet & BCI Management
+     COMPLIANCE: GDPR, HIPAA, EU AI Act 2024, Neurorights Charter v1
+     OWNER: did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+     ============================================================================ -->
+
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Network Access for ROW Ledger Sync -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!-- Biometric Authentication for Consent -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+
+    <!-- Secure Element Access (if available) -->
+    <uses-permission android:name="android.permission.SECURE_ELEMENT_ACCESS" />
+
+    <!-- Bluetooth for BCI Interface (Optional, Abstracted) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+
+    <!-- Background Processing for Audit Logs -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+
+    <application
+        android:name=".AletheionApplication"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:fullBackupContent="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Aletheion"
+        android:networkSecurityConfig="@xml/network_security_config"
+        tools:targetApi="34">
+
+        <!-- Evidence Wallet Activity -->
+        <activity
+            android:name=".ui.EvidenceWalletActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Aletheion"
+            android:screenOrientation="portrait"
+            tools:ignore="LockedOrientationActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Clinical BCI Manager Service -->
+        <service
+            android:name=".service.ClinicalBCIService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
+        <!-- Security Provider Declaration -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.aletheion.security.SecurityInitializer"
+                android:value="androidx.startup" />
+        </provider>
+
+    </application>
+
+</manifest>
