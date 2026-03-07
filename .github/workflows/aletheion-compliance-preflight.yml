@@ -1,0 +1,333 @@
+# Aletheion Central Compliance Validation Workflow
+# Enforces blacklist, neurorights, and treaty compliance across entire monorepo
+# Blocks all builds/deployments that violate compliance envelopes
+#
+# References:
+# - Workflow #17 from research: Central Compliance Validation
+# - No precommit hooks (per project rules)
+# - Runs on: push, pull_request to main/develop branches
+# - Exit code 1 blocks merge/deployment
+#
+# Repository Path: .github/workflows/aletheion-compliance-preflight.yml
+# Language: YAML (GitHub Actions)
+# Dependencies: Rust compliance scanner (aletheion/compliance/core)
+
+name: Aletheion Compliance Preflight
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - 'feature/**'
+      - 'hotfix/**'
+  pull_request:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+env:
+  RUST_BACKTRACE: 1
+  CARGO_TERM_COLOR: always
+  COMPLIANCE_VERSION: v1.0.0
+
+jobs:
+  blacklist-scan:
+    name: Blacklist Technology Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-blacklist-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build Compliance Scanner
+        working-directory: aletheion/compliance/core
+        run: |
+          cargo build --release --bin ale-compliance-scanner
+          cp target/release/ale-compliance-scanner /tmp/
+          
+      - name: Execute Blacklist Scan
+        id: blacklist
+        run: |
+          /tmp/ale-compliance-scanner scan-blacklist \
+            --root . \
+            --config aletheion/compliance/config/blacklist-v1.toml \
+            --output /tmp/blacklist-report.json \
+            --fail-on-violation
+            
+      - name: Upload Blacklist Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: blacklist-scan-report
+          path: /tmp/blacklist-report.json
+          retention-days: 90
+          
+      - name: Post Blacklist Summary
+        if: failure()
+        run: |
+          echo "::error::Blacklist violations detected. See artifact for details."
+          cat /tmp/blacklist-report.json | jq '.violations[] | "::error file=\(.file),line=\(.line)::\(.technology) is blacklisted: \(.reason)"'
+
+  neurorights-envelope-check:
+    name: Neurorights Envelope Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: blacklist-scan
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-neurorights-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build Neurorights Validator
+        working-directory: aletheion/compliance/core
+        run: |
+          cargo build --release --bin ale-neurorights-validator
+          cp target/release/ale-neurorights-validator /tmp/
+          
+      - name: Validate FEAR Envelopes
+        id: fear
+        run: |
+          /tmp/ale-neurorights-validator validate-fear \
+            --source-dirs aletheion/health/augmentation,aletheion/somaplex,aletheion/neurobiome \
+            --envelope-spec aletheion/compliance/specs/fear-envelope-v1.toml \
+            --output /tmp/fear-report.json \
+            --fail-on-violation
+            
+      - name: Validate PAIN Envelopes
+        id: pain
+        run: |
+          /tmp/ale-neurorights-validator validate-pain \
+            --source-dirs aletheion/health/augmentation,aletheion/somaplex \
+            --envelope-spec aletheion/compliance/specs/pain-envelope-v1.toml \
+            --output /tmp/pain-report.json \
+            --fail-on-violation
+            
+      - name: Validate SANITY Envelopes
+        id: sanity
+        run: |
+          /tmp/ale-neurorights-validator validate-sanity \
+            --source-dirs aletheion/health/augmentation,aletheion/culture/mnemosyne \
+            --envelope-spec aletheion/compliance/specs/sanity-envelope-v1.toml \
+            --output /tmp/sanity-report.json \
+            --fail-on-violation
+            
+      - name: Upload Neurorights Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: neurorights-validation-reports
+          path: |
+            /tmp/fear-report.json
+            /tmp/pain-report.json
+            /tmp/sanity-report.json
+          retention-days: 90
+          
+      - name: Post Neurorights Violations
+        if: failure()
+        run: |
+          echo "::error::Neurorights envelope violations detected."
+          for report in /tmp/*-report.json; do
+            cat "$report" | jq -r '.violations[] | "::error file=\(.file),line=\(.line)::\(.envelope) envelope violated: \(.detail)"'
+          done
+
+  biotic-treaty-check:
+    name: BioticTreaty Compliance Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: blacklist-scan
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-treaty-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build Treaty Validator
+        working-directory: aletheion/compliance/core
+        run: |
+          cargo build --release --bin ale-treaty-validator
+          cp target/release/ale-treaty-validator /tmp/
+          
+      - name: Validate BioticTreaty References
+        id: treaty
+        run: |
+          /tmp/ale-treaty-validator validate-treaties \
+            --source-dirs aletheion/synthexis,aletheion/neurobiome,aletheion/rm/water \
+            --treaty-registry aletheion/governance/lexethos/treaty-registry.aln \
+            --output /tmp/treaty-report.json \
+            --fail-on-missing-treaty \
+            --fail-on-invalid-reference
+            
+      - name: Upload Treaty Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: biotic-treaty-report
+          path: /tmp/treaty-report.json
+          retention-days: 90
+          
+      - name: Post Treaty Violations
+        if: failure()
+        run: |
+          echo "::error::BioticTreaty violations or missing references detected."
+          cat /tmp/treaty-report.json | jq -r '.violations[] | "::error file=\(.file),line=\(.line)::Treaty \(.treaty_id) violation: \(.reason)"'
+
+  indigenous-rights-audit:
+    name: Indigenous Land & Water Rights Audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    needs: blacklist-scan
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        
+      - name: Setup Rust Toolchain
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          
+      - name: Cache Cargo Registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-indigenous-${{ hashFiles('**/Cargo.lock') }}
+          
+      - name: Build Indigenous Rights Auditor
+        working-directory: aletheion/compliance/core
+        run: |
+          cargo build --release --bin ale-indigenous-auditor
+          cp target/release/ale-indigenous-auditor /tmp/
+          
+      - name: Audit Water Module Compliance
+        id: water-audit
+        run: |
+          /tmp/ale-indigenous-auditor audit-water-rights \
+            --source-dirs aletheion/rm/water,aletheion/infra/canals \
+            --rights-spec aletheion/compliance/specs/indigenous-water-rights-phoenix.toml \
+            --output /tmp/water-rights-audit.json \
+            --fail-on-violation
+            
+      - name: Audit Land Use Compliance
+        id: land-audit
+        run: |
+          /tmp/ale-indigenous-auditor audit-land-rights \
+            --source-dirs aletheion/rm/soil,aletheion/synthexis \
+            --rights-spec aletheion/compliance/specs/indigenous-land-rights-phoenix.toml \
+            --output /tmp/land-rights-audit.json \
+            --fail-on-violation
+            
+      - name: Upload Indigenous Rights Audits
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: indigenous-rights-audits
+          path: |
+            /tmp/water-rights-audit.json
+            /tmp/land-rights-audit.json
+          retention-days: 90
+          
+      - name: Post Rights Violations
+        if: failure()
+        run: |
+          echo "::error::Indigenous rights compliance violations detected."
+          for audit in /tmp/*-rights-audit.json; do
+            cat "$audit" | jq -r '.violations[] | "::error file=\(.file),line=\(.line)::Indigenous rights violation: \(.detail)"'
+          done
+
+  final-compliance-gate:
+    name: Final Compliance Gate
+    runs-on: ubuntu-latest
+    needs: 
+      - blacklist-scan
+      - neurorights-envelope-check
+      - biotic-treaty-check
+      - indigenous-rights-audit
+    if: always()
+    
+    steps:
+      - name: Check All Compliance Jobs
+        run: |
+          echo "Checking compliance gate status..."
+          if [[ "${{ needs.blacklist-scan.result }}" != "success" ]]; then
+            echo "::error::Blacklist scan failed"
+            exit 1
+          fi
+          if [[ "${{ needs.neurorights-envelope-check.result }}" != "success" ]]; then
+            echo "::error::Neurorights validation failed"
+            exit 1
+          fi
+          if [[ "${{ needs.biotic-treaty-check.result }}" != "success" ]]; then
+            echo "::error::BioticTreaty validation failed"
+            exit 1
+          fi
+          if [[ "${{ needs.indigenous-rights-audit.result }}" != "success" ]]; then
+            echo "::error::Indigenous rights audit failed"
+            exit 1
+          fi
+          echo "✓ All compliance checks passed"
+          
+      - name: Post Success Summary
+        run: |
+          echo "::notice::Compliance preflight complete. All validations passed."
+          echo "- Blacklist: PASS"
+          echo "- Neurorights: PASS"
+          echo "- BioticTreaties: PASS"
+          echo "- Indigenous Rights: PASS"
