@@ -1,0 +1,488 @@
+// Aletheion ERM Workflow SMART Hierarchy-Chains Index
+// Path: aletheion/erm-workflow-index/SMART-HIERARCHY-CHAINS-001.aln
+// Role: Declarative mesh of cross-workflow dependencies and envelopes
+// Scope: All 25+ ERM workflows across water, heat, sewer, waste, BioticTreaties,
+//        neurobiome, movement, LexEthos, Synthexis, and citizen interfaces.
+//
+// Core pattern: SENSE → MODEL → ALLOCATE → RULE-CHECK → ACTUATE → RECORD → TALK-BACK
+// Each Chain definition declares:
+//   - scope.layers          : ERM layers crossed (L1–L5)
+//   - scope.domains         : resource / body / species domains
+//   - depends_on            : upstream workflows that constrain this chain
+//   - exposes               : outputs that become inputs for others
+//   - accepts_restraints    : treaties, envelopes, rights grammars
+//   - trust.bindings        : ALN/Googolswarm logging + PQ crypto envelope
+//   - execution.pattern     : DAG / feedback / periodic / event-driven
+
+schema SMARTChain {
+  id: ChainId
+  name: Text
+  version: Text
+  scope: ChainScope
+  depends_on: List<WorkflowRef>
+  exposes: ChainExposedSignals
+  accepts_restraints: ChainRestraints
+  execution: ChainExecution
+  trust: ChainTrust
+}
+
+schema ChainScope {
+  layers: List<LayerRef>          // e.g., ["L1_EDGE", "L2_STATE", "L3_CHAIN", "L4_OPT", "L5_CITIZEN"]
+  domains: List<DomainRef>        // e.g., ["water", "thermal", "sewer", "biotic", "somatic"]
+  city_region: List<RegionRef>    // Phoenix sub-basins, districts, corridors
+}
+
+schema WorkflowRef {
+  code: Text                      // canonical workflow identifier, matches docs + repo naming
+  path_hint: Text                 // Git path or prefix, non-binding but indexable
+}
+
+schema ChainExposedSignals {
+  envelopes: List<EnvelopeRef>    // envelope outputs: heat, light, noise, chem, somatic, treaty
+  allocations: List<AllocationRef>// allocated flows, budgets, or time-windows
+  alerts: List<AlertRef>          // machine/audit alerts surfaced to LexEthos / citizen UI
+}
+
+schema ChainRestraints {
+  treaties: List<TreatyRef>       // BioticTreaty, Indigenous rights, micro-treaties
+  rights_grammars: List<RightsRef>// LexEthos grammars applied
+  somatic_envelopes: List<EnvelopeRef>
+  fear_pain_sanity: Bool          // FEAR/PAIN/SANITY envelope enforcement required
+}
+
+schema ChainExecution {
+  pattern: ExecutionPattern       // DAG | FEEDBACK_LOOP | PERIODIC | EVENT_DRIVEN | HYBRID
+  cadence: Optional<Text>         // e.g., "5min", "1h", "nightly", "monsoon-season"
+  triggers: List<TriggerRef>      // sensor, state, treaty-change, citizen-consent
+  rollback_forbidden: Bool        // MUST remain true for all Aletheion chains
+}
+
+schema ChainTrust {
+  ledger_stream: Text             // ALN stream/topic name
+  pq_mode: PQMode                 // CLASSICAL_ONLY | HYBRID | PQ_STRICT
+  multisig_threshold: Int         // minimum independent signers
+  signers: List<SignerRef>        // DID or address, including biosignal-linked DIDs
+}
+
+enum ExecutionPattern {
+  DAG
+  FEEDBACK_LOOP
+  PERIODIC
+  EVENT_DRIVEN
+  HYBRID
+}
+
+enum PQMode {
+  CLASSICAL_ONLY
+  HYBRID
+  PQ_STRICT
+}
+
+type ChainId = Text
+type LayerRef = Text
+type DomainRef = Text
+type RegionRef = Text
+type TreatyRef = Text
+type RightsRef = Text
+type EnvelopeRef = Text
+type AllocationRef = Text
+type AlertRef = Text
+type TriggerRef = Text
+type SignerRef = Text
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SMART Chain 01: AWP → Thermal → Thermaphora (Water–Heat–Body Budget)
+//  Bridges water allocations, thermal fields, and per-citizen heat budgets.
+// ─────────────────────────────────────────────────────────────────────────────
+
+chain SMART_01_AWP_THERMAL_THERMAPHORA : SMARTChain {
+  id: "SMART_01_AWP_THERMAL_THERMAPHORA"
+  name: "AWP–Thermal–Thermaphora Water–Heat–Body Budget Chain"
+  version: "1.0.0"
+
+  scope: {
+    layers: ["L1_EDGE", "L2_STATE", "L3_CHAIN", "L4_OPT", "L5_CITIZEN"]
+    domains: ["water", "thermal", "somatic", "equity"]
+    city_region: ["PHX_CORE", "CANAL_NETWORK", "HEAT_ISLAND_ZONES"]
+  }
+
+  depends_on: [
+    { code: "ALE-RM-WATER-ALLOCATION-001", path_hint: "aletheion/rm/water/ALE-RM-WATER-ALLOCATION-001.aln" },
+    { code: "ALE-RM-THERMAL-STATE-001",     path_hint: "aletheion/rm/thermal/ALE-RM-THERMAL-STATE-001.rs" },
+    { code: "ALE-RM-THERMAL-INGESTION-001", path_hint: "aletheion/rm/thermal/ALE-RM-THERMAL-INGESTION-001.rs" },
+    { code: "THERMAPHORA-HEAT-BUDGET-ENGINE-001", path_hint: "aletheion/thermaphora/HeatBudgetEngine.rs" }
+  ]
+
+  exposes: {
+    envelopes: [
+      "HeatBudgetEnvelope/Block",
+      "HeatBudgetEnvelope/Individual",
+      "CoolingAssetEnvelope/CanalSegment"
+    ]
+    allocations: [
+      "AWP-Reuse-Portfolio/By-Block",
+      "CoolingWater/Canal-Segment",
+      "CoolingInterventions/TimeWindow"
+    ]
+    alerts: [
+      "HeatBudgetExceedanceAlert",
+      "CoolingDeficitForecast",
+      "ChronoEquityHeatBurdenAlert"
+    ]
+  }
+
+  accepts_restraints: {
+    treaties: [
+      "BioticTreaty/RiparianCorridors",
+      "BioticTreaty/CanalPollinatorBanks"
+    ]
+    rights_grammars: [
+      "LexEthos/RightToShade",
+      "LexEthos/RightToCoolSleep"
+    ]
+    somatic_envelopes: [
+      "SomaticEnvelope/MaxHeatForRoute",
+      "SomaticEnvelope/MaxStandingTimeAtStops"
+    ]
+    fear_pain_sanity: true
+  }
+
+  execution: {
+    pattern: HYBRID
+    cadence: "5min"
+    triggers: [
+      "Sensor:ThermalReading/HeatIndex>42",
+      "Forecast:Heatwave/Warning",
+      "State:Reservoir/CriticalLevel",
+      "CitizenFeedback:HeatStress/Spike"
+    ]
+    rollback_forbidden: true
+  }
+
+  trust: {
+    ledger_stream: "ALN://chains/thermal_water_body_budget"
+    pq_mode: HYBRID
+    multisig_threshold: 3
+    signers: [
+      "bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7",
+      "bostrom1ldgmtf20d6604a24ztr0jxht7xt7az4jhkmsrc",
+      "COUNCIL/WaterEquity/ValidatorSet"
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SMART Chain 02: Sewer → AWP → LexEthos (Hazard-at-the-Edge)
+//  Prevents industrial pollutants from destabilizing AWP and treaty-bound waters.
+// ─────────────────────────────────────────────────────────────────────────────
+
+chain SMART_02_SEWER_AWP_LEXETHOS : SMARTChain {
+  id: "SMART_02_SEWER_AWP_LEXETHOS"
+  name: "Sewer–AWP–LexEthos Hazard-at-the-Edge Chain"
+  version: "1.0.0"
+
+  scope: {
+    layers: ["L1_EDGE", "L2_STATE", "L3_CHAIN", "L4_OPT"]
+    domains: ["sewer", "water", "compliance", "industrial"]
+    city_region: ["INDUSTRIAL_CORRIDORS", "AWP_INFLUENT_ZONES"]
+  }
+
+  depends_on: [
+    { code: "ALE-INF-SEWER-INGEST-001",      path_hint: "aletheion/infra/sewer/ALE-INF-SEWER-INGEST-001.rs" },
+    { code: "ALE-INF-SEWER-COMPLIANCE-001",  path_hint: "aletheion/infra/sewer/ALE-INF-SEWER-COMPLIANCE-001.aln" },
+    { code: "ALE-RM-WATER-STATE-001",        path_hint: "aletheion/rm/water/ALE-RM-WATER-MODEL-001.rs" },
+    { code: "LEXETHOS-MICROTREATY-ENGINE-001", path_hint: "aletheion/lexethos/MicroTreatyEngine.aln" }
+  ]
+
+  exposes: {
+    envelopes: [
+      "DischargeEnvelope/IndustrialConnection",
+      "SewerHazardEnvelope/Basin"
+    ]
+    allocations: [
+      "PermitThrottle/By-Industry",
+      "InfluentLoadBudget/AWP-Facility"
+    ]
+    alerts: [
+      "IndustrialBlockadeEvent",
+      "TreatyEffluentViolationAlert",
+      "AppealableComplianceActionNotice"
+    ]
+  }
+
+  accepts_restraints: {
+    treaties: [
+      "IndigenousWaterRights/AkimelOodhamPiipaash",
+      "BioticTreaty/ZeroDischargeZones"
+    ]
+    rights_grammars: [
+      "LexEthos/RightToSafeDrinkingWater"
+    ]
+    somatic_envelopes: []
+    fear_pain_sanity: true
+  }
+
+  execution: {
+    pattern: EVENT_DRIVEN
+    cadence: "on-hazard-signal"
+    triggers: [
+      "Sensor:SewerAI/AnomalyScore>Threshold",
+      "Sensor:TOC/AboveLimit",
+      "ALN:MicroTreaty/Updated"
+    ]
+    rollback_forbidden: true
+  }
+
+  trust: {
+    ledger_stream: "ALN://chains/sewer_awp_lexethos"
+    pq_mode: HYBRID
+    multisig_threshold: 3
+    signers: [
+      "Regulator/WaterQuality/Node",
+      "IndigenousCouncil/Water/Node",
+      "Aletheion/Compliance/Node"
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SMART Chain 03: Synthexis → LNP → Lighting/HVAC (Biotic Night Envelopes)
+//  Converts species thresholds into enforceable light, noise, and pesticide envelopes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+chain SMART_03_SYNTHEXIS_LNP_ENV : SMARTChain {
+  id: "SMART_03_SYNTHEXIS_LNP_ENV"
+  name: "Synthexis–LNP–Lighting/HVAC Biotic Envelope Chain"
+  version: "1.0.0"
+
+  scope: {
+    layers: ["L1_EDGE", "L2_STATE", "L3_CHAIN", "L4_OPT"]
+    domains: ["biotic", "light", "noise", "chemical"]
+    city_region: ["POLLINATOR_CORRIDORS", "BAT_FLYWAYS", "RIPARIAN_BANDS"]
+  }
+
+  depends_on: [
+    { code: "SYNTHEXIS-SPECIES-AGENT-001",        path_hint: "aletheion/synthexis/model/SpeciesAgent.aln" },
+    { code: "SYNTHEXIS-BIOTIC-TREATY-001",        path_hint: "aletheion/synthexis/model/BioticTreaty.aln" },
+    { code: "SYNTHEXIS-LNP-PLANNER-001",          path_hint: "aletheion/synthexis/engine/LightNoisePesticidePlanner.aln" },
+    { code: "ENV-LIGHTING-HVAC-ACTUATOR-001",     path_hint: "aletheion/infra/env/LightingHvacActuator.lua" }
+  ]
+
+  exposes: {
+    envelopes: [
+      "LightEnvelope/Segment/Night",
+      "NoiseEnvelope/Segment/TimeBand",
+      "PesticideEnvelope/Zone/Season"
+    ]
+    allocations: [
+      "LuminaireSchedule/Fixture",
+      "HVACNoiseBudget/Building",
+      "PesticideWindow/FieldBlock"
+    ]
+    alerts: [
+      "BioticTreatyViolationRisk",
+      "ALANExceedanceAlert",
+      "PesticideTimingConflict"
+    ]
+  }
+
+  accepts_restraints: {
+    treaties: [
+      "BioticTreaty/PollinatorCorridor",
+      "BioticTreaty/BatCommuteWindows"
+    ]
+    rights_grammars: [
+      "LexEthos/RightToDarkSky",
+      "LexEthos/RightToQuietRest"
+    ]
+    somatic_envelopes: []
+    fear_pain_sanity: true
+  }
+
+  execution: {
+    pattern: PERIODIC
+    cadence: "nightly"
+    triggers: [
+      "SpeciesActivityForecast/Updated",
+      "LightingPlan/ChangeRequested",
+      "PesticideSchedule/Submitted"
+    ]
+    rollback_forbidden: true
+  }
+
+  trust: {
+    ledger_stream: "ALN://chains/synthexis_lnp_env"
+    pq_mode: PQ_STRICT
+    multisig_threshold: 4
+    signers: [
+      "EcologyCouncil/Node",
+      "IndigenousCouncil/Habitat/Node",
+      "CityLightingAuthority/Node",
+      "Aletheion/Synthexis/Node"
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SMART Chain 04: Neurobiome → Cleaning → Food (Microbiome Mesh)
+//  Aligns cleaning protocols and food loops with neurobiome protection.
+// ─────────────────────────────────────────────────────────────────────────────
+
+chain SMART_04_NEUROBIOME_CLEAN_FOOD : SMARTChain {
+  id: "SMART_04_NEUROBIOME_CLEAN_FOOD"
+  name: "Neurobiome–Cleaning–Food Mesh Chain"
+  version: "1.0.0"
+
+  scope: {
+    layers: ["L1_EDGE", "L2_STATE", "L4_OPT", "L5_CITIZEN"]
+    domains: ["microbiome", "food", "surface", "air"]
+    city_region: ["SCHOOLS", "CLINICS", "FOOD_MARKETS", "COMMUNITY_KITCHENS"]
+  }
+
+  depends_on: [
+    { code: "NEUROBIOME-SCORE-001",           path_hint: "aletheion/neurobiome/NeurobiomeScore.aln" },
+    { code: "NEUROBIOME-FERMENT-LOOP-001",    path_hint: "aletheion/neurobiome/FermentLoopScheduler.aln" },
+    { code: "NEUROBIOME-SURFACE-OPT-001",     path_hint: "aletheion/neurobiome/SurfaceMicrobiomeOptimizer.rs" }
+  ]
+
+  exposes: {
+    envelopes: [
+      "CleaningEnvelope/SpaceType",
+      "FermentCapacityEnvelope/District"
+    ]
+    allocations: [
+      "CleaningProtocol/Facility",
+      "FermentCapacity/HouseholdOrClinic",
+      "FoodLoopRouting/Market"
+    ]
+    alerts: [
+      "MicrobiomeRiskAlert",
+      "OverSanitizationWarning",
+      "FermentLoopImbalanceAlert"
+    ]
+  }
+
+  accepts_restraints: {
+    treaties: [
+      "BioticTreaty/MicrobiomeCorridors"
+    ]
+    rights_grammars: [
+      "LexEthos/RightToMicrobiomeHealth"
+    ]
+    somatic_envelopes: []
+    fear_pain_sanity: true
+  }
+
+  execution: {
+    pattern: HYBRID
+    cadence: "daily"
+    triggers: [
+      "Sensor:AirMicrobiome/SampleResult",
+      "Sensor:SurfaceMicrobiome/SwabResult",
+      "DietLog/PatternShift",
+      "OutbreakAlert/Signal"
+    ]
+    rollback_forbidden: true
+  }
+
+  trust: {
+    ledger_stream: "ALN://chains/neurobiome_clean_food"
+    pq_mode: PQ_STRICT
+    multisig_threshold: 3
+    signers: [
+      "PublicHealth/Node",
+      "Aletheion/Neurobiome/Node",
+      "CommunityFoodCouncil/Node"
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  SMART Chain 05: Somaplex → Mobility/Logistics (Body-First Routing)
+//  Ensures movement and freight respect somatic + heat envelopes.
+// ─────────────────────────────────────────────────────────────────────────────
+
+chain SMART_05_SOMAPLEX_MOBILITY : SMARTChain {
+  id: "SMART_05_SOMAPLEX_MOBILITY"
+  name: "Somaplex–Mobility–Freight Body-First Routing Chain"
+  version: "1.0.0"
+
+  scope: {
+    layers: ["L1_EDGE", "L2_STATE", "L4_OPT", "L5_CITIZEN"]
+    domains: ["movement", "somatic", "logistics", "heat"]
+    city_region: ["COMMUTE_CORRIDORS", "SCHOOL_ZONES", "CARE_ROUTES"]
+  }
+
+  depends_on: [
+    { code: "SOMAPLEX-ROUTE-ENGINE-001",      path_hint: "aletheion/somaplex/SomaticRouteEngine.rs" },
+    { code: "SOMAPLEX-ERGONOMIC-FIELD-001",   path_hint: "aletheion/somaplex/ErgonomicFieldCompiler.rs" },
+    { code: "SOMAPLEX-FALL-RISK-001",         path_hint: "aletheion/somaplex/FallRiskPredictor.aln" },
+    { code: "THERMAPHORA-HEAT-BUDGET-ENGINE-001", path_hint: "aletheion/thermaphora/HeatBudgetEngine.rs" }
+  ]
+
+  exposes: {
+    envelopes: [
+      "RouteEnvelope/BodyLoadLimited",
+      "FreightEnvelope/NoConflictWithCareRoutes"
+    ]
+    allocations: [
+      "MobilitySchedule/Citizen",
+      "DeliverySlots/ByBlock"
+    ]
+    alerts: [
+      "SomaticOverloadRisk",
+      "RouteHeatBudgetViolation",
+      "FreightVsSchoolRouteConflict"
+    ]
+  }
+
+  accepts_restraints: {
+    treaties: []
+    rights_grammars: [
+      "LexEthos/RightToSafeMovement",
+      "LexEthos/RightToAccessibleRoutes"
+    ]
+    somatic_envelopes: [
+      "SomaticEnvelope/MaxJointLoad",
+      "SomaticEnvelope/MaxDailyDistance"
+    ]
+    fear_pain_sanity: true
+  }
+
+  execution: {
+    pattern: HYBRID
+    cadence: "5min"
+    triggers: [
+      "Sensor:Gait/FallEvent",
+      "HeatBudgetChange/Block",
+      "NewRouteRequest/Citizen",
+      "FreightRouteProposal/Carrier"
+    ]
+    rollback_forbidden: true
+  }
+
+  trust: {
+    ledger_stream: "ALN://chains/somaplex_mobility"
+    pq_mode: HYBRID
+    multisig_threshold: 2
+    signers: [
+      "MobilityAuthority/Node",
+      "Aletheion/Somaplex/Node"
+    ]
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+//  Index entry: Register chains for discovery and enforcement
+// ─────────────────────────────────────────────────────────────────────────────
+
+index SMART_CHAIN_INDEX {
+  chains: [
+    "SMART_01_AWP_THERMAL_THERMAPHORA",
+    "SMART_02_SEWER_AWP_LEXETHOS",
+    "SMART_03_SYNTHEXIS_LNP_ENV",
+    "SMART_04_NEUROBIOME_CLEAN_FOOD",
+    "SMART_05_SOMAPLEX_MOBILITY"
+  ]
+  invariant rollback_forbidden_all: forall c in chains => c.execution.rollback_forbidden == true
+}
