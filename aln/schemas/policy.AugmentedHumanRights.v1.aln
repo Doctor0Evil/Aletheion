@@ -1,0 +1,53 @@
+-- ============================================================================
+-- POLICY: augmentedhumanrightspolicy.v1
+-- PURPOSE: Foundational neurorights and equal-protection policy
+-- COMPLIANCE: GDPR, HIPAA, EU AI Act 2024, UN Convention on Rights of Persons with Disabilities
+-- OWNER: did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+-- ============================================================================
+
+policy augmentedhumanrightspolicy.v1
+  description "Foundational neurorights and equal-protection policy for all \
+               augmented citizens. This policy ensures no discrimination based \
+               on race, disability, augmentation status, or nature of technology \
+               integration. All residents are represented in the same DID and \
+               consent systems."
+
+  principles [
+    "No covert neuromorphic control",
+    "No Death-Network style sabotage",
+    "Explicit informed consent and revocation rights",
+    "Immutable audit and clinical oversight",
+    "Equal protection regardless of race or disability",
+    "Consciousness preservation rights with explicit consent",
+    "No discrimination based on augmentation status or technology type",
+    "Deviceless and organically-integrated cybernetics receive equal protection",
+    "All biophysical data is protected under medical-grade safeguards",
+    "Appeal and override path available via Clinical Safety Board"
+  ]
+
+  prohibited_actions [
+    "covert_neuromorphic_control",
+    "death_network_sabotage",
+    "discriminatory_corridor_access",
+    "unconsented_biophysical_data_access",
+    "downgrade_of_augmentation_rights",
+    "exclusion_based_on_integration_type"
+  ]
+
+  required_safeguards [
+    "VitalNetSafetyKernel enforcement",
+    "Immutable ROW audit logs",
+    "Explicit consent for all BCI operations",
+    "Clinical oversight for organic integrations",
+    "Independent safety review for firmware changes",
+    "Neurorights ombud escalation path"
+  ]
+
+  enforcement
+    kernel_ref "VitalNetSafetyKernel:1.0.0"
+    audit_bus "devvitalbus0"
+    escalation_path "clinical_safety_board -> neurorights_ombud -> independent_review"
+
+  version "1.0.0"
+  owner_did "did:aln:bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7"
+end
