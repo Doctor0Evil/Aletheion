@@ -1,0 +1,66 @@
+filename brainbody_inclusion.aln
+destination qpudatashards aln
+
+meta
+  title       "Brain/Body Inclusion & Neurorights Governance"
+  version     "1.0.0"
+  owner_did   "did:aln:bostrom18sd2ujv24u..."
+  regs        ["GDPR","HIPAA","EUAIAct2024","FCCPart15"]
+end
+
+schema healthcare_object.BCIClinicalAugmentation.v1
+  fields
+    device_id             string
+    device_model          string
+    species_neuroclass    string
+    biofield_load_ceiling float
+    consent_profile       string
+    clinical_context      string
+    owner_did             string
+    safety_kernel_ref     string
+    neurorights_policy    string
+  indexes
+    by_owner_did (owner_did)
+end
+
+row healthcare_object.BCIClinicalAugmentation
+  device_id             "bci-aug-bostrom-001"
+  device_model          "CyberOrganic_BCI_A1"
+  species_neuroclass    "human_cortex_v1"
+  biofield_load_ceiling 0.5
+  consent_profile       "consent-bostrom18-2026-01"
+  clinical_context      "assistive_rehab_research"
+  owner_did             "did:aln:bostrom18sd2ujv24u..."
+  safety_kernel_ref     "VitalNetSafetyKernel:1.0.0"
+  neurorights_policy    "AugmentedHumanRights:v1"
+end
+
+policy augmentedhumanrightspolicy.v1
+  principles [
+    "No covert neuromorphic control",
+    "No Death-Network style sabotage",
+    "Explicit informed consent & revocation",
+    "Immutable audit & clinical oversight",
+    "Equal protection regardless of race or disability"
+  ]
+end
+
+link VitalNetSafetyKernel.protects_object_class
+  class_ref "healthcare_object.BCIClinicalAugmentation.v1"
+  regs      ["GDPR","HIPAA","EUAIAct2024","FCCPart15"]
+  audit_bus "devvitalbus0"
+end
+
+catalog GODCity.HealthcareZones.v1
+  corridor "rehab_neuroassist"
+    allowed_object_classes [
+      "healthcare_object.PhysicalProsthesis",
+      "healthcare_object.BCIClinicalAugmentation.v1"
+    ]
+  end
+  corridor "public_plaza_AR"
+    disallowed_object_classes [
+      "healthcare_object.BCIClinicalAugmentation.v1"
+    ]
+  end
+end
