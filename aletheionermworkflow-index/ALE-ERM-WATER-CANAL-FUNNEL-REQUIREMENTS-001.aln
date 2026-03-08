@@ -1,0 +1,277 @@
+TITLE ALE-ERM-WATER-CANAL-FUNNEL-REQUIREMENTS-001
+VERSION 1.0
+SCOPE WATER_CAPITAL, MAR, CANAL_INFRA, CYBOQUATIC_NODES
+
+; ------------------------------------------------------------------
+; 0. Core atoms: modules, domains, corridors, funnels, chains
+; ------------------------------------------------------------------
+
+ATOM ModuleRef
+  id          : STRING        ; fully-qualified module path
+  domain      : STRING        ; e.g. "WATER", "INFRA_CANAL"
+  layer       : STRING        ; "STATE" | "SERVICE" | "GOVERNANCE"
+END
+
+ATOM CorridorRef
+  id          : STRING        ; corridor identifier
+  domain      : STRING        ; "water" | "mar" | "canal" | "softrobot" | etc.
+END
+
+ATOM ChainRef
+  id          : STRING        ; SMART chain ID, e.g. "SMART01AWPTHERMALTHERMAPHORA"
+  pq_mode     : STRING        ; "CLASSICAL" | "HYBRID" | "PQSTRICT"
+END
+
+ATOM TreatyRef
+  id          : STRING        ; treaty / rights identifier
+  kind        : STRING        ; "INDIGENOUS_WATER" | "BIOTIC_TREATY" | "LEXETHOS"
+END
+
+ATOM FunnelHook
+  name        : STRING        ; logical name of hook
+  required    : BOOL          ; must exist if TRUE
+END
+
+; ------------------------------------------------------------------
+; 1. Module classes for MAR + canals
+; ------------------------------------------------------------------
+
+ATOM MarModuleClass
+  moduleref   : ModuleRef
+END
+
+ATOM CanalModuleClass
+  moduleref   : ModuleRef
+END
+
+; ------------------------------------------------------------------
+; 2. Ecosafety grammar requirements (no corridor, no build)
+; ------------------------------------------------------------------
+
+RULE ecosafety_corridors_required_for_mar
+  INPUT
+    m : MarModuleClass
+  ASSERT
+    ; Every MAR module must declare ecosafety types and at least one node corridor.
+    HAS_IMPORT(m.moduleref.id, "ALE-ERM-ECOSAFETY-TYPES-001.rs") AND
+    HAS_IMPORT(m.moduleref.id, "ALE-ERM-ECOSAFETY-CONTRACTS-001.rs") AND
+    HAS_SYMBOL(m.moduleref.id, "CyboquaticNodeEcosafety") AND
+    HAS_SYMBOL(m.moduleref.id, "requirecorridors") AND
+    HAS_SYMBOL(m.moduleref.id, "evalcorridor") AND
+    HAS_SYMBOL(m.moduleref.id, "decidenodeaction")
+  ON_FAIL
+    ERROR "MAR module missing ecosafety imports or core ecosafety symbols."
+END
+
+RULE ecosafety_corridors_required_for_canals
+  INPUT
+    c : CanalModuleClass
+  ASSERT
+    HAS_IMPORT(c.moduleref.id, "ALE-ERM-ECOSAFETY-TYPES-001.rs") AND
+    HAS_SYMBOL(c.moduleref.id, "CyboquaticNodeEcosafety") AND
+    HAS_SYMBOL(c.moduleref.id, "evalcorridor") AND
+    HAS_SYMBOL(c.moduleref.id, "decidenodeaction")
+  ON_FAIL
+    ERROR "Canal module missing ecosafety ecosafety types or evaluation hooks."
+END
+
+; ------------------------------------------------------------------
+; 3. RiskVector construction hooks (rx, Vt)
+; ------------------------------------------------------------------
+
+RULE riskvector_present_for_mar_flows
+  INPUT
+    m : MarModuleClass
+  ASSERT
+    ; Any MAR allocation / schedule function must be able to construct a RiskVector.
+    HAS_SYMBOL(m.moduleref.id, "RiskVector") AND
+    HAS_CALL(m.moduleref.id, "RiskVector", "PFAS") AND
+    HAS_CALL(m.moduleref.id, "RiskVector", "Nutrient") AND
+    HAS_CALL(m.moduleref.id, "RiskVector", "Temp")
+  ON_FAIL
+    ERROR "MAR module does not expose PFAS/Nutrient/Temp RiskVector construction."
+END
+
+RULE riskvector_present_for_canal_segments
+  INPUT
+    c : CanalModuleClass
+  ASSERT
+    HAS_SYMBOL(c.moduleref.id, "RiskVector") AND
+    HAS_CALL(c.moduleref.id, "RiskVector", "HydraulicHead") AND
+    HAS_CALL(c.moduleref.id, "RiskVector", "Stage") AND
+    HAS_CALL(c.moduleref.id, "RiskVector", "Temp")
+  ON_FAIL
+    ERROR "Canal module does not expose hydraulic / thermal RiskVector construction."
+END
+
+; ------------------------------------------------------------------
+; 4. Corridor evaluation funnel (require → eval → decide)
+; ------------------------------------------------------------------
+
+RULE mar_actuation_must_call_ecosafety_funnel
+  INPUT
+    m : MarModuleClass
+  ASSERT
+    ; For any function that changes MAR vault state, we require the funnel sequence.
+    HAS_CALL_SEQUENCE(
+      m.moduleref.id,
+      "requirecorridors",
+      "evalcorridor",
+      "decidenodeaction"
+    )
+  ON_FAIL
+    ERROR "MAR module emits actuation without ecosafety funnel (require→eval→decide)."
+END
+
+RULE canal_actuation_must_call_ecosafety_funnel
+  INPUT
+    c : CanalModuleClass
+  ASSERT
+    HAS_CALL_SEQUENCE(
+      c.moduleref.id,
+      "evalcorridor",
+      "decidenodeaction"
+    )
+  ON_FAIL
+    ERROR "Canal module emits pump/gate commands without ecosafety evaluation funnel."
+END
+
+RULE hard_violation_must_stop_node
+  INPUT
+    m : MarModuleClass
+  ASSERT
+    ; At least one branch must map HardViolation → NodeAction::Stop.
+    HAS_PATTERN(m.moduleref.id, "CorridorStatusHardViolation", "NodeActionStop")
+  ON_FAIL
+    ERROR "MAR module does not enforce HardViolation ⇒ NodeAction::Stop."
+END
+
+; ------------------------------------------------------------------
+; 5. SMART-chain binding and PQ mode for water/biotic
+; ------------------------------------------------------------------
+
+RULE mar_modules_have_smart_chain_binding
+  INPUT
+    m : MarModuleClass
+  OUTPUT
+    chain : ChainRef
+  ASSERT
+    RESOLVE_SMART_CHAIN(m.moduleref.id, chain.id, chain.pq_mode) AND
+    chain.id == "SMART01AWPTHERMALTHERMAPHORA"
+  ON_FAIL
+    ERROR "MAR module missing SMART01AWPTHERMALTHERMAPHORA binding."
+END
+
+RULE canal_modules_have_smart_chain_binding
+  INPUT
+    c : CanalModuleClass
+  OUTPUT
+    chain : ChainRef
+  ASSERT
+    RESOLVE_SMART_CHAIN(c.moduleref.id, chain.id, chain.pq_mode) AND
+    chain.id == "SMART01AWPTHERMALTHERMAPHORA"
+  ON_FAIL
+    ERROR "Canal module missing SMART01AWPTHERMALTHERMAPHORA binding."
+END
+
+RULE pqstrict_required_for_water_domain
+  INPUT
+    chain : ChainRef
+  WHEN
+    chain.id == "SMART01AWPTHERMALTHERMAPHORA"
+  ASSERT
+    chain.pq_mode == "PQSTRICT"
+  ON_FAIL
+    ERROR "SMART01AWPTHERMALTHERMAPHORA must run in PQSTRICT for water domain."
+END
+
+; ------------------------------------------------------------------
+; 6. Treaty / FPIC / LexEthos gates for MAR + canals
+; ------------------------------------------------------------------
+
+RULE mar_allocation_requires_indigenous_treaty_ref
+  INPUT
+    m      : MarModuleClass
+    chain  : ChainRef
+    treaty : TreatyRef
+  WHEN
+    chain.id == "SMART01AWPTHERMALTHERMAPHORA" AND
+    m.moduleref.layer == "GOVERNANCE"
+  ASSERT
+    HAS_TREATY(chain.id, treaty.id) AND
+    treaty.kind == "INDIGENOUS_WATER"
+  ON_FAIL
+    ERROR "MAR governance module lacks Indigenous water treaty reference."
+END
+
+RULE canal_modules_require_biotic_treaty_when_riparian
+  INPUT
+    c      : CanalModuleClass
+    treaty : TreatyRef
+  WHEN
+    HAS_TAG(c.moduleref.id, "RIPARIAN_SEGMENT")   ; set by metadata/CI
+  ASSERT
+    HAS_TREATY_FOR_MODULE(c.moduleref.id, treaty.id) AND
+    treaty.kind == "BIOTIC_TREATY"
+  ON_FAIL
+    ERROR "Riparian canal module missing BioticTreaty constraints."
+END
+
+RULE fpic_flag_must_route_through_microtreaty_gate
+  INPUT
+    m : MarModuleClass
+  ASSERT
+    ; ALN plan objects must expose fpic_required flag and microtreaty gate call.
+    HAS_FIELD(m.moduleref.id, "fpic_required") AND
+    HAS_CALL(m.moduleref.id, "neighborhoodmicrotreatygate")
+  ON_FAIL
+    ERROR "MAR governance plan missing FPIC flag or microtreaty gate binding."
+END
+
+; ------------------------------------------------------------------
+; 7. Three-tier pattern: state / service / governance
+; ------------------------------------------------------------------
+
+RULE mar_three_tier_pattern
+  INPUT
+    m_state      : MarModuleClass
+    m_service    : MarModuleClass
+    m_governance : MarModuleClass
+  WHEN
+    m_state.moduleref.layer      == "STATE" AND
+    m_service.moduleref.layer    == "SERVICE" AND
+    m_governance.moduleref.layer == "GOVERNANCE" AND
+    MATCH_FAMILY(m_state.moduleref.id, m_service.moduleref.id, m_governance.moduleref.id)
+  ASSERT
+    HAS_STRUCT(m_state.moduleref.id,   "NeighborhoodWaterSystem") OR
+    HAS_STRUCT(m_state.moduleref.id,   "CanalSegmentState")
+  AND
+    HAS_STRUCT(m_service.moduleref.id, "NeighborhoodWaterPlan") OR
+    HAS_STRUCT(m_service.moduleref.id, "CanalSegmentSchedule")
+  AND
+    HAS_STRUCT(m_governance.moduleref.id, "GovernanceResult")
+  ON_FAIL
+    ERROR "MAR/canal function family does not follow canonical three-tier pattern."
+END
+
+; ------------------------------------------------------------------
+; 8. CI integration hint (for ecosafety-grammar-preflight.yml)
+; ------------------------------------------------------------------
+
+ATOM CiTargetPath
+  path : STRING
+END
+
+RULE ci_must_scan_mar_and_canal_paths
+  INPUT
+    p : CiTargetPath
+  ASSERT
+    p.path == "aletheionrmwater" OR
+    p.path == "aletheioninfracanals"
+  ON_FAIL
+    WARN "CI ecosafety grammar is not scanning all MAR + canal paths."
+END
+
+; ------------------------------------------------------------------
+; END OF FILE
+; ------------------------------------------------------------------
