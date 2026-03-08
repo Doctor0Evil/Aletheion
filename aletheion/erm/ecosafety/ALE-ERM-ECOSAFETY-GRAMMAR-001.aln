@@ -1,266 +1,380 @@
-! Aletheion Ecosafety Grammar Spine v1
-! File: ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
-! Path: aletheion/erm/ecosafety/ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
-!
-! Role
-! - Declare normalized ecosafety risk coordinates (rx) and Lyapunov residual templates (Vt).
-! - Define corridor atoms for water, air, wetland, biochar, soft-robot, and MAR systems.
-! - Attach ecosafety policies "no corridor, no build" and "violated corridor → derate/stop".
-! - Provide a single ALN source for Rust types in ALE-ERM-ECOSAFETY-TYPES-001.rs and
-!   contracts in ALE-ERM-ECOSAFETY-CONTRACTS-001.rs to consume.
-!
-! Scope
-! - Non-fictional 2026 ecosafety research lines for Phoenix canals, MAR vaults, wetlands,
-!   biochar/airglo stacks, and cyboquatic nodes.
-! - Downtown / Central Phoenix is treated as REGION_DOWNTOWN_CORE.
+# ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+# Aletheion ERM Ecosafety Grammar Spine
+# Location: aletheion/erm/ecosafety/ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+# Purpose: Canonical ALN grammar for ecosafety risk coordinates rx, Lyapunov residual V_t,
+#          and corridor policies enforcing "no corridor, no build" and
+#          "violated corridor → derate/stop" across all ecosafety-governed modules,
+#          with explicit specialization for biodegradable cyboquatic nodes in DowntownCentral Phoenix.
 
-schema EcosafetyGrammarV1
+namespace ALE.ERM.ECOSAFETY.GRAMMAR.001
 
-  region-id ::= "REGION_DOWNTOWN_CORE" | string
+############################################################
+# 1. Core scalar types
+############################################################
 
-  domain-tag ::= "water" | "mar" | "wetland" | "air" | "biochar" | "softrobot"
+atom RiskName
+  doc "Identifier for a normalized risk coordinate rx in [0,1], e.g. PFAS, Temp, r_degrade, r_tox_acute."
+  field id : string
 
-  pq-mode ::= "CLASSICAL_ONLY" | "HYBRID" | "PQ_STRICT"
+atom DomainName
+  doc "Functional domain governed by ecosafety corridors."
+  enum
+    WATER
+    AIR
+    BIOCHAR
+    SOFT_ROBOT
+    MAR
+    WETLAND
+    MATERIAL
+    NEUROBIOME
+    THERMAL
+    DOWNTOWN_DRAINAGE   # corridor-wide eco/thermal operations
+    DOWNTOWN_CYBO       # DowntownCentral cyboquatic nodes
 
-  ! ---------------------------------------------------------------------------
-  ! 1. Risk coordinates (rx) – normalized 0..1 bands
-  ! ---------------------------------------------------------------------------
+atom TestProtocolId
+  doc "Reference to a standardized test method used to derive risk coordinates, e.g. ISO 14851, OECD 201, LCMS assay ID."
+  field id : string
 
-  risk-coord-id ::=
-      "PFAS"
-    | "PHARMACEUTICAL"
-    | "NUTRIENT"
-    | "TEMP"
-    | "DO"
-    | "SHEAR"
-    | "CEC"
-    | "R_DEGRADE"
-    | "R_TOX"
-    | "R_MICRO"
+atom MaterialId
+  doc "Identifier for a material or material stack; for biodegradable nodes this refers to a specific substrate or composite."
+  field id : string
 
-  RiskCoordAtom ::=
-    risk-coord-id
-    minsafe: float      ! lower bound of safe normalized band
-    maxsafe: float      ! upper bound of safe normalized band
+atom NodeId
+  doc "Identifier for a cyboquatic node or ecosafety-governed asset."
+  field id : string
 
-  ! Examples for Downtown / Central MAR + ecotechnology lines.
-  ! Values are placeholders to be calibrated by 2026 corridor research.
+atom CorridorId
+  doc "Identifier for a corridor definition, unique within a domain."
+  field id : string
 
-  MAR_PFAS_V1 :: RiskCoordAtom =
-    "PFAS"
-    minsafe: 0.0        ! 0 = below detection / target baseline
-    maxsafe: 0.35       ! corridor band before concern
+atom SystemId
+  doc "Identifier for a dynamical system for which a Lyapunov residual V_t is computed."
+  field id : string
 
-  MAR_PHARMA_V1 :: RiskCoordAtom =
-    "PHARMACEUTICAL"
-    minsafe: 0.0
-    maxsafe: 0.40
+atom ShardId
+  doc "Identifier for a simulator / experiment shard, e.g. decomposition.sim, qpudata.shard."
+  field id : string
 
-  MAR_NUTRIENT_V1 :: RiskCoordAtom =
-    "NUTRIENT"
-    minsafe: 0.10       ! some nutrient for ecology
-    maxsafe: 0.70
+atom GeographyId
+  doc "Geographic binding for ecosafety context, e.g. REGION_DOWNTOWN_CORE."
+  field id : string
 
-  MAR_TEMP_V1 :: RiskCoordAtom =
-    "TEMP"
-    minsafe: 0.10       ! avoids too cold shock
-    maxsafe: 0.70       ! avoids thermal stress
+############################################################
+# 2. Risk coordinate and vector definitions
+############################################################
 
-  WETLAND_DO_V1 :: RiskCoordAtom =
-    "DO"
-    minsafe: 0.40       ! minimum oxygen for ecology
-    maxsafe: 1.00
+atom RiskCoordAtom
+  doc "Normalized risk coordinate rx ∈ [0,1] with safe band and test provenance."
+  field name        : RiskName
+  field value_min   : float    # inclusive lower bound of allowed rx
+  field value_max   : float    # inclusive upper bound of allowed rx
+  field proto_ref   : TestProtocolId
+  field shard_refs  : list ShardId
 
-  WETLAND_SHEAR_V1 :: RiskCoordAtom =
-    "SHEAR"
-    minsafe: 0.0
-    maxsafe: 0.65
+atom RiskVectorAtom
+  doc "Named bundle of risk coordinates for a corridor or system."
+  field id          : string
+  field domain      : DomainName
+  field coords      : list RiskCoordAtom
 
-  WETLAND_CEC_V1 :: RiskCoordAtom =
-    "CEC"
-    minsafe: 0.20
-    maxsafe: 0.90
+############################################################
+# 3. Lyapunov residual V_t specification
+############################################################
 
-  SOFTBOT_R_DEGRADE_V1 :: RiskCoordAtom =
-    "R_DEGRADE"
-    minsafe: 0.40       ! minimum degradation fraction over design horizon
-    maxsafe: 0.95
+atom LyapunovResidualSpec
+  doc "Specification of Lyapunov residual V_t for a governed system."
+  field system      : SystemId
+  field vt_min      : float      # minimum acceptable V_t
+  field vt_max      : float      # maximum acceptable V_t
+  field monotone    : bool       # if true, V_t must be non-increasing
+  field tolerance   : float      # allowed numerical slack on monotonicity
 
-  SOFTBOT_R_TOX_V1 :: RiskCoordAtom =
-    "R_TOX"
-    minsafe: 0.0
-    maxsafe: 0.30
+############################################################
+# 4. Corridor and node ecosafety declarations
+############################################################
 
-  SOFTBOT_R_MICRO_V1 :: RiskCoordAtom =
-    "R_MICRO"
-    minsafe: 0.0
-    maxsafe: 0.25
+atom CorridorAtom
+  doc "Ecosafety corridor for a domain, defined as a RiskVector and optional Lyapunov spec."
+  field corridor_id : CorridorId
+  field domain      : DomainName
+  field geography   : GeographyId
+  field vector      : RiskVectorAtom
+  field lyapunov    : optional LyapunovResidualSpec
 
-  ! ---------------------------------------------------------------------------
-  ! 2. Lyapunov residual templates (Vt)
-  ! ---------------------------------------------------------------------------
+atom NodeEcosafetyAtom
+  doc "Ecosafety declaration for a node; must reference at least one CorridorAtom."
+  field node_id     : NodeId
+  field domain      : DomainName
+  field geography   : GeographyId
+  field corridors   : list CorridorId
 
-  LyapunovTemplate ::=
-    template-id: string
-    system-id: string      ! MAR vault id, wetland cell id, softbot class
-    domain: domain-tag
-    vt-target: float       ! desired V(t) ≤ vt-target
-    monotone-required: bool
+############################################################
+# 5. Policy atoms for decision outcomes
+############################################################
 
-  ! MAR vault stability – V(t) should monotonically decrease to <= 0.0
-  MAR_DESERT_VT_V1 :: LyapunovTemplate =
-    template-id: "MAR_DESERT_VT_V1"
-    system-id: "PHOENIX_MAR_GENERIC"
-    domain: "mar"
-    vt-target: 0.0
-    monotone-required: true
+atom EcosafetyPolicyAtom
+  doc "Policy for handling ecosafety corridor evaluation outcomes."
+  field domain        : DomainName
+  field on_satisfied  : string   # e.g. 'allow'
+  field on_soft_violation : string   # e.g. 'derate'
+  field on_hard_violation : string   # e.g. 'stop'
 
-  ! Wetland ecotechnology stability – V(t) bounded and biased to 0
-  WETLAND_ECOCOMP_VT_V1 :: LyapunovTemplate =
-    template-id: "WETLAND_ECOCOMP_VT_V1"
-    system-id: "PHOENIX_WETLAND_GENERIC"
-    domain: "wetland"
-    vt-target: 0.1
-    monotone-required: false
+atom EvaluationStatusAtom
+  doc "Summarized evaluation status for a corridor at a decision tick."
+  enum
+    SATISFIED
+    SOFT_VIOLATION
+    HARD_VIOLATION
 
-  ! Soft-robot degradation stability – V(t) decreasing as material decomposes safely
-  SOFTBOT_DEGRADE_VT_V1 :: LyapunovTemplate =
-    template-id: "SOFTBOT_DEGRADE_VT_V1"
-    system-id: "PHOENIX_SOFTBOT_GENERIC"
-    domain: "softrobot"
-    vt-target: 0.0
-    monotone-required: true
+atom NodeActionAtom
+  doc "Resulting high-level action decision for a node under ecosafety evaluation."
+  enum
+    ALLOW
+    DERATE
+    STOP
 
-  ! ---------------------------------------------------------------------------
-  ! 3. Corridor atoms – water, MAR, wetland, air/biochar, softrobot
-  ! ---------------------------------------------------------------------------
+############################################################
+# 6. Biodegradable-material-specific rx library
+############################################################
 
-  CorridorAtom ::=
-    corridor-id: string
-    region: region-id
-    domain: domain-tag
-    risk-coords: [RiskCoordAtom+]
-    lyapunov: LyapunovTemplate?
+# 6.1 Canonical risk names for biodegradable cyboquatic nodes
 
-  ! MAR corridor for downtown recharge vaults
-  MARDESERT_PFAS_V1 :: CorridorAtom =
-    corridor-id: "MARDESERT_PFAS_V1"
-    region: "REGION_DOWNTOWN_CORE"
-    domain: "mar"
-    risk-coords: [MAR_PFAS_V1, MAR_PHARMA_V1, MAR_NUTRIENT_V1, MAR_TEMP_V1]
-    lyapunov: MAR_DESERT_VT_V1
+const RISK_NAME_R_DEGRADE         : RiskName = { id = "r_degrade" }
+const RISK_NAME_R_RESIDUAL_MASS   : RiskName = { id = "r_residual_mass" }
+const RISK_NAME_R_MICROPLASTICS   : RiskName = { id = "r_microplastics" }
+const RISK_NAME_R_TOX_ACUTE       : RiskName = { id = "r_tox_acute" }
+const RISK_NAME_R_TOX_CHRONIC     : RiskName = { id = "r_tox_chronic" }
 
-  ! Wetland / biofilm ecotechnology corridor
-  WETLAND_ECO_V1 :: CorridorAtom =
-    corridor-id: "WETLAND_ECO_V1"
-    region: "REGION_DOWNTOWN_CORE"
-    domain: "wetland"
-    risk-coords: [WETLAND_DO_V1, WETLAND_SHEAR_V1, WETLAND_CEC_V1]
-    lyapunov: WETLAND_ECOCOMP_VT_V1
+# 6.2 Canonical protocol identifiers (non-exhaustive; extend as new assays are adopted)
 
-  ! Soft-robot ecosafety corridor
-  SOFTBOT_ECOSAFETY_V1 :: CorridorAtom =
-    corridor-id: "SOFTBOT_ECOSAFETY_V1"
-    region: "REGION_DOWNTOWN_CORE"
-    domain: "softrobot"
-    risk-coords: [SOFTBOT_R_DEGRADE_V1, SOFTBOT_R_TOX_V1, SOFTBOT_R_MICRO_V1]
-    lyapunov: SOFTBOT_DEGRADE_VT_V1
+const PROTO_ISO_14851          : TestProtocolId = { id = "ISO_14851_AEROBIC_BIODEGRADATION" }
+const PROTO_OECD_201           : TestProtocolId = { id = "OECD_201_ALGAE_INHIBITION" }
+const PROTO_OECD_202           : TestProtocolId = { id = "OECD_202_DAPHNIA_ACUTE" }
+const PROTO_LCMS_LEACHATE_STD1 : TestProtocolId = { id = "LCMS_LEACHATE_STD1" }
 
-  ! Biochar / airglo corridor placeholder (to be refined)
-  BIOCHAR_AIR_ECO_V1 :: CorridorAtom =
-    corridor-id: "BIOCHAR_AIR_ECO_V1"
-    region: "REGION_DOWNTOWN_CORE"
-    domain: "air"
-    risk-coords: [WETLAND_CEC_V1]
-    lyapunov: WETLAND_ECOCOMP_VT_V1
+# 6.3 Template corridor for biodegradable soft-robotic materials at lab-validated band
 
-  ! ---------------------------------------------------------------------------
-  ! 4. Node-level ecosafety references
-  ! ---------------------------------------------------------------------------
+# NOTE: These bands are normalized rx ∈ [0,1]; calibration is handled in Rust by
+# mapping ISO/OECD/LCMS outputs into this scale. Here we only encode the allowed
+# interior for deployment.
 
-  NodeEcosafetyRef ::=
-    node-id: string
-    domain: domain-tag
-    pq: pq-mode
-    corridors: [CorridorAtom+]
+template BiodegradableMaterialRiskVector
+  arg material : MaterialId
+  returns RiskVectorAtom
+  body {
+    id     = "BIO_" ++ material.id
+    domain = SOFT_ROBOT
+    coords = [
+      { name = RISK_NAME_R_DEGRADE
+      , value_min = 0.40    # minimum acceptable normalized degradation fraction over study horizon
+      , value_max = 0.95
+      , proto_ref = PROTO_ISO_14851
+      , shard_refs = []     # populated with decomposition.sim shard IDs in deployment
+      },
+      { name = RISK_NAME_R_RESIDUAL_MASS
+      , value_min = 0.00
+      , value_max = 0.20    # at most 20% residual mass at horizon
+      , proto_ref = PROTO_ISO_14851
+      , shard_refs = []
+      },
+      { name = RISK_NAME_R_MICROPLASTICS
+      , value_min = 0.00
+      , value_max = 0.10    # microplastics risk kept low
+      , proto_ref = PROTO_LCMS_LEACHATE_STD1
+      , shard_refs = []
+      },
+      { name = RISK_NAME_R_TOX_ACUTE
+      , value_min = 0.00
+      , value_max = 0.10    # acute toxicity band (normalized from OECD 201/202)
+      , proto_ref = PROTO_OECD_202
+      , shard_refs = []
+      },
+      { name = RISK_NAME_R_TOX_CHRONIC
+      , value_min = 0.00
+      , value_max = 0.15    # chronic toxicity band
+      , proto_ref = PROTO_OECD_201
+      , shard_refs = []
+      }
+    ]
+  }
 
-  ! Example MAR node classes for Downtown / Central
-  NODE_MAR_VAULT_CAVE_CREEK_V1 :: NodeEcosafetyRef =
-    node-id: "MAR_VAULT_CAVE_CREEK_V1"
-    domain: "mar"
-    pq: "PQ_STRICT"
-    corridors: [MARDESERT_PFAS_V1]
+template BiodegradableMaterialCorridor
+  arg material   : MaterialId
+  arg geography  : GeographyId
+  returns CorridorAtom
+  body {
+    corridor_id = { id = "CORRIDOR_BIO_" ++ material.id }
+    domain      = SOFT_ROBOT
+    geography   = geography
+    vector      = BiodegradableMaterialRiskVector(material)
+    lyapunov    = some {
+      system   = { id = "SYSTEM_BIO_NODE_" ++ material.id }
+      vt_min   = 0.0
+      vt_max   = 1.0
+      monotone = true        # require non-increasing V_t for biodegradable nodes
+      tolerance = 1e-3
+    }
+  }
 
-  NODE_MAR_VAULT_DOWNTOWN_V1 :: NodeEcosafetyRef =
-    node-id: "MAR_VAULT_DOWNTOWN_V1"
-    domain: "mar"
-    pq: "PQ_STRICT"
-    corridors: [MARDESERT_PFAS_V1]
+############################################################
+# 7. DowntownCentral corridor examples
+############################################################
 
-  ! Wetland ecotechnology cells
-  NODE_WETLAND_CELL_DC01_V1 :: NodeEcosafetyRef =
-    node-id: "WETLAND_CELL_DC01_V1"
-    domain: "wetland"
-    pq: "PQ_STRICT"
-    corridors: [WETLAND_ECO_V1]
+# DowntownCentral Phoenix geography identifiers (must match ERM/region files)
+const GEO_DOWNTOWN_CORE       : GeographyId = { id = "REGION_DOWNTOWN_CORE" }
+const GEO_DOWNTOWN_CANAL_EDGE : GeographyId = { id = "REGION_DOWNTOWN_CANAL_EDGE" }
 
-  ! Soft-robot node class
-  NODE_SOFTBOT_GEN1_V1 :: NodeEcosafetyRef =
-    node-id: "SOFTBOT_GEN1_V1"
-    domain: "softrobot"
-    pq: "PQ_STRICT"
-    corridors: [SOFTBOT_ECOSAFETY_V1]
+# Example biodegradable material IDs used in DowntownCentral prototypes
+const MAT_FLOWVAC_SUBSTRATE_V1 : MaterialId = { id = "FLOWVAC_SUBSTRATE_V1" }
+const MAT_SOFTBOT_SHELL_V1     : MaterialId = { id = "SOFTBOT_SHELL_V1" }
 
-  ! Biochar / airglo stack
-  NODE_AIRGLO_STACK_DC01_V1 :: NodeEcosafetyRef =
-    node-id: "AIRGLO_STACK_DC01_V1"
-    domain: "air"
-    pq: "HYBRID"
-    corridors: [BIOCHAR_AIR_ECO_V1]
+const CORRIDOR_BIO_FLOWVAC_DTC : CorridorAtom =
+  BiodegradableMaterialCorridor(MAT_FLOWVAC_SUBSTRATE_V1, GEO_DOWNTOWN_CANAL_EDGE)
 
-  ! ---------------------------------------------------------------------------
-  ! 5. Ecosafety policies – "no corridor, no build" & "derate/stop"
-  ! ---------------------------------------------------------------------------
+const CORRIDOR_BIO_SHELL_DTC : CorridorAtom =
+  BiodegradableMaterialCorridor(MAT_SOFTBOT_SHELL_V1, GEO_DOWNTOWN_CORE)
 
-  EcosafetyPolicy ::=
-    policy-id: string
-    applies-domain: domain-tag
-    on-soft-violation: "DERATE" | "STOP"
-    on-hard-violation: "STOP"
-    min-corridors-per-node: int
-    enforce-pq-strict: bool
+# Example node ecosafety bindings for DowntownCentral cyboquatic biodegradable nodes
 
-  ! Global policy for MAR, wetland, softrobot, air/biochar in Downtown Central
-  ECOSAFETY_POLICY_DOWNTOWN_V1 :: EcosafetyPolicy =
-    policy-id: "ECOSAFETY_POLICY_DOWNTOWN_V1"
-    applies-domain: "mar"
-    on-soft-violation: "DERATE"
-    on-hard-violation: "STOP"
-    min-corridors-per-node: 1
-    enforce-pq-strict: true
+const NODE_DTC_CYBO_SOFTBOT_01 : NodeEcosafetyAtom = {
+  node_id   = { id = "DTC_CYBO_SOFTBOT_01" }
+  domain    = SOFT_ROBOT
+  geography = GEO_DOWNTOWN_CANAL_EDGE
+  corridors = [ CORRIDOR_BIO_FLOWVAC_DTC.corridor_id ]
+}
 
-  ECOSAFETY_POLICY_WETLAND_V1 :: EcosafetyPolicy =
-    policy-id: "ECOSAFETY_POLICY_WETLAND_V1"
-    applies-domain: "wetland"
-    on-soft-violation: "DERATE"
-    on-hard-violation: "STOP"
-    min-corridors-per-node: 1
-    enforce-pq-strict: true
+const NODE_DTC_CYBO_SOFTBOT_02 : NodeEcosafetyAtom = {
+  node_id   = { id = "DTC_CYBO_SOFTBOT_02" }
+  domain    = SOFT_ROBOT
+  geography = GEO_DOWNTOWN_CORE
+  corridors = [ CORRIDOR_BIO_SHELL_DTC.corridor_id ]
+}
 
-  ECOSAFETY_POLICY_SOFTBOT_V1 :: EcosafetyPolicy =
-    policy-id: "ECOSAFETY_POLICY_SOFTBOT_V1"
-    applies-domain: "softrobot"
-    on-soft-violation: "DERATE"
-    on-hard-violation: "STOP"
-    min-corridors-per-node: 1
-    enforce-pq-strict: true
+############################################################
+# 8. Core ecosafety rules
+############################################################
 
-  ECOSAFETY_POLICY_AIR_BIOCHAR_V1 :: EcosafetyPolicy =
-    policy-id: "ECOSAFETY_POLICY_AIR_BIOCHAR_V1"
-    applies-domain: "air"
-    on-soft-violation: "DERATE"
-    on-hard-violation: "STOP"
-    min-corridors-per-node: 1
-    enforce-pq-strict: false
+# 8.1 No corridor, no build
 
-end schema
+rule ecosafety_corridor_required
+  doc "Any ecosafety-governed module in specified domains must declare at least one CorridorAtom."
+  when
+    module.domain in [WATER, AIR, BIOCHAR, SOFT_ROBOT, MAR, WETLAND, MATERIAL]
+  then
+    require exists c : CorridorAtom where c.domain == module.domain
+      else error "ECOSAFETY:NO_CORRIDOR_NO_BUILD: domain=" ++ to_string(module.domain)
+
+# 8.2 Node must reference at least one corridor
+
+rule ecosafety_node_must_have_corridor
+  doc "Every NodeEcosafetyAtom must reference at least one corridor."
+  when
+    n : NodeEcosafetyAtom
+  then
+    require size(n.corridors) > 0
+      else error "ECOSAFETY:NODE_WITHOUT_CORRIDOR: node=" ++ n.node_id.id
+
+# 8.3 Policy: map evaluation status → node action
+
+const POLICY_DEFAULT : EcosafetyPolicyAtom = {
+  domain            = WATER
+  on_satisfied      = "allow"
+  on_soft_violation = "derate"
+  on_hard_violation = "stop"
+}
+
+const POLICY_SOFT_ROBOT : EcosafetyPolicyAtom = {
+  domain            = SOFT_ROBOT
+  on_satisfied      = "allow"
+  on_soft_violation = "derate"
+  on_hard_violation = "stop"
+}
+
+template DecideNodeAction
+  arg policy : EcosafetyPolicyAtom
+  arg status : EvaluationStatusAtom
+  returns NodeActionAtom
+  body {
+    match status with
+      SATISFIED      -> ALLOW
+      SOFT_VIOLATION -> DERATE
+      HARD_VIOLATION -> STOP
+  }
+
+# 8.4 Lyapunov residual invariants
+
+rule ecosafety_lyapunov_monotone
+  doc "If a LyapunovResidualSpec is marked monotone, enforce non-increasing V_t within tolerance."
+  when
+    spec : LyapunovResidualSpec
+    spec.monotone == true
+    history : list float = get_Vt_history(spec.system)   # provided by Rust side
+  then
+    require non_increasing(history, spec.tolerance)
+      else error "ECOSAFETY:VT_MONOTONE_VIOLATION: system=" ++ spec.system.id
+
+############################################################
+# 9. SMART-chain / CI integration hooks
+############################################################
+
+# 9.1 SMART-chain: ecosafety check must pass before actuation in PQSTRICT chains
+
+atom SmartChainDomain
+  enum
+    SMART01_AWP_THERMAL_THERMAPHORA
+    SMART03_SYNTHEXIS_LNP_ENV
+    SMART04_NEUROBIOME_MESH
+    SMART05_SOMAPLEX_ROUTING
+    SMART06_CYBOQUATIC_MAR_WETLAND
+
+atom SmartChainMode
+  enum
+    CLASSICAL
+    HYBRID
+    PQSTRICT
+
+atom SmartChainContext
+  field chain_domain : SmartChainDomain
+  field mode         : SmartChainMode
+
+rule ecosafety_required_for_pqstrict
+  doc "In PQSTRICT chains, ecosafety corridors and Lyapunov invariants must be validated before actuation."
+  when
+    ctx : SmartChainContext
+    ctx.mode == PQSTRICT
+  then
+    require all_nodes_have_corridors()
+      else error "ECOSAFETY:PQSTRICT_NODE_MISSING_CORRIDOR"
+    require all_lyapunov_specs_satisfied()
+      else error "ECOSAFETY:PQSTRICT_LYAPUNOV_VIOLATION"
+
+# 9.2 CI preflight expectation (enforced by ecosafety-grammar-preflight.yml)
+
+atom PreflightCheckRequest
+  field checked_paths : list string
+
+atom PreflightCheckResult
+  field ok         : bool
+  field violations : list string
+
+rule ecosafety_preflight
+  doc "Preflight: fail if any node in checked paths lacks corridors or if any example scenario produces a HARD_VIOLATION without STOP."
+  when
+    req : PreflightCheckRequest
+  then
+    let result = run_ecosafety_examples(req.checked_paths)
+    require result.ok == true
+      else error "ECOSAFETY:PREFLIGHT_FAILED: " ++ join(result.violations, "; ")
+
+############################################################
+# 10. Helper predicates (semantic, implemented in Rust)
+############################################################
+
+# The following names are reserved for Rust implementations:
+# - get_Vt_history(system : SystemId) -> list float
+# - non_increasing(values : list float, tol : float) -> bool
+# - all_nodes_have_corridors() -> bool
+# - all_lyapunov_specs_satisfied() -> bool
+# - run_ecosafety_examples(paths : list string) -> PreflightCheckResult
+
+end namespace
