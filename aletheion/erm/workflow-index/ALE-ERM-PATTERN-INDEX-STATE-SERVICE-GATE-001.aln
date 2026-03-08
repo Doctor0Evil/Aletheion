@@ -1,0 +1,902 @@
+# Aletheion Pattern Index (State–Service–Gate + Corridor + Rights)
+# File: aletheion/erm/workflow-index/ALE-ERM-PATTERN-INDEX-STATE-SERVICE-GATE-001.aln
+# Charter: Aletheion Coding Charter v1 — no corridor, no build; no raw string escape; SevenCapitalState-first.
+
+erm.pattern_index.version = "1.0.0"
+erm.pattern_index.id      = "ALE-ERM-PATTERN-INDEX-STATE-SERVICE-GATE-001"
+erm.pattern_index.scope   = ["Water", "Waste", "Neurobiome", "Somaplex", "Synthexis", "LexEthos"]
+erm.pattern_index.scales  = ["Neighborhood", "Corridor"]
+erm.pattern_index.sevencapitals = [
+  "WaterCapital",
+  "ThermalCapital",
+  "WasteCapital",
+  "BioticCapital",
+  "NeurobiomeCapital",
+  "SomaticCapital",
+  "TreatyCapital"
+]
+
+# -------------------------------------------------------------------
+# 0. Core Types and Shared Contracts
+# -------------------------------------------------------------------
+
+type Id.NeighborhoodId = string  # Stable neighborhood key, shared with SMART chains and ERM.
+type Id.CorridorId     = string  # Canonical corridor ID (e.g., "CANAL_METRO_CENTER_PARKWAY").
+type Id.SegmentId      = string  # Local segment within a corridor (e.g., canal reach index).
+type Id.PatternId      = string  # Machine identifier for a State–Service–Gate family.
+type Id.ChainId        = string  # SMART-chain identifier (e.g., "SMART-01-WATER").
+type Id.CorridorDefId  = string  # Ecosafety corridor definition ID (rx, Vt, RecyclingPolicy).
+
+type Ecosafety.RiskCoordinate.rx = float  # normalized 0.0–1.0
+type Ecosafety.Stability.Vt      = float  # Lyapunov residual; semantics defined in ecosafety spine.
+
+record SevenCapitalState {
+  water      : WaterCapitalState,
+  thermal    : ThermalCapitalState,
+  waste      : WasteCapitalState,
+  biotic     : BioticCapitalState,
+  neurobiome : NeurobiomeCapitalState,
+  somatic    : SomaticCapitalState,
+  treaty     : TreatyCapitalState
+}
+
+record CorridorEnvelopeRef {
+  corridor_ids   : list[Id.CorridorDefId],
+  rx_bounds      : map[string, (float, float)],   # metric_name -> (rx_min, rx_max)
+  Vt_max         : map[string, float],           # metric_name -> Vt upper bound
+  recycling_mode : string                        # e.g., "RetryStateRefresh", "FallbackPlan", "NoOpWithAlert"
+}
+
+record ProvenanceRef {
+  state_snapshot_id : string,   # hash or ID of the SevenCapitalState snapshot used.
+  optimizer_run_id  : string,   # ID of optimization run (for Service tier).
+  smart_chain_ids   : list[Id.ChainId]
+}
+
+record GovernanceViolation {
+  code        : string,         # treaty, corridor, somatic, neuro, lexethos, fpip, etc.
+  description : string,         # human-readable reason, kept short.
+  capital     : string,         # which capital is implicated.
+  chain_id    : Id.ChainId?     # optional SMART-chain context.
+}
+
+record GovernanceResult {
+  is_valid      : bool,
+  recycled_plan : string?,          # serialized plan pointer or plan-id; actual plan type is domain-specific.
+  violations    : list[GovernanceViolation]
+}
+
+# All pattern families must respect this Charter contract:
+record PatternCharterContract {
+  require_sevencapital_state_input : bool,
+  require_governance_wrapper       : bool,
+  require_corridor_ids             : bool,
+  require_smart_chains             : bool,
+  forbid_raw_string_escape         : bool,
+  require_ecosafety_rx_Vt          : bool,
+  require_ci_preflight_binding     : bool,
+  require_formal_methods           : bool
+}
+
+# -------------------------------------------------------------------
+# 1. Pattern Family Declarations (by Domain & Scale)
+# -------------------------------------------------------------------
+
+record PatternFamily {
+  pattern_id       : Id.PatternId,
+  domain           : string,        # e.g., "Water", "Waste", "Neurobiome", "Somaplex", "Synthexis", "LexEthos"
+  scale            : string,        # "Neighborhood" | "Corridor"
+  state_function   : string,        # fully-qualified function name
+  service_function : string,
+  gate_function    : string,
+  state_struct     : string,        # canonical state struct name
+  plan_struct      : string,        # canonical plan/schedule struct name
+  sevencapital_slice : list[string],# capitals the family owns/reads strongly
+  required_corridors : list[Id.CorridorDefId],
+  required_smart_chains : list[Id.ChainId],
+  required_lexethos_grammars : list[string],
+  required_microtreaty_gates : list[string],
+  repo_anchor_state   : string,     # file path (Rust/ALN)
+  repo_anchor_service : string,
+  repo_anchor_gate    : string,
+  charter_contract    : PatternCharterContract
+}
+
+erm.pattern_index.families = [
+
+  # ---------------------------------------------------------
+  # 1.1 Water — Neighborhood
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "NEIGHBORHOOD_WATER",
+    domain           = "Water",
+    scale            = "Neighborhood",
+    state_function   = "neighborhoodWaterSystemState",
+    service_function = "neighborhoodCyboquaticNodeSchedule",
+    gate_function    = "neighborhoodMicroTreatyGate_Water",
+    state_struct     = "NeighborhoodWaterSystem",
+    plan_struct      = "NeighborhoodWaterPlan",
+    sevencapital_slice = ["WaterCapital", "ThermalCapital", "WasteCapital", "BioticCapital", "SomaticCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_WATER_PFAS",
+      "CORRIDOR_WATER_NUTRIENTS",
+      "CORRIDOR_WATER_TEMP",
+      "CORRIDOR_WATER_HYDRAULIC_HEAD",
+      "CORRIDOR_TREATY_WATER_FLOWS",
+      "CORRIDOR_BIOTIC_RIPARIAN",
+      "CORRIDOR_SOMATIC_HEAT_BUDGET"
+    ],
+    required_smart_chains = [
+      "SMART-01-WATER-ALLOCATION",
+      "SMART-02-THERMAL-COOLING",
+      "SMART-03-TREATY-WATER",
+      "SMART-04-BIOTIC-WATER",
+      "SMART-05-SOMATIC-HEAT"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-WATER-PRIORITY",
+      "LEXETHOS-HEAT-EQUITY",
+      "LEXETHOS-INDIGENOUS-WATER-RIGHTS"
+    ],
+    required_microtreaty_gates = [
+      "neighborhoodMicroTreatyGate",
+      "neighborhoodBioticTreatyEnvelope"
+    ],
+    repo_anchor_state   = "aletheion/erm/neighborhood/ALE-ERM-NEIGHBORHOOD-STATE-001.rs",
+    repo_anchor_service = "aletheion/erm/neighborhood/ALE-ERM-NEIGHBORHOOD-WATER-PLAN-001.aln",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-GOV-NEIGHBORHOOD-TREATIES-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = true    # Water corridor validators should be Prusti-targeted.
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.2 Water — Corridor (Canal / Segment)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "CORRIDOR_WATER",
+    domain           = "Water",
+    scale            = "Corridor",
+    state_function   = "canalSegmentState",
+    service_function = "canalMachineryAutoPilot",
+    gate_function    = "corridorWaterGate",
+    state_struct     = "CanalSegmentState",
+    plan_struct      = "CanalSegmentSchedule",
+    sevencapital_slice = ["WaterCapital", "ThermalCapital", "BioticCapital", "WasteCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_WATER_PFAS",
+      "CORRIDOR_WATER_NUTRIENTS",
+      "CORRIDOR_WATER_TEMP",
+      "CORRIDOR_WATER_HYDRAULIC_HEAD",
+      "CORRIDOR_BIOTIC_HABITAT",
+      "CORRIDOR_TREATY_DOWNSTREAM_FLOWS",
+      "CORRIDOR_WASTE_SEWER_INLET_TOXICITY"
+    ],
+    required_smart_chains = [
+      "SMART-01-WATER-ALLOCATION",
+      "SMART-02-THERMAL-COOLING",
+      "SMART-03-TREATY-WATER",
+      "SMART-04-BIOTIC-WATER"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-RIPARIAN-ACCESS",
+      "LEXETHOS-BIOTIC-NOCTURNAL-PROTECTION"
+    ],
+    required_microtreaty_gates = [
+      "corridorBioticTreatyGate",
+      "corridorMicroTreatyGate"
+    ],
+    repo_anchor_state   = "aletheion/infra/canals/ALE-INF-CANAL-SEGMENT-STATE-001.rs",
+    repo_anchor_service = "aletheion/infra/canals/ALE-INF-CANAL-SEGMENT-WORKFLOW-001.lua",
+    repo_anchor_gate    = "aletheion/infra/canals/ALE-INF-CANAL-TREATY-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = true
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.3 Waste — Neighborhood
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "NEIGHBORHOOD_WASTE",
+    domain           = "Waste",
+    scale            = "Neighborhood",
+    state_function   = "neighborhoodWasteFlowState",
+    service_function = "neighborhoodSoilCyclePlan",
+    gate_function    = "neighborhoodHazmatGuardrail",
+    state_struct     = "NeighborhoodWasteState",
+    plan_struct      = "OrganicRoutingPlan",
+    sevencapital_slice = ["WasteCapital", "WaterCapital", "BioticCapital", "NeurobiomeCapital", "SomaticCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_WASTE_DIVERSION",
+      "CORRIDOR_WASTE_R_TOX",
+      "CORRIDOR_WASTE_R_MICRO",
+      "CORRIDOR_TREATY_WASTE_TRANSPORT",
+      "CORRIDOR_BIOTIC_SOIL",
+      "CORRIDOR_NEUROBIOME_SAFE_CLEANING"
+    ],
+    required_smart_chains = [
+      "SMART-06-WASTE-DIVERSION",
+      "SMART-07-SOIL-CYCLE",
+      "SMART-03-TREATY-WATER",
+      "SMART-08-NEUROBIOME"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-ZEROWASTE-2050",
+      "LEXETHOS-HAZMAT-NO-GO",
+      "LEXETHOS-SOMATIC-ROUTING"
+    ],
+    required_microtreaty_gates = [
+      "neighborhoodHazmatGuardrail",
+      "neighborhoodMicroTreatyGate_Waste"
+    ],
+    repo_anchor_state   = "aletheion/erm/neighborhood/ALE-ERM-NEIGHBORHOOD-WASTE-SOIL-001.rs",
+    repo_anchor_service = "aletheion/erm/soil/ALE-RM-SOIL-ALLOCATION-001.aln",
+    repo_anchor_gate    = "aletheion/infra/waste/ALE-INF-HAZMAT-TREATY-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false  # formal methods encouraged but not mandatory for all Waste flows.
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.4 Waste — Corridor (Hazmat / Freight Corridors)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "CORRIDOR_WASTE",
+    domain           = "Waste",
+    scale            = "Corridor",
+    state_function   = "hazmatCorridorState",
+    service_function = "hazmatRoutingPlan",
+    gate_function    = "hazmatCorridorGate",
+    state_struct     = "HazmatCorridorState",
+    plan_struct      = "HazmatRoutingPlan",
+    sevencapital_slice = ["WasteCapital", "SomaticCapital", "NeurobiomeCapital", "TreatyCapital", "BioticCapital"],
+    required_corridors = [
+      "CORRIDOR_WASTE_HAZMAT_NO_GO",
+      "CORRIDOR_SOMATIC_NOISE_VIBRATION",
+      "CORRIDOR_NEUROBIOME_AIR_TOXICITY",
+      "CORRIDOR_TREATY_INDIGENOUS_TERRITORY",
+      "CORRIDOR_BIOTIC_SENSITIVE_HABITATS"
+    ],
+    required_smart_chains = [
+      "SMART-06-WASTE-DIVERSION",
+      "SMART-09-MOBILITY-FREIGHT",
+      "SMART-03-TREATY-WATER"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-HAZMAT-NO-GO",
+      "LEXETHOS-QUIET-HOURS",
+      "LEXETHOS-INDIGENOUS-PROTECTION"
+    ],
+    required_microtreaty_gates = [
+      "hazmatCorridorGate",
+      "corridorMicroTreatyGate"
+    ],
+    repo_anchor_state   = "aletheion/infra/waste/ALE-INF-HAZMAT-ROUTING-001.rs",
+    repo_anchor_service = "aletheion/infra/waste/ALE-INF-HAZMAT-ROUTING-001.rs",
+    repo_anchor_gate    = "aletheion/infra/waste/ALE-INF-HAZMAT-TREATY-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = true
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.5 Neurobiome — Neighborhood
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "NEIGHBORHOOD_NEUROBIOME",
+    domain           = "Neurobiome",
+    scale            = "Neighborhood",
+    state_function   = "neighborhoodNeurobiomeState",
+    service_function = "neighborhoodNeurobiomePolicy",
+    gate_function    = "neurobiomeTreatyGate",
+    state_struct     = "NeurobiomeState",
+    plan_struct      = "NeurobiomeOperationalPlan",
+    sevencapital_slice = ["NeurobiomeCapital", "WasteCapital", "WaterCapital", "BioticCapital", "SomaticCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_NEUROBIOME_SCORE",
+      "CORRIDOR_NEUROBIOME_CLEANING_INTENSITY",
+      "CORRIDOR_WASTE_BIOCIDE_LOAD",
+      "CORRIDOR_WATER_HUMIDITY_TEMP_FOR_MICROBIOME",
+      "CORRIDOR_TREATY_HEALTH_EQ",
+      "CORRIDOR_BIOTIC_MICROBIAL_HABITAT"
+    ],
+    required_smart_chains = [
+      "SMART-08-NEUROBIOME",
+      "SMART-06-WASTE-DIVERSION",
+      "SMART-01-WATER-ALLOCATION",
+      "SMART-03-TREATY-WATER"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-NEURORIGHTS",
+      "LEXETHOS-MICROBIOME-SAFETY"
+    ],
+    required_microtreaty_gates = [
+      "neurobiomeTreatyGate",
+      "neighborhoodMicroTreatyGate_Neurobiome"
+    ],
+    repo_anchor_state   = "aletheion/neurobiome/NeurobiomeScore.aln",
+    repo_anchor_service = "aletheion/neurobiome/NeurobiomePolicy.aln",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-GOV-NEUROBIOME-TREATIES-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.6 Neurobiome — Corridor (e.g., School / Clinic Corridors)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "CORRIDOR_NEUROBIOME",
+    domain           = "Neurobiome",
+    scale            = "Corridor",
+    state_function   = "facilityMicrobiomeCorridorState",
+    service_function = "facilityMicrobiomeSchedule",
+    gate_function    = "facilityMicrobiomeGate",
+    state_struct     = "FacilityMicrobiomeState",
+    plan_struct      = "FacilityMicrobiomePlan",
+    sevencapital_slice = ["NeurobiomeCapital", "SomaticCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_NEUROBIOME_SCORE",
+      "CORRIDOR_NEUROBIOME_AIR_EXPOSURE",
+      "CORRIDOR_SOMATIC_OCCUPANT_HEALTH",
+      "CORRIDOR_TREATY_HEALTH_EQ"
+    ],
+    required_smart_chains = [
+      "SMART-08-NEUROBIOME",
+      "SMART-10-HEALTH-FACILITY"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-NEURORIGHTS",
+      "LEXETHOS-PUBLIC-HEALTH"
+    ],
+    required_microtreaty_gates = [
+      "facilityMicrobiomeGate"
+    ],
+    repo_anchor_state   = "aletheion/neurobiome/FacilityMicrobiomeState.rs",
+    repo_anchor_service = "aletheion/neurobiome/FermentLoopScheduler.aln",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-GOV-NEUROBIOME-TREATIES-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.7 Somaplex — Neighborhood
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "NEIGHBORHOOD_SOMAPLEX",
+    domain           = "Somaplex",
+    scale            = "Neighborhood",
+    state_function   = "neighborhoodSomaState",
+    service_function = "neighborhoodSomaticRoutes",
+    gate_function    = "somaticRouteTreatyGate",
+    state_struct     = "SomaticState",
+    plan_struct      = "SomaticRoutePlan",
+    sevencapital_slice = ["SomaticCapital", "ThermalCapital", "TreatyCapital", "BioticCapital"],
+    required_corridors = [
+      "CORRIDOR_SOMATIC_JOINT_LOAD",
+      "CORRIDOR_SOMATIC_FALL_RISK",
+      "CORRIDOR_THERMAL_HEAT_EXPOSURE",
+      "CORRIDOR_TREATY_MOBILITY_RIGHTS",
+      "CORRIDOR_BIOTIC_QUIET_ZONES"
+    ],
+    required_smart_chains = [
+      "SMART-09-MOBILITY",
+      "SMART-02-THERMAL-COOLING",
+      "SMART-03-TREATY-WATER"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-SOMATIC-ROUTING",
+      "LEXETHOS-ACCESSIBILITY"
+    ],
+    required_microtreaty_gates = [
+      "somaticRouteTreatyGate",
+      "neighborhoodMicroTreatyGate_Somatic"
+    ],
+    repo_anchor_state   = "aletheion/somaplex/SomaticRouteEngine.rs",
+    repo_anchor_service = "aletheion/somaplex/SomaticRouteEngine.rs",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-GOV-SOMATIC-TREATIES-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.8 Somaplex — Corridor (e.g., key service corridors)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "CORRIDOR_SOMAPLEX",
+    domain           = "Somaplex",
+    scale            = "Corridor",
+    state_function   = "corridorSomaticState",
+    service_function = "corridorSomaticRouteSchedule",
+    gate_function    = "corridorSomaticGate",
+    state_struct     = "CorridorSomaticState",
+    plan_struct      = "CorridorSomaticSchedule",
+    sevencapital_slice = ["SomaticCapital", "ThermalCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_SOMATIC_JOINT_LOAD",
+      "CORRIDOR_SOMATIC_FALL_RISK",
+      "CORRIDOR_THERMAL_HEAT_EXPOSURE",
+      "CORRIDOR_TREATY_MOBILITY_RIGHTS"
+    ],
+    required_smart_chains = [
+      "SMART-09-MOBILITY",
+      "SMART-02-THERMAL-COOLING"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-SOMATIC-ROUTING"
+    ],
+    required_microtreaty_gates = [
+      "corridorSomaticGate"
+    ],
+    repo_anchor_state   = "aletheion/somaplex/CorridorSomaticState.rs",
+    repo_anchor_service = "aletheion/somaplex/CorridorSomaticSchedule.aln",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-GOV-SOMATIC-TREATIES-001.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.9 Synthexis — Neighborhood (Cross-species / Habitat)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "NEIGHBORHOOD_SYNTHEXIS",
+    domain           = "Synthexis",
+    scale            = "Neighborhood",
+    state_function   = "neighborhoodBioticState",
+    service_function = "LightNoisePesticidePlanner",
+    gate_function    = "neighborhoodBioticTreatyEnvelope",
+    state_struct     = "NeighborhoodBioticState",
+    plan_struct      = "BioticEnvelopePlan",
+    sevencapital_slice = ["BioticCapital", "NeurobiomeCapital", "ThermalCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_BIOTIC_LIGHT",
+      "CORRIDOR_BIOTIC_NOISE",
+      "CORRIDOR_BIOTIC_PESTICIDE",
+      "CORRIDOR_BIOTIC_HABITAT_CONTINUITY",
+      "CORRIDOR_TREATY_BIOTIC"
+    ],
+    required_smart_chains = [
+      "SMART-11-BIOTIC",
+      "SMART-02-THERMAL-COOLING",
+      "SMART-08-NEUROBIOME",
+      "SMART-03-TREATY-WATER"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-BIOTIC-TREATY",
+      "LEXETHOS-NOCTURNAL-PROTECTION"
+    ],
+    required_microtreaty_gates = [
+      "neighborhoodBioticTreatyEnvelope",
+      "neighborhoodMicroTreatyGate_Biotic"
+    ],
+    repo_anchor_state   = "aletheion/synthexis/model/SpeciesAgent.aln",
+    repo_anchor_service = "aletheion/synthexis/engine/LightNoisePesticidePlanner.aln",
+    repo_anchor_gate    = "aletheion/synthexis/engine/HabitatContinuityEngine.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.10 Synthexis — Corridor (Riparian / Canal Habitat)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "CORRIDOR_SYNTHEXIS",
+    domain           = "Synthexis",
+    scale            = "Corridor",
+    state_function   = "corridorBioticState",
+    service_function = "corridorHabitatContinuityPlan",
+    gate_function    = "corridorBioticTreatyGate",
+    state_struct     = "CorridorBioticState",
+    plan_struct      = "CorridorBioticPlan",
+    sevencapital_slice = ["BioticCapital", "WaterCapital", "ThermalCapital", "TreatyCapital"],
+    required_corridors = [
+      "CORRIDOR_BIOTIC_HABITAT_CONTINUITY",
+      "CORRIDOR_BIOTIC_LIGHT",
+      "CORRIDOR_BIOTIC_NOISE",
+      "CORRIDOR_WATER_FLOW_FOR_SPECIES",
+      "CORRIDOR_TREATY_BIOTIC"
+    ],
+    required_smart_chains = [
+      "SMART-11-BIOTIC",
+      "SMART-01-WATER-ALLOCATION",
+      "SMART-02-THERMAL-COOLING"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-BIOTIC-TREATY"
+    ],
+    required_microtreaty_gates = [
+      "corridorBioticTreatyGate"
+    ],
+    repo_anchor_state   = "aletheion/synthexis/model/CorridorBioticState.rs",
+    repo_anchor_service = "aletheion/synthexis/engine/HabitatContinuityEngine.aln",
+    repo_anchor_gate    = "aletheion/synthexis/model/BioticTreaty.aln",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.11 LexEthos — Neighborhood (Rights Grammar / MicroTreaty)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "NEIGHBORHOOD_LEXETHOS",
+    domain           = "LexEthos",
+    scale            = "Neighborhood",
+    state_function   = "neighborhoodTreatyStatus",
+    service_function = "neighborhoodRightsGrammar",
+    gate_function    = "neighborhoodMicroTreatyGate",
+    state_struct     = "NeighborhoodTreatyStatus",
+    plan_struct      = "NeighborhoodMicroTreatySet",
+    sevencapital_slice = ["TreatyCapital", "WaterCapital", "ThermalCapital", "WasteCapital", "BioticCapital", "NeurobiomeCapital", "SomaticCapital"],
+    required_corridors = [
+      "CORRIDOR_TREATY_FPIC",
+      "CORRIDOR_TREATY_BIOTIC",
+      "CORRIDOR_TREATY_NEURORIGHTS",
+      "CORRIDOR_TREATY_SOMATIC",
+      "CORRIDOR_TREATY_HEAT_EQ"
+    ],
+    required_smart_chains = [
+      "SMART-03-TREATY-WATER",
+      "SMART-11-BIOTIC",
+      "SMART-08-NEUROBIOME",
+      "SMART-09-MOBILITY"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-RIGHTS-GRAMMAR-NEIGHBORHOOD"
+    ],
+    required_microtreaty_gates = [
+      "neighborhoodMicroTreatyGate"
+    ],
+    repo_anchor_state   = "aletheion/governance/lexethos/ALE-GOV-NEIGHBORHOOD-TREATIES-001.aln",
+    repo_anchor_service = "aletheion/governance/lexethos/ALE-LEX-RIGHTS-GRAMMAR-001.aln",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-LEX-COMPILER-001.rs",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  },
+
+  # ---------------------------------------------------------
+  # 1.12 LexEthos — Corridor (e.g., canal, freight, drone corridors)
+  # ---------------------------------------------------------
+
+  PatternFamily {
+    pattern_id       = "CORRIDOR_LEXETHOS",
+    domain           = "LexEthos",
+    scale            = "Corridor",
+    state_function   = "corridorTreatyStatus",
+    service_function = "corridorRightsGrammar",
+    gate_function    = "corridorMicroTreatyGate",
+    state_struct     = "CorridorTreatyStatus",
+    plan_struct      = "CorridorMicroTreatySet",
+    sevencapital_slice = ["TreatyCapital", "WaterCapital", "WasteCapital", "BioticCapital", "SomaticCapital", "NeurobiomeCapital"],
+    required_corridors = [
+      "CORRIDOR_TREATY_FPIC",
+      "CORRIDOR_TREATY_BIOTIC",
+      "CORRIDOR_TREATY_MOBILITY_RIGHTS",
+      "CORRIDOR_TREATY_INDIGENOUS_TERRITORY"
+    ],
+    required_smart_chains = [
+      "SMART-03-TREATY-WATER",
+      "SMART-09-MOBILITY-FREIGHT",
+      "SMART-11-BIOTIC"
+    ],
+    required_lexethos_grammars = [
+      "LEXETHOS-RIGHTS-GRAMMAR-CORRIDOR"
+    ],
+    required_microtreaty_gates = [
+      "corridorMicroTreatyGate"
+    ],
+    repo_anchor_state   = "aletheion/governance/lexethos/ALE-GOV-CORRIDOR-TREATIES-001.aln",
+    repo_anchor_service = "aletheion/governance/lexethos/ALE-LEX-DEPLOY-001.lua",
+    repo_anchor_gate    = "aletheion/governance/lexethos/ALE-LEX-COMPILER-001.rs",
+    charter_contract    = PatternCharterContract {
+      require_sevencapital_state_input = true,
+      require_governance_wrapper       = true,
+      require_corridor_ids             = true,
+      require_smart_chains             = true,
+      forbid_raw_string_escape         = true,
+      require_ecosafety_rx_Vt          = true,
+      require_ci_preflight_binding     = true,
+      require_formal_methods           = false
+    }
+  }
+]
+
+# -------------------------------------------------------------------
+# 2. Ecosafety Corridor Bindings (Highway-Management Hooks)
+# -------------------------------------------------------------------
+
+# Each pattern family must use these standard hooks; CI will enforce presence.
+
+record HighwayBinding {
+  pattern_id                  : Id.PatternId,
+  pre_optimization_validator  : string,  # function name for input corridor validation
+  post_optimization_validator : string,  # function name for output corridor validation
+  recycling_policy            : string   # symbolic policy name implemented in ecosafety spine
+}
+
+erm.pattern_index.highway_bindings = [
+  HighwayBinding {
+    pattern_id                  = "NEIGHBORHOOD_WATER",
+    pre_optimization_validator  = "corridorValidateInputs_NeighborhoodWater",
+    post_optimization_validator = "corridorValidateOutputs_NeighborhoodWater",
+    recycling_policy            = "RecyclePlanWithStateRefresh_ThenFallback"
+  },
+  HighwayBinding {
+    pattern_id                  = "CORRIDOR_WATER",
+    pre_optimization_validator  = "corridorValidateInputs_CorridorWater",
+    post_optimization_validator = "corridorValidateOutputs_CorridorWater",
+    recycling_policy            = "RecyclePlanWithFallbackRouting"
+  },
+  HighwayBinding {
+    pattern_id                  = "NEIGHBORHOOD_WASTE",
+    pre_optimization_validator  = "corridorValidateInputs_NeighborhoodWaste",
+    post_optimization_validator = "corridorValidateOutputs_NeighborhoodWaste",
+    recycling_policy            = "RecycleToSaferSoilOrNoOpWithAlert"
+  },
+  HighwayBinding {
+    pattern_id                  = "CORRIDOR_WASTE",
+    pre_optimization_validator  = "corridorValidateInputs_CorridorWaste",
+    post_optimization_validator = "corridorValidateOutputs_CorridorWaste",
+    recycling_policy            = "ImmediateRerouteAwayFromNoGo"
+  },
+  HighwayBinding {
+    pattern_id                  = "NEIGHBORHOOD_NEUROBIOME",
+    pre_optimization_validator  = "corridorValidateInputs_NeighborhoodNeurobiome",
+    post_optimization_validator = "corridorValidateOutputs_NeighborhoodNeurobiome",
+    recycling_policy            = "ReduceCleaningIntensityAndReplan"
+  },
+  HighwayBinding {
+    pattern_id                  = "CORRIDOR_NEUROBIOME",
+    pre_optimization_validator  = "corridorValidateInputs_CorridorNeurobiome",
+    post_optimization_validator = "corridorValidateOutputs_CorridorNeurobiome",
+    recycling_policy            = "SwitchToMicrobiomeSafeProtocols"
+  },
+  HighwayBinding {
+    pattern_id                  = "NEIGHBORHOOD_SOMAPLEX",
+    pre_optimization_validator  = "corridorValidateInputs_NeighborhoodSomaplex",
+    post_optimization_validator = "corridorValidateOutputs_NeighborhoodSomaplex",
+    recycling_policy            = "RerouteToLowerJointLoadPaths"
+  },
+  HighwayBinding {
+    pattern_id                  = "CORRIDOR_SOMAPLEX",
+    pre_optimization_validator  = "corridorValidateInputs_CorridorSomaplex",
+    post_optimization_validator = "corridorValidateOutputs_CorridorSomaplex",
+    recycling_policy            = "DelayOrReassignRoutes"
+  },
+  HighwayBinding {
+    pattern_id                  = "NEIGHBORHOOD_SYNTHEXIS",
+    pre_optimization_validator  = "corridorValidateInputs_NeighborhoodSynthexis",
+    post_optimization_validator = "corridorValidateOutputs_NeighborhoodSynthexis",
+    recycling_policy            = "SuppressDisruptiveActivities"
+  },
+  HighwayBinding {
+    pattern_id                  = "CORRIDOR_SYNTHEXIS",
+    pre_optimization_validator  = "corridorValidateInputs_CorridorSynthexis",
+    post_optimization_validator = "corridorValidateOutputs_CorridorSynthexis",
+    recycling_policy            = "FallbackToHabitatSafeBaseline"
+  },
+  HighwayBinding {
+    pattern_id                  = "NEIGHBORHOOD_LEXETHOS",
+    pre_optimization_validator  = "corridorValidateInputs_NeighborhoodLexEthos",
+    post_optimization_validator = "corridorValidateOutputs_NeighborhoodLexEthos",
+    recycling_policy            = "DoNotDeployConflictingTreaties"
+  },
+  HighwayBinding {
+    pattern_id                  = "CORRIDOR_LEXETHOS",
+    pre_optimization_validator  = "corridorValidateInputs_CorridorLexEthos",
+    post_optimization_validator = "corridorValidateOutputs_CorridorLexEthos",
+    recycling_policy            = "DeferToHigherLevelTreaty"
+  }
+]
+
+# -------------------------------------------------------------------
+# 3. CI / Charter Binding Hints (for .github/workflows/compliance-preflight.yml)
+# -------------------------------------------------------------------
+
+# CI MUST:
+# - Parse this file.
+# - For each new or modified file, require:
+#   - exactly one pattern_id declaration in its header.
+#   - that its declared tier (State/Service/Gate) matches one entry in erm.pattern_index.families.
+#   - that required corridors, SMART chains, and grammars are referenced.
+#   - that SevenCapitalState is in the signature (where require_sevencapital_state_input = true).
+#   - that governance wrappers exist for Service-tier functions.
+# - Fail fast on violations (no corridor, no build).
+
+erm.pattern_index.ci.preflight_workflow = ".github/workflows/compliance-preflight.yml"
+erm.pattern_index.ci.required_header_keys = [
+  "ALE_PATTERN_ID",
+  "ALE_TIER",
+  "ALE_DOMAIN",
+  "ALE_SCALE"
+]
+
+erm.pattern_index.ci.state_tier_signature_suffix   = "State"     # e.g., neighborhoodWaterSystemState(...)
+erm.pattern_index.ci.service_tier_signature_suffix = "Plan"      # e.g., neighborhoodCyboquaticNodeSchedule(...)
+erm.pattern_index.ci.gate_tier_signature_suffix    = "Gate"      # e.g., neighborhoodMicroTreatyGate(...)
+
+# -------------------------------------------------------------------
+# 4. SMART-Chain Attachment Hints (State–Service–Gate / SevenCapital)
+# -------------------------------------------------------------------
+
+# These hints help SMART-chain validators wire decisions into the unified safety loop.
+
+record SmartChainBinding {
+  pattern_id          : Id.PatternId,
+  state_required_chains   : list[Id.ChainId],
+  service_required_chains : list[Id.ChainId],
+  gate_required_chains    : list[Id.ChainId]
+}
+
+erm.pattern_index.smart_chain_bindings = [
+  SmartChainBinding {
+    pattern_id              = "NEIGHBORHOOD_WATER",
+    state_required_chains   = ["SMART-01-WATER-ALLOCATION"],
+    service_required_chains = ["SMART-01-WATER-ALLOCATION", "SMART-02-THERMAL-COOLING"],
+    gate_required_chains    = ["SMART-01-WATER-ALLOCATION", "SMART-03-TREATY-WATER", "SMART-04-BIOTIC-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "CORRIDOR_WATER",
+    state_required_chains   = ["SMART-01-WATER-ALLOCATION"],
+    service_required_chains = ["SMART-01-WATER-ALLOCATION", "SMART-04-BIOTIC-WATER"],
+    gate_required_chains    = ["SMART-03-TREATY-WATER", "SMART-04-BIOTIC-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "NEIGHBORHOOD_WASTE",
+    state_required_chains   = ["SMART-06-WASTE-DIVERSION"],
+    service_required_chains = ["SMART-06-WASTE-DIVERSION", "SMART-07-SOIL-CYCLE"],
+    gate_required_chains    = ["SMART-06-WASTE-DIVERSION", "SMART-03-TREATY-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "CORRIDOR_WASTE",
+    state_required_chains   = ["SMART-06-WASTE-DIVERSION"],
+    service_required_chains = ["SMART-06-WASTE-DIVERSION", "SMART-09-MOBILITY-FREIGHT"],
+    gate_required_chains    = ["SMART-03-TREATY-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "NEIGHBORHOOD_NEUROBIOME",
+    state_required_chains   = ["SMART-08-NEUROBIOME"],
+    service_required_chains = ["SMART-08-NEUROBIOME", "SMART-06-WASTE-DIVERSION"],
+    gate_required_chains    = ["SMART-08-NEUROBIOME", "SMART-03-TREATY-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "CORRIDOR_NEUROBIOME",
+    state_required_chains   = ["SMART-08-NEUROBIOME"],
+    service_required_chains = ["SMART-08-NEUROBIOME", "SMART-10-HEALTH-FACILITY"],
+    gate_required_chains    = ["SMART-08-NEUROBIOME"]
+  },
+  SmartChainBinding {
+    pattern_id              = "NEIGHBORHOOD_SOMAPLEX",
+    state_required_chains   = ["SMART-09-MOBILITY"],
+    service_required_chains = ["SMART-09-MOBILITY", "SMART-02-THERMAL-COOLING"],
+    gate_required_chains    = ["SMART-09-MOBILITY", "SMART-03-TREATY-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "CORRIDOR_SOMAPLEX",
+    state_required_chains   = ["SMART-09-MOBILITY"],
+    service_required_chains = ["SMART-09-MOBILITY"],
+    gate_required_chains    = ["SMART-09-MOBILITY"]
+  },
+  SmartChainBinding {
+    pattern_id              = "NEIGHBORHOOD_SYNTHEXIS",
+    state_required_chains   = ["SMART-11-BIOTIC"],
+    service_required_chains = ["SMART-11-BIOTIC", "SMART-02-THERMAL-COOLING"],
+    gate_required_chains    = ["SMART-11-BIOTIC"]
+  },
+  SmartChainBinding {
+    pattern_id              = "CORRIDOR_SYNTHEXIS",
+    state_required_chains   = ["SMART-11-BIOTIC"],
+    service_required_chains = ["SMART-11-BIOTIC", "SMART-01-WATER-ALLOCATION"],
+    gate_required_chains    = ["SMART-11-BIOTIC", "SMART-03-TREATY-WATER"]
+  },
+  SmartChainBinding {
+    pattern_id              = "NEIGHBORHOOD_LEXETHOS",
+    state_required_chains   = [],
+    service_required_chains = [],
+    gate_required_chains    = ["SMART-03-TREATY-WATER", "SMART-11-BIOTIC", "SMART-08-NEUROBIOME", "SMART-09-MOBILITY"]
+  },
+  SmartChainBinding {
+    pattern_id              = "CORRIDOR_LEXETHOS",
+    state_required_chains   = [],
+    service_required_chains = [],
+    gate_required_chains    = ["SMART-03-TREATY-WATER", "SMART-09-MOBILITY-FREIGHT", "SMART-11-BIOTIC"]
+  }
+]
+
+# -------------------------------------------------------------------
+# End of ALE-ERM-PATTERN-INDEX-STATE-SERVICE-GATE-001.aln
+# -------------------------------------------------------------------
