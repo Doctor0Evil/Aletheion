@@ -1,0 +1,285 @@
+// Purpose: Shared, device-free pattern identity types and function
+//          contracts for Somaplex, Thermaphora, Neurobiome, PraxisWeave,
+//          CryptoSomatic Shield, and Synthexis workflows in Phoenix.
+
+// 1. Basic atoms and enums
+
+type PatternId          = string;
+type CorridorId         = string;
+type DomainId           = string;
+type UseCaseId          = string;
+type ConsentScopeId     = string;
+type TraceId            = string;
+type TimeBandId         = string;
+type TimestampIso8601   = string;
+type Float01            = float; // must be clamped to [0.0, 1.0]
+type NonNegativeFloat   = float; // >= 0
+type JustificationTag   = string;
+type SourceId           = string;
+
+// Where possible, DomainId should align with established ERM / workflow
+// domains, e.g. "SOMATIC", "THERMAL", "MOBILITY", "CARE", "NEUROBIOME",
+// "SYNTHEXIS", etc. This preserves compatibility with existing corridor
+// and capital schemas already defined in Aletheion ERM specs.[file:3][file:1]
+
+// Pattern type: what kind of deviceless behavior trace this refers to.
+enum PatternType {
+  ROUTE_HEAT,        // stable walking routes under heat exposure (Thermaphora + Somaplex)
+  GAIT_SHADE,        // gait, pace, and shade preference patterns (Somaplex)
+  CHRONO_COMMUTE,    // circadian commute schedule patterns (Chronaurea)
+  CARE_ROUTE,        // recurring care/workload movement patterns (PraxisWeave)
+  HABIT_LOOP,        // repeated habit loops (Biofabric, HabitChannels)
+  REST_BEHAVIOR,     // recurring use of rest/cooling spaces (PraxisWeave + Thermaphora)
+  GENERIC            // fallback / unspecified pattern class
+}
+
+// Anonymity level: how specific the pattern is to individuals vs groups.
+// This is a key guardrail for neurorights and privacy without devices.[file:3]
+enum AnonymityLevel {
+  GROUP,              // large group, many persons in aggregate
+  SMALL_COHORT,       // limited cohort, but not linkable to a single person
+  PSEUDONYMOUS_SINGLE // appears to correspond to one body, but without DID
+}
+
+// Confidence in [0,1] that this pattern is stable and coherent enough to
+// be used for environment-level adaptations. Engines must NOT interpret
+// this as probability of "true identity"; it is a stability measure only.[file:3]
+type Confidence = Float01;
+
+// 2. Core shared structs
+
+// 2.1 PatternIdentityRef
+// Represents a deviceless, corridor-bound behavioral pattern.
+// It is explicitly NOT a DID, account, or direct identity handle.[file:3]
+struct PatternIdentityRef {
+  pattern_id        : PatternId;
+  pattern_type      : PatternType;
+  evidence_window   : string;          // e.g. "P30D" (ISO-8601 duration)
+  confidence        : Confidence;      // stability of the pattern, not identity truth
+  anonymity_level   : AnonymityLevel;
+  corridor_ids      : list<CorridorId>;
+  primary_domain    : DomainId;        // e.g. "SOMATIC", "THERMAL", etc.
+  consent_scope_id  : optional<ConsentScopeId>;
+  expiry            : TimestampIso8601;
+}
+
+// 2.2 CorridorPatternContext
+// Context for interpreting a deviceless pattern in a given corridor segment.
+struct CorridorPatternContext {
+  corridor_id          : CorridorId;
+  domain               : DomainId;        // should align with ERM domain IDs
+  time_band            : TimeBandId;      // ChronoZone binding (SUNRISE, PEAK_HEAT, etc.)
+  environment_signature: EnvironmentSignature;
+}
+
+// EnvironmentSignature summarizes the local environment in a compact,
+// non-identifying way that Somaplex, Thermaphora, Neurobiome, and
+// Synthexis engines can share.[file:3][file:4]
+struct EnvironmentSignature {
+  // all values are corridor-level aggregates, not per-person metrics.
+  avg_air_temp_c        : float;
+  avg_radiant_temp_c    : float;
+  avg_relative_humidity : Float01;
+  avg_wind_speed_mps    : NonNegativeFloat;
+  shade_fraction        : Float01;    // fraction of path that is shaded
+  avg_slope_percent     : float;      // positive = uphill, negative = downhill
+  noise_db_a            : NonNegativeFloat;
+  crowding_index        : Float01;    // 0 empty, 1 extremely crowded
+}
+
+// 2.3 DevicelessTrace
+// Raw-ish observation input that must be scrubbed before pattern inference.
+// Must never include DID, account IDs, or raw biosignals.[file:3]
+struct SegmentObservation {
+  segment_id     : string;
+  enter_time     : TimestampIso8601;
+  exit_time      : TimestampIso8601;
+  // Coarse features extracted from sensors, anonymized and quantized.
+  mean_speed_mps : NonNegativeFloat;
+  stop_count     : NonNegativeFloat;
+  avg_step_variance: Float01; // gait variability proxy, coarsely binned
+  avg_posture_index: Float01; // 0 = very upright, 1 = strongly slouched, coarse
+  exposure_heat_index: Float01; // local heat exposure index, normalized
+}
+
+struct DevicelessTrace {
+  trace_id       : TraceId;
+  source         : SourceId;           // e.g. "EDGE_CAMERA_CLUSTER_A1"
+  corridor_id    : CorridorId;
+  time_band      : TimeBandId;
+  segments       : list<SegmentObservation>;
+  // No person-specific identifiers permitted here.[file:3]
+}
+
+// 2.4 CorridorNudge
+// How environment changes in response to recognized patterns,
+// rather than directly "controlling" persons.[file:3][file:4]
+enum NudgeModality {
+  SIGNAGE_HINT,      // route suggestions via displays or signage
+  LIGHTING_ADJUST,   // brightness / spectrum adjustment
+  MISTING_ACTIVATION,// mist or evaporative cooling activation
+  SHADE_ACTIVATION,  // shade sail deployment, blind adjustment
+  ROUTE_MARKING,     // paint markers, floor lights for shaded routes
+  INFORMATION_PUSH   // non-personal alerts on public displays
+}
+
+struct CorridorNudge {
+  target_corridor_id : CorridorId;
+  modality           : NudgeModality;
+  intensity          : Float01;               // normalized, domain-specific
+  justification_tags : list<JustificationTag>;// e.g. "HEAT_SAFETY", "JOINT_LOAD"
+  effective_window   : string;                // duration like "PT10M"
+}
+
+// 2.5 AuthorizationDecision
+// Used to gate any use of patterns for personalization or targeted changes.
+enum AuthorizationReason {
+  OK,
+  NO_CONSENT,
+  NEURORIGHTS_LIMIT,
+  SCOPE_MISMATCH,
+  EXPIRED_PATTERN,
+  DEVICE_ONLY_REQUIRED,
+  ANON_ONLY_ALLOWED,
+  UNKNOWN_USE_CASE
+}
+
+struct AuthorizationDecision {
+  allowed         : bool;
+  reason          : AuthorizationReason;
+  effective_scope : optional<ConsentScopeId>;
+  log_ref         : optional<string>;      // trust-layer audit ref (Googolswarm)[file:3][file:4]
+}
+
+// 3. Function contracts (language-agnostic signatures)
+
+// Implementation will exist in Rust / ALN / Lua / JS / Kotlin variants,
+// but all must conform to these contracts and semantics.[file:3][file:4]
+
+// 3.1 Infer a pattern identity from a deviceless trace
+
+// infer_pattern_identity takes a DevicelessTrace and corridor context,
+// producing a PatternIdentityRef that is explicitly deviceless and
+// non-DID. Implementations MUST:
+// - never output a direct person identifier,
+// - clamp confidence to [0,1],
+// - enforce anonymity_level policies per corridor domain,
+// - set expiry to a finite, policy-bound horizon.[file:3]
+fn infer_pattern_identity(
+  trace   : DevicelessTrace,
+  context : CorridorPatternContext
+) -> PatternIdentityRef;
+
+// 3.2 Propose environment-level nudges based on pattern
+
+// propose_corridor_nudge uses a pattern and context to recommend
+// environment changes (shade, mist, signage, etc.), not coercive
+// control of individuals. Engines MUST:
+// - treat GROUP / SMALL_COHORT patterns as corridor-wide,
+// - treat PSEUDONYMOUS_SINGLE only if consent_scope_id is present
+//   and authorized for the use case (see authorize_pattern_use),
+// - prefer universal improvements when authorization is denied.[file:3][file:4]
+fn propose_corridor_nudge(
+  pattern : PatternIdentityRef,
+  context : CorridorPatternContext
+) -> list<CorridorNudge>;
+
+// 3.3 Authorize pattern use for a specific use case
+
+// authorize_pattern_use integrates with CryptoSomatic Shield,
+// consent-state machines, FEAR/PAIN/SANITY neurorights envelopes,
+// and LexEthos micro-treaties where relevant. Implementations MUST:[file:3][file:4]
+// - verify consent_scope_id if present,
+// - enforce neurorights rules (no inference of mental state,
+//   illness, or hidden traits from deviceless patterns),
+// - fall back to ANON_ONLY_ALLOWED or NO_CONSENT when scopes
+//   are missing or expired,
+// - emit a trust-layer log entry (log_ref) for traceability.
+fn authorize_pattern_use(
+  pattern  : PatternIdentityRef,
+  use_case : UseCaseId
+) -> AuthorizationDecision;
+
+// 3.4 Update existing pattern based on new traces
+
+// update_pattern_profile merges a prior PatternIdentityRef with one
+// or more new DevicelessTrace observations. Implementations MUST:[file:3]
+// - respect a max evidence_window (policy-defined),
+// - avoid unbounded increase in confidence,
+// - keep anonymity_level at least as protective as before
+//   unless explicit governance allows tightening.
+fn update_pattern_profile(
+  existing : PatternIdentityRef,
+  traces   : list<DevicelessTrace>
+) -> PatternIdentityRef;
+
+// 3.5 Retire pattern when expired, unsafe, or revoked
+
+// retire_pattern is invoked when:
+// - expiry time has been reached,
+// - consent has been revoked,
+// - governance or neurorights checks require deletion.
+// Implementations MUST:
+// - mark the pattern as unusable for future personalization,
+// - trigger deletion/obfuscation in downstream caches,
+// - record a trust-layer log_ref for audit where possible.
+enum RetireReason {
+  EXPIRED,
+  CONSENT_REVOKED,
+  GOVERNANCE_DECISION,
+  NEURORIGHTS_ENFORCEMENT
+}
+
+struct RetireResult {
+  success   : bool;
+  reason    : RetireReason;
+  log_ref   : optional<string>;
+}
+
+fn retire_pattern(
+  pattern : PatternIdentityRef,
+  reason  : RetireReason
+) -> RetireResult;
+
+// 4. Cross-module binding notes (non-executable spec)
+
+// 4.1 Somaplex integration
+// Somaplex SomaticRouteEngine implementations MUST:
+// - accept optional PatternIdentityRef in their APIs,
+// - first call authorize_pattern_use with a Somaplex-specific
+//   use_case, e.g. "SOMAPLEX_ROUTE_HINT",
+// - if AuthorizationDecision.allowed == false, compute routes
+//   using only corridor-level EnvironmentSignature and
+//   generic risk profiles (e.g., elders, mobility-impaired).[file:3]
+
+// 4.2 Thermaphora integration
+// Thermaphora HeatBudgetSimulator implementations MUST:
+// - use PatternIdentityRef only to compute conservative,
+//   group-safe heat budgets,
+// - avoid inferring detailed health conditions from
+//   pattern-level heat behavior,
+// - prefer block-level microclimate nudges when authorization
+//   is denied.[file:3][file:4]
+
+// 4.3 CryptoSomatic Shield integration
+// CryptoSomatic consent-state workflows MUST:
+// - manage ConsentScopeId lifecycles for deviceless patterns,
+// - ensure no PatternIdentityRef is linked to a DID or
+//   augmentation identity except in dedicated, treaty-bound
+//   modules with explicit consent.[file:3]
+
+// 4.4 LexEthos integration
+// LexEthos RightsGrammar and MicroTreatyEngine MUST be able to:
+// - express constraints on how NudgeModality and intensity
+//   may be used for different PatternType / AnonymityLevel
+//   combinations in specific corridors (e.g., no intense
+//   lighting changes in high-sensitivity spaces).[file:3][file:4]
+
+// 4.5 Synthexis and Neurobiome integration
+// Synthexis and Neurobiome workflows MAY:
+// - aggregate patterns at GROUP / SMALL_COHORT level to
+//   inform habitat continuity and microbiome policies,
+// - must NOT use PSEUDONYMOUS_SINGLE patterns to make any
+//   cross-species or microbiome inferences that could be
+//   mapped back to a single person without device-based,
+//   explicit consent.[file:3][file:4]
