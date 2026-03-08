@@ -1,0 +1,120 @@
+schema ALE-LEX-CORRIDOR-PATTERN-DEVICLESS-SCHEMA-001
+version 1
+namespace aletheion.lexethos.corridor
+
+# -------------------------------------------------------------------
+# Enumerations
+# -------------------------------------------------------------------
+
+enum AnonymityLevel {
+  NONE          # Fully identified; only allowed in tightly scoped, rights-gated plans.
+  PSEUDONYMOUS  # Stable pseudonyms, no direct identity binding exposed to corridor logic.
+  COHORT        # Aggregated over small, fixed cohorts (e.g., 5–20 citizens).
+  AGGREGATE     # Aggregated over large groups; no per-person traces.
+}
+
+enum RiskClassification {
+  LOW           # No direct physical, somatic, or neurorights exposure; reversible effects only.
+  MEDIUM        # Indirect somatic/thermal impact; bounded reversible effects.
+  HIGH          # Direct somatic, ecosafety, or treaty exposure; requires strongest gates.
+  CRITICAL      # Cross-treaty or cross-species impact, or irreversible somatic/ecological risk.
+}
+
+enum EnvelopePolicy {
+  STRICT        # Hard caps from ecosafety / BioticTreaty / CryptoSomatic; violations are fatal.
+  GUARDED       # Hard caps with limited auto-recycle; no silent degradation allowed.
+  ADAPTIVE      # Allows corridor tightening/loosening via validated ecosafety updates.
+  OBSERVE_ONLY  # Read-only observation; no actuation; still bound by rights/consent.
+}
+
+# -------------------------------------------------------------------
+# Core pattern and trace types
+# -------------------------------------------------------------------
+
+# Reference to a pattern identity that must *never* expose raw citizen identifiers.
+# This is the handle corridor services and validators see.
+struct PatternIdentityRef {
+  pattern_id: String          # Stable id for this pattern template (e.g., "NEIGHBORHOOD_WATER_CYCLE_V1").
+  shard: String               # Shard or cell within the city mesh (e.g., "PHX-METROCENTER-01").
+}
+
+# DevicelessTrace is the primary unit for routing corridor decisions without requiring devices.
+# It binds movement/usage patterns to anonymity and risk envelopes.
+struct DevicelessTrace {
+  id: String                          # Trace id within the corridor workflow.
+  pattern_ref: PatternIdentityRef     # Pointer to the abstract pattern identity.
+
+  # Level of anonymity guaranteed for this trace *before* any plan is validated.
+  anonymity_level: AnonymityLevel
+
+  # Risk classification for this trace, set by upstream risk analysis and ecosafety grammar.
+  risk_classification: RiskClassification
+
+  # Envelope policies that must be honored when this trace is touched by any corridor plan.
+  envelope_policies: List<EnvelopePolicy>
+
+  # Domains this trace participates in (e.g., "water", "thermal", "somatic", "biotic", "treaty").
+  domains: List<String>
+
+  # True if this trace intersects any Indigenous territory, BioticTreaty habitat,
+  # or neurorights-sensitive corridor (CryptoSomatic envelopes).
+  intersects_sensitive_corridor: Bool
+}
+
+# Context bound to a corridor-planning or validation operation.
+# This is what SMART-chain and CorridorService validators must receive.
+struct CorridorPatternContext {
+  context_id: String                # Unique id for this validation context.
+  corridor_id: String               # Corridor or neighborhood id (e.g., "CANAL_METROCENTER_PARKWAY").
+  smart_chain_ids: List<String>     # SMART-chain ids attached to this plan (e.g., "SMART01_AWP_THERMAL").
+
+  # All deviceless traces considered in this corridor operation.
+  traces: List<DevicelessTrace>
+
+  # Minimum anonymity level permitted for this corridor+plan combination.
+  # Validators must reject any trace whose anonymity_level is weaker than this.
+  min_anonymity_level: AnonymityLevel
+
+  # Maximum risk level allowed for this corridor under current treaties/ecosafety state.
+  # Validators must reject any trace whose risk_classification exceeds this.
+  max_risk_classification: RiskClassification
+
+  # Envelope policies that must apply across all traces for this corridor plan.
+  # If any trace lacks these policies, validation must fail.
+  required_envelope_policies: List<EnvelopePolicy>
+
+  # FPIC / neurorights flags derived from LexEthos + compliance core.
+  fpic_required: Bool
+  fpic_granted: Bool
+  neurorights_guard_required: Bool
+  neurorights_guard_active: Bool
+}
+
+# -------------------------------------------------------------------
+# Validator bindings (hard constraints)
+# -------------------------------------------------------------------
+
+# PlanCheck input surface for corridor validators.
+struct PlanCheckInput {
+  pattern_context: CorridorPatternContext
+  plan_id: String
+}
+
+# PlanCheck result with explicit fatal vs. recoverable flags.
+struct PlanCheckResult {
+  plan_id: String
+  is_fatal: Bool             # If true, plan must not be applied or auto-recycled.
+  violations: List<String]   # Machine-readable violation codes.
+}
+
+# Validator contracts that CorridorService.validate_plan or trigger_SMART_chain
+# implementations must satisfy.
+contract CorridorPatternValidators {
+
+  # Ensure every DevicelessTrace in the context satisfies anonymity and risk gates.
+  fn validateplanstructural(input: PlanCheckInput) -> PlanCheckResult
+
+  # Ensure envelope_policies on all traces satisfy required_envelope_policies
+  # and that FPIC/neurorights flags are consistent with the attached SMART chains.
+  fn validateplansmartchain(input: PlanCheckInput) -> PlanCheckResult
+}
