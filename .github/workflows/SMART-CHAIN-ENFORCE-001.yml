@@ -1,0 +1,85 @@
+name: SMART-Chain Registry Enforcement
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    paths:
+      - 'aletheion/erm-workflow-index/**'
+      - 'aletheion/erm/**'
+      - 'aletheion/highways/**'
+      - 'aletheion/thermaphora/**'
+      - 'aletheion/somaplex/**'
+      - 'aletheion/regions/**'
+      - 'aletheion/**SMART-HIERARCHY-CHAINS-001.*'
+  push:
+    branches:
+      - main
+    paths:
+      - 'aletheion/erm-workflow-index/**'
+      - 'aletheion/**SMART-HIERARCHY-CHAINS-001.*'
+
+jobs:
+  smart-chain-validate:
+    name: SMART-Chain validate (Downtown + global)
+    runs-on: ubuntu-latest
+
+    env:
+      RUSTFLAGS: "-D warnings"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Capture git metadata
+        id: gitmeta
+        run: |
+          echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          echo "branch=${GITHUB_HEAD_REF:-${GITHUB_REF_NAME}}" >> "$GITHUB_OUTPUT"
+          if [[ "${{ github.event.pull_request.number }}" != "" ]]; then
+            echo "pr_number=${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Build SMART-chain validator
+        run: >
+          cargo build
+          --manifest-path aletheion/erm-workflow-index/Cargo.toml
+          --package aletheion-smartchain-validator
+
+      - name: Lint SMART-chain validator (clippy)
+        run: >
+          cargo clippy
+          --manifest-path aletheion/erm-workflow-index/Cargo.toml
+          --package aletheion-smartchain-validator
+          --all-targets
+          -- -D warnings
+
+      - name: Run SMART-chain validator (JSON report)
+        run: >
+          cargo run
+          --manifest-path aletheion/erm-workflow-index/Cargo.toml
+          --package aletheion-smartchain-validator
+          --bin smartchain-validate
+          --
+          --config aletheion/erm-workflow-index/SMART-HIERARCHY-CHAINS-001.json
+          --output smart-chain-report.json
+          --repo "${{ github.repository }}"
+          --git-commit "${{ steps.gitmeta.outputs.commit }}"
+          --git-branch "${{ steps.gitmeta.outputs.branch }}"
+          --git-pr-number "${{ steps.gitmeta.outputs.pr_number }}"
+        # smartchain-validate must exit non-zero on any ValidationError
+        # so this step failing will block the merge via branch protection.
+
+      - name: Upload SMART-chain validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-chain-report
+          path: smart-chain-report.json
+          if-no-files-found: warn
