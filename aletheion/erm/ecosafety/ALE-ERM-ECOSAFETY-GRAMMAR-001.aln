@@ -1,0 +1,266 @@
+! Aletheion Ecosafety Grammar Spine v1
+! File: ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+! Path: aletheion/erm/ecosafety/ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+!
+! Role
+! - Declare normalized ecosafety risk coordinates (rx) and Lyapunov residual templates (Vt).
+! - Define corridor atoms for water, air, wetland, biochar, soft-robot, and MAR systems.
+! - Attach ecosafety policies "no corridor, no build" and "violated corridor → derate/stop".
+! - Provide a single ALN source for Rust types in ALE-ERM-ECOSAFETY-TYPES-001.rs and
+!   contracts in ALE-ERM-ECOSAFETY-CONTRACTS-001.rs to consume.
+!
+! Scope
+! - Non-fictional 2026 ecosafety research lines for Phoenix canals, MAR vaults, wetlands,
+!   biochar/airglo stacks, and cyboquatic nodes.
+! - Downtown / Central Phoenix is treated as REGION_DOWNTOWN_CORE.
+
+schema EcosafetyGrammarV1
+
+  region-id ::= "REGION_DOWNTOWN_CORE" | string
+
+  domain-tag ::= "water" | "mar" | "wetland" | "air" | "biochar" | "softrobot"
+
+  pq-mode ::= "CLASSICAL_ONLY" | "HYBRID" | "PQ_STRICT"
+
+  ! ---------------------------------------------------------------------------
+  ! 1. Risk coordinates (rx) – normalized 0..1 bands
+  ! ---------------------------------------------------------------------------
+
+  risk-coord-id ::=
+      "PFAS"
+    | "PHARMACEUTICAL"
+    | "NUTRIENT"
+    | "TEMP"
+    | "DO"
+    | "SHEAR"
+    | "CEC"
+    | "R_DEGRADE"
+    | "R_TOX"
+    | "R_MICRO"
+
+  RiskCoordAtom ::=
+    risk-coord-id
+    minsafe: float      ! lower bound of safe normalized band
+    maxsafe: float      ! upper bound of safe normalized band
+
+  ! Examples for Downtown / Central MAR + ecotechnology lines.
+  ! Values are placeholders to be calibrated by 2026 corridor research.
+
+  MAR_PFAS_V1 :: RiskCoordAtom =
+    "PFAS"
+    minsafe: 0.0        ! 0 = below detection / target baseline
+    maxsafe: 0.35       ! corridor band before concern
+
+  MAR_PHARMA_V1 :: RiskCoordAtom =
+    "PHARMACEUTICAL"
+    minsafe: 0.0
+    maxsafe: 0.40
+
+  MAR_NUTRIENT_V1 :: RiskCoordAtom =
+    "NUTRIENT"
+    minsafe: 0.10       ! some nutrient for ecology
+    maxsafe: 0.70
+
+  MAR_TEMP_V1 :: RiskCoordAtom =
+    "TEMP"
+    minsafe: 0.10       ! avoids too cold shock
+    maxsafe: 0.70       ! avoids thermal stress
+
+  WETLAND_DO_V1 :: RiskCoordAtom =
+    "DO"
+    minsafe: 0.40       ! minimum oxygen for ecology
+    maxsafe: 1.00
+
+  WETLAND_SHEAR_V1 :: RiskCoordAtom =
+    "SHEAR"
+    minsafe: 0.0
+    maxsafe: 0.65
+
+  WETLAND_CEC_V1 :: RiskCoordAtom =
+    "CEC"
+    minsafe: 0.20
+    maxsafe: 0.90
+
+  SOFTBOT_R_DEGRADE_V1 :: RiskCoordAtom =
+    "R_DEGRADE"
+    minsafe: 0.40       ! minimum degradation fraction over design horizon
+    maxsafe: 0.95
+
+  SOFTBOT_R_TOX_V1 :: RiskCoordAtom =
+    "R_TOX"
+    minsafe: 0.0
+    maxsafe: 0.30
+
+  SOFTBOT_R_MICRO_V1 :: RiskCoordAtom =
+    "R_MICRO"
+    minsafe: 0.0
+    maxsafe: 0.25
+
+  ! ---------------------------------------------------------------------------
+  ! 2. Lyapunov residual templates (Vt)
+  ! ---------------------------------------------------------------------------
+
+  LyapunovTemplate ::=
+    template-id: string
+    system-id: string      ! MAR vault id, wetland cell id, softbot class
+    domain: domain-tag
+    vt-target: float       ! desired V(t) ≤ vt-target
+    monotone-required: bool
+
+  ! MAR vault stability – V(t) should monotonically decrease to <= 0.0
+  MAR_DESERT_VT_V1 :: LyapunovTemplate =
+    template-id: "MAR_DESERT_VT_V1"
+    system-id: "PHOENIX_MAR_GENERIC"
+    domain: "mar"
+    vt-target: 0.0
+    monotone-required: true
+
+  ! Wetland ecotechnology stability – V(t) bounded and biased to 0
+  WETLAND_ECOCOMP_VT_V1 :: LyapunovTemplate =
+    template-id: "WETLAND_ECOCOMP_VT_V1"
+    system-id: "PHOENIX_WETLAND_GENERIC"
+    domain: "wetland"
+    vt-target: 0.1
+    monotone-required: false
+
+  ! Soft-robot degradation stability – V(t) decreasing as material decomposes safely
+  SOFTBOT_DEGRADE_VT_V1 :: LyapunovTemplate =
+    template-id: "SOFTBOT_DEGRADE_VT_V1"
+    system-id: "PHOENIX_SOFTBOT_GENERIC"
+    domain: "softrobot"
+    vt-target: 0.0
+    monotone-required: true
+
+  ! ---------------------------------------------------------------------------
+  ! 3. Corridor atoms – water, MAR, wetland, air/biochar, softrobot
+  ! ---------------------------------------------------------------------------
+
+  CorridorAtom ::=
+    corridor-id: string
+    region: region-id
+    domain: domain-tag
+    risk-coords: [RiskCoordAtom+]
+    lyapunov: LyapunovTemplate?
+
+  ! MAR corridor for downtown recharge vaults
+  MARDESERT_PFAS_V1 :: CorridorAtom =
+    corridor-id: "MARDESERT_PFAS_V1"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "mar"
+    risk-coords: [MAR_PFAS_V1, MAR_PHARMA_V1, MAR_NUTRIENT_V1, MAR_TEMP_V1]
+    lyapunov: MAR_DESERT_VT_V1
+
+  ! Wetland / biofilm ecotechnology corridor
+  WETLAND_ECO_V1 :: CorridorAtom =
+    corridor-id: "WETLAND_ECO_V1"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "wetland"
+    risk-coords: [WETLAND_DO_V1, WETLAND_SHEAR_V1, WETLAND_CEC_V1]
+    lyapunov: WETLAND_ECOCOMP_VT_V1
+
+  ! Soft-robot ecosafety corridor
+  SOFTBOT_ECOSAFETY_V1 :: CorridorAtom =
+    corridor-id: "SOFTBOT_ECOSAFETY_V1"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "softrobot"
+    risk-coords: [SOFTBOT_R_DEGRADE_V1, SOFTBOT_R_TOX_V1, SOFTBOT_R_MICRO_V1]
+    lyapunov: SOFTBOT_DEGRADE_VT_V1
+
+  ! Biochar / airglo corridor placeholder (to be refined)
+  BIOCHAR_AIR_ECO_V1 :: CorridorAtom =
+    corridor-id: "BIOCHAR_AIR_ECO_V1"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "air"
+    risk-coords: [WETLAND_CEC_V1]
+    lyapunov: WETLAND_ECOCOMP_VT_V1
+
+  ! ---------------------------------------------------------------------------
+  ! 4. Node-level ecosafety references
+  ! ---------------------------------------------------------------------------
+
+  NodeEcosafetyRef ::=
+    node-id: string
+    domain: domain-tag
+    pq: pq-mode
+    corridors: [CorridorAtom+]
+
+  ! Example MAR node classes for Downtown / Central
+  NODE_MAR_VAULT_CAVE_CREEK_V1 :: NodeEcosafetyRef =
+    node-id: "MAR_VAULT_CAVE_CREEK_V1"
+    domain: "mar"
+    pq: "PQ_STRICT"
+    corridors: [MARDESERT_PFAS_V1]
+
+  NODE_MAR_VAULT_DOWNTOWN_V1 :: NodeEcosafetyRef =
+    node-id: "MAR_VAULT_DOWNTOWN_V1"
+    domain: "mar"
+    pq: "PQ_STRICT"
+    corridors: [MARDESERT_PFAS_V1]
+
+  ! Wetland ecotechnology cells
+  NODE_WETLAND_CELL_DC01_V1 :: NodeEcosafetyRef =
+    node-id: "WETLAND_CELL_DC01_V1"
+    domain: "wetland"
+    pq: "PQ_STRICT"
+    corridors: [WETLAND_ECO_V1]
+
+  ! Soft-robot node class
+  NODE_SOFTBOT_GEN1_V1 :: NodeEcosafetyRef =
+    node-id: "SOFTBOT_GEN1_V1"
+    domain: "softrobot"
+    pq: "PQ_STRICT"
+    corridors: [SOFTBOT_ECOSAFETY_V1]
+
+  ! Biochar / airglo stack
+  NODE_AIRGLO_STACK_DC01_V1 :: NodeEcosafetyRef =
+    node-id: "AIRGLO_STACK_DC01_V1"
+    domain: "air"
+    pq: "HYBRID"
+    corridors: [BIOCHAR_AIR_ECO_V1]
+
+  ! ---------------------------------------------------------------------------
+  ! 5. Ecosafety policies – "no corridor, no build" & "derate/stop"
+  ! ---------------------------------------------------------------------------
+
+  EcosafetyPolicy ::=
+    policy-id: string
+    applies-domain: domain-tag
+    on-soft-violation: "DERATE" | "STOP"
+    on-hard-violation: "STOP"
+    min-corridors-per-node: int
+    enforce-pq-strict: bool
+
+  ! Global policy for MAR, wetland, softrobot, air/biochar in Downtown Central
+  ECOSAFETY_POLICY_DOWNTOWN_V1 :: EcosafetyPolicy =
+    policy-id: "ECOSAFETY_POLICY_DOWNTOWN_V1"
+    applies-domain: "mar"
+    on-soft-violation: "DERATE"
+    on-hard-violation: "STOP"
+    min-corridors-per-node: 1
+    enforce-pq-strict: true
+
+  ECOSAFETY_POLICY_WETLAND_V1 :: EcosafetyPolicy =
+    policy-id: "ECOSAFETY_POLICY_WETLAND_V1"
+    applies-domain: "wetland"
+    on-soft-violation: "DERATE"
+    on-hard-violation: "STOP"
+    min-corridors-per-node: 1
+    enforce-pq-strict: true
+
+  ECOSAFETY_POLICY_SOFTBOT_V1 :: EcosafetyPolicy =
+    policy-id: "ECOSAFETY_POLICY_SOFTBOT_V1"
+    applies-domain: "softrobot"
+    on-soft-violation: "DERATE"
+    on-hard-violation: "STOP"
+    min-corridors-per-node: 1
+    enforce-pq-strict: true
+
+  ECOSAFETY_POLICY_AIR_BIOCHAR_V1 :: EcosafetyPolicy =
+    policy-id: "ECOSAFETY_POLICY_AIR_BIOCHAR_V1"
+    applies-domain: "air"
+    on-soft-violation: "DERATE"
+    on-hard-violation: "STOP"
+    min-corridors-per-node: 1
+    enforce-pq-strict: false
+
+end schema
