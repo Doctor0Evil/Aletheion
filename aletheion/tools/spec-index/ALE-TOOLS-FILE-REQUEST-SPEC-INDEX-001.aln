@@ -1,0 +1,228 @@
+// ALE-TOOLS-FILE-REQUEST-SPEC-INDEX-001
+// Canonical ALN manifest schema for FileRequestSpec records.
+// This file defines the append-only, index-facing view that validators and
+// generators use to track all past file requests and enforce ALE-ID, path,
+// workflow, capital, corridor, and SMART-chain invariants.
+
+// -----------------------------
+// 1. Core enums and primitives
+// -----------------------------
+
+enum GenerationLanguage {
+  ALN,
+  Lua,
+  Rust,
+  Javascript,
+  Kotlin,
+  Cpp,
+  YAML
+}
+
+enum Capital {
+  Water,
+  Thermal,
+  Waste,
+  Biotic,
+  Somatic,
+  Neurobiome,
+  Treaty
+}
+
+enum PQMode {
+  ClassicalOnly,
+  HybridPreferred,
+  PQStrictRequired
+}
+
+enum RequiredPQ {
+  HybridPreferred,
+  PQStrictRequired
+}
+
+enum SmartDomain {
+  Water,
+  Thermal,
+  Waste,
+  Biotic,
+  Somatic,
+  Neurobiome,
+  Treaty,
+  Mobility,
+  Equity
+}
+
+// -----------------------------
+// 2. Supporting record types
+// -----------------------------
+
+record ComplianceHooks {
+  requires_compliance_preflight: Bool,
+  requires_ecosafety_preflight: Bool,
+  requires_smart_chain_report: Bool,
+  required_ci_workflows: List<String>
+}
+
+record CorridorBinding {
+  corridor_tags: List<String>,
+  smart_chain_ids: List<String>,
+  required_corridor_ids: List<String>
+}
+
+record ResearchBlocker {
+  description: String,
+  reference: Option<String>,
+  required_research_action_id: Option<String>
+}
+
+// Snapshot of a single SMART-chain’s governance envelope.
+record SmartChainSnapshot {
+  chain_id: String,
+  domains: List<SmartDomain>,
+  pq_mode: PQMode,
+  treaties: List<String>,
+  rights_grammars: List<String>,
+  somatic_envelopes_present: Bool,
+  indigenous_treaties_present: Bool
+}
+
+// View of corridor / treaty envelopes for a tag (e.g. CANAL_METROCENTER_PARKWAY).
+record CorridorSnapshot {
+  corridor_tag: String,
+  capitals: List<Capital>,
+  requires_fpic: Bool,
+  ecosafety_required: Bool,
+  highway_family_required: Option<String>
+}
+
+// View of WORKFLOW-INDEX-0001 needed for spec validation.
+record WorkflowIndexEntry {
+  workflow_ref: String,          // e.g. "WF-06-AWP-INGESTION"
+  erm_layers: List<String>,      // ERM layers this workflow touches
+  default_capitals: List<Capital>,
+  path_prefixes: List<String>,   // e.g. ["aletheion/rm/water/"]
+  default_language: Option<GenerationLanguage>,
+  notes: Option<String>
+}
+
+// -----------------------------
+// 3. FileRequestSpec mirror
+// -----------------------------
+
+record FileRequestSpecRecord {
+  ale_id: String,
+  path: String,
+  language: GenerationLanguage,
+  workflow_ref: Option<String>,
+  capital_focus: List<Capital>,
+  smart_chains: List<String>,
+  corridor_binding: CorridorBinding,
+  syntax_profile: Option<String>,
+  test_surface: Option<String>,
+  predecessor_id: Option<String>,
+  workflow_family: Option<String>,
+  research_blockers: List<ResearchBlocker>,
+  compliance_hooks: ComplianceHooks,
+  tags: List<String>,
+
+  // Index-derived metadata
+  created_at_utc: String,        // ISO-8601 timestamp of manifest append
+  created_by_augmented_id: String,
+  source_surface: String,        // e.g. "CLI", "AUGMENTED_ID_CHAT", "CI_AUTOGEN"
+
+  // Derived linkage
+  resolved_workflow_ref: Option<String>,
+  inferred_capitals: List<Capital>,
+  inferred_smart_chains: List<String>
+}
+
+// -----------------------------
+// 4. Validation result records
+// -----------------------------
+
+enum RuleViolation {
+  AleIdInvalidShape { ale_id: String },
+  AleIdNotUnique { ale_id: String, existing_path: String },
+  PathOutsideRoot { path: String },
+  PathTooShallow { path: String, min_segments: Int },
+  PathCollision { path: String, existing_ale_id: String },
+  UnknownWorkflowRef { workflow_ref: String },
+  WorkflowFamilyMismatch {
+    workflow_ref: String,
+    expected_prefixes: List<String>,
+    found_path: String
+  },
+  MissingSmartChainForCapital { capital: Capital },
+  WeakPQMode {
+    chain_id: String,
+    domain: SmartDomain,
+    required: RequiredPQ,
+    found: PQMode
+  },
+  MissingTreatyForCapital { capital: Capital },
+  MissingRightsForCapital { capital: Capital },
+  MissingSomaticEnvelope { capital: Capital },
+  MissingFPICContext { corridor_tag: String },
+  MissingEcosafetyCoverage { path: String, corridor_tag: Option<String> },
+  MissingPrerequisiteResearch { workflow_ref: Option<String> },
+  WorkflowNotInCanonicalIndex { workflow_ref: String },
+  MissingRequiredIndex { index_name: String }
+}
+
+enum RuleHint {
+  SuggestWorkflowRef { likely_workflows: List<String> },
+  SuggestSmartChainForCapital {
+    capital: Capital,
+    candidates: List<String>
+  },
+  SuggestPathFamily {
+    workflow_ref: String,
+    suggested_prefixes: List<String>
+  },
+  MissingSyntaxProfile,
+  MissingTestSurface,
+  MissingResearchBlockers { workflow_ref: Option<String> },
+  SuggestCorridorTags { candidates: List<String> },
+  SuggestComplianceHooks { recommended_hooks: List<String> }
+}
+
+record NormalizedFileRequestSpec {
+  spec: FileRequestSpecRecord,
+  inferred_missing_fields: List<String>
+}
+
+record ValidationPass {
+  normalized_spec: NormalizedFileRequestSpec,
+  warnings: List<RuleHint>
+}
+
+record ValidationFailure {
+  errors: List<RuleViolation>,
+  warnings: List<RuleHint>
+}
+
+enum ValidationOutcome {
+  Ok { pass: ValidationPass },
+  Err { failure: ValidationFailure }
+}
+
+// -----------------------------
+// 5. Manifest root (append-only)
+// -----------------------------
+
+// This is the append-only log that the validator reads to enforce:
+// - global ALE-ID uniqueness
+// - path non-overlap and depth discipline
+// - predecessor_id lineage
+// - workflow, capital, corridor, and SMART-chain alignment.
+record FileRequestSpecManifest {
+  // All historically accepted specs, ordered by created_at_utc ascending.
+  entries: List<FileRequestSpecRecord>,
+
+  // Cached indices for fast lookup (materialized views).
+  index_by_ale_id: Map<String, String>,   // ale_id -> path
+  index_by_path: Map<String, String>,     // path -> ale_id
+  index_by_workflow: Map<String, List<String>>, // workflow_ref -> [ale_id]
+  workflow_index: List<WorkflowIndexEntry>,
+  smart_chain_registry: List<SmartChainSnapshot>,
+  corridor_index: List<CorridorSnapshot>
+}
