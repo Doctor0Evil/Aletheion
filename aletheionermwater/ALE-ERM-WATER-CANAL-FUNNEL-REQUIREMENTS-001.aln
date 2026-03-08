@@ -1,0 +1,131 @@
+title = "ALE-ERM-WATER-CANAL-FUNNEL-REQUIREMENTS-001"
+version = "2026-03-08"
+domain = "water+canals"
+region = "Phoenix-AZ-US"
+
+[chains.required]
+ids = ["SMART01AWPTHERMALTHERMAPHORA"]
+
+############################################################
+# A. aletheionrmwater hooks (MAR + allocation)
+############################################################
+
+[rmwater.imports]
+must_import = [
+  "CyboquaticNodeEcosafety",
+  "RiskVector",
+  "Corridor",
+  "CorridorEvalResult",
+  "NodeAction",
+  "require_corridors",
+  "eval_corridor",
+  "decide_node_action",
+  "check_lyapunov",
+]
+
+[rmwater.nodes]
+required_corridor_axes = [
+  "pfas",
+  "nutrients",
+  "temperature",
+  "surcharge",
+  "r_degrade",
+  "r_tox",
+  "r_micro",
+]
+
+[rmwater.riskvector]
+must_attach = ["pfas","nutrients","temperature","surcharge"]
+optional_attach = [
+  "r_degrade","r_tox","r_micro",
+  "lyapunov_template","mar_corridor_ids"
+]
+
+[rmwater.corridor_eval]
+require_calls = ["require_corridors","eval_corridor","decide_node_action"]
+hard_violation_semantic = "reject_plan"
+soft_violation_semantic = "derate_allocation"  # e.g., lower recharge rate
+
+[rmwater.smart_chain]
+required_pq_mode = "PQSTRICT"
+required_chain_ids = ["SMART01AWPTHERMALTHERMAPHORA"]
+require_treaties = true   # Indigenous water, downstream rights
+fail_if_missing_treaties = true
+
+[rmwater.governance_gate]
+required_fields = ["fpic_required","treaty_refs"]
+if_fpic_true_route_via = [
+  "neighborhoodmicrotreatygate",
+  "LexEthos"
+]
+
+############################################################
+# B. aletheioninfracanals hooks (canal segments, pumps, stormwater)
+############################################################
+
+[infracanals.state_struct]
+must_carry = [
+  "flow",
+  "stage",
+  "storm_inflow",
+  "pfas_profile",
+  "temperature",
+  "segment_corridors",
+  "pump_corridors"
+]
+
+[infracanals.mar_canal_coupling]
+riskvector_axes = ["pfas","nutrients","temperature","surcharge"]
+mar_corridors_role = "hard_constraints"
+canal_corridors_role = "additional_constraints"
+
+[infracanals.machinery_funnel]
+sources = [
+  "canalmachineryautopilot",
+  "ALE-INF-PUMP-CONTROL-001.rs"
+]
+action_types = ["pump_speed","gate_move"]
+derate_semantics = "multiplicative_cap"
+stop_semantics = "no_actuation_safe_fallback"
+
+[infracanals.monsoon]
+workflows = ["ALE-INF-CANAL-MONSOON-001.lua"]
+check_corridors_for = [
+  "max_stage",
+  "surcharge",
+  "downstream_treaty_flows",
+  "mar_recharge"
+]
+hard_violation_recovery = "recycle_plan_then_hold_and_alert"
+
+[infracanals.smart_chain]
+required_chain_ids = ["SMART01AWPTHERMALTHERMAPHORA"]
+required_pq_mode = "PQSTRICT"
+must_enforce_treaties = [
+  "DownstreamWaterTreaties",
+  "BioticTreaties"
+]
+
+[infracanals.function_tiers]
+state_tier = "canalsegmentstate(canal_id, segment_id)"
+service_tier = "canalmachineryautopilot"
+governance_tier = "ALE-INF-CANAL-TREATY-001.aln"
+governance_behavior = "reject_if_treaty_violated_even_if_ecosafe"
+
+############################################################
+# C. CI enforcement hooks (both trees)
+############################################################
+
+[ci.ecosafety]
+workflow = ".github/workflows/ecosafety-grammar-preflight.yml"
+scan_paths = ["aletheionrmwater/*","aletheioninfracanals/*"]
+must_have_node_and_corridor = true
+must_test_hard_violation_maps_to = "NodeAction::Stop"
+
+[ci.smart_chain]
+job_name = "smartchainvalidator"
+scan_paths = ["aletheionrmwater/*","aletheioninfracanals/*"]
+must_declare_chain_id = true
+min_pq_mode = "HYBRID"
+min_pq_mode_water_biotic = "PQSTRICT"
+must_reference_treaties_for_protected = true
