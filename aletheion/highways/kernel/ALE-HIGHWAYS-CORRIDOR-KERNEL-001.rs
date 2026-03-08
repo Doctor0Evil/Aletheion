@@ -868,11 +868,3 @@ mod tests {
         assert!(result.errors.len() >= 3);
     }
 }
-
-// ============================================================================
-// END OF FILE: ALE-HIGHWAYS-CORRIDOR-KERNEL-001.rs
-// TOTAL LINES: 542
-// DENSITY: Maximum per-line information content
-// NEXT FILE: aletheion/highways/kernel/ALE-HIGHWAYS-CORRIDOR-POLICIES-001.aln
-// ============================================================================
-```
