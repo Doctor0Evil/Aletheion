@@ -1,0 +1,992 @@
+// ============================================================================
+// FILE: aletheion/synthexis/engine/contracts/ALE-SYNTHEXIS-BIOTIC-TREATY-CORE-001.aln
+// PURPOSE: Core treaty schema for SpeciesAgent definitions, corridor constraints,
+//          LNP (Light/Noise/Pesticide) limits, and habitat continuity requirements
+// LANGUAGE: ALN (Aletheion Logic Notation) - Version 001
+// DESTINATION: Aletheion Repository - Synthexis Engine Contracts Subsystem
+// COMPLIANCE: Zero-contamination IFC, NeurorightsEnvelope, FPIC metadata,
+//             Sonoran Desert ecosystem preservation, BioticTreaty enforcement
+// AUTHORITY: Single semantic source - All Rust engines read this schema
+// RELATED: ALE-SYNTHEXIS-IFC-KERNEL-001.rs, ALE-HIGHWAYS-CORRIDOR-POLICIES-001.aln
+// ============================================================================
+
+@version "001"
+@domain "aletheion.synthexis.contracts"
+@policy_type "biotic_treaty_core"
+@effective_date "2026-03-08T00:00:00Z"
+@jurisdiction "Phoenix, Arizona, USA"
+@indigenous_territory "Akimel O'odham and Piipaash ancestral lands"
+
+// ============================================================================
+// SECTION 1: SPECIES AGENT SCHEMA DEFINITIONS
+// ============================================================================
+
+@species_agent_schema {
+    name: "Aletheion_SpeciesAgent"
+    version: "001"
+    
+    @field agent_id {
+        type: "string"
+        pattern: "^SA-[0-9]{6}-[A-Z]{4}$"
+        required: true
+        immutable: true
+        description: "Unique species agent identifier"
+    }
+    
+    @field species_name {
+        type: "string"
+        pattern: "^[A-Za-z]+ [a-z]+$"
+        required: true
+        immutable: true
+        description: "Binomial nomenclature (Genus species)"
+    }
+    
+    @field common_name {
+        type: "string"
+        required: false
+        mutable: true
+        description: "Common name in English"
+    }
+    
+    @field oodham_name {
+        type: "string"
+        required: false
+        mutable: true
+        description: "Name in O'odham language for indigenous knowledge integration"
+    }
+    
+    @field class {
+        type: "enum"
+        allowed_values: [pollinator, avian, mammalian, reptilian, amphibian, keystone, indicator]
+        required: true
+        mutable: false
+        description: "Species agent classification"
+    }
+    
+    @field population_estimate {
+        type: "unsigned_integer"
+        min: 0
+        max: 1000000000
+        required: true
+        mutable: true
+        description: "Estimated population in region"
+    }
+    
+    @field population_trend {
+        type: "enum"
+        allowed_values: [increasing, stable, declining, critical]
+        required: true
+        mutable: true
+        description: "Population trend direction"
+    }
+    
+    @field threat_level {
+        type: "float"
+        min: 0.0
+        max: 1.0
+        required: true
+        mutable: true
+        description: "Threat level normalized score"
+    }
+    
+    @field corridor_dependency {
+        type: "float"
+        min: 0.0
+        max: 1.0
+        required: true
+        mutable: false
+        description: "Dependency on wildlife corridors"
+    }
+    
+    @field habitat_requirements {
+        type: "array"
+        item_type: "enum"
+        allowed_values: [desert_scrub, riparian_corridor, urban_green_space, pollinator_corridor, wildlife_crossing, native_restoration, conservation_easement]
+        required: true
+        mutable: false
+        description: "Required habitat types"
+    }
+    
+    @field fpic_verified {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Free, Prior, and Informed Consent verification"
+    }
+    
+    @field indigenous_knowledge_integrated {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Indigenous ecological knowledge integration status"
+    }
+    
+    @field conservation_priority {
+        type: "float"
+        min: 0.0
+        max: 1.0
+        required: true
+        mutable: true
+        description: "Computed conservation priority score"
+    }
+    
+    @invariant species_invariant_001 {
+        description: "All keystone species require FPIC verification"
+        condition: class == keystone => fpic_verified == true
+        enforcement: hard_block
+    }
+    
+    @invariant species_invariant_002 {
+        description: "Pollinator species require indigenous knowledge integration"
+        condition: class == pollinator => indigenous_knowledge_integrated == true
+        enforcement: hard_block
+    }
+    
+    @invariant species_invariant_003 {
+        description: "Threat level must be updated quarterly"
+        condition: threat_level_last_updated <= 90_days_ago
+        enforcement: soft_warning
+    }
+}
+
+@species_registry {
+    name: "Sonoran_Desert_Species_Registry"
+    version: "001"
+    
+    @species_entry apis_mellifera {
+        agent_id: "SA-000001-APIS"
+        species_name: "Apis mellifera"
+        common_name: "Western Honey Bee"
+        oodham_name: "Wihog"
+        class: pollinator
+        population_estimate: 50000000
+        population_trend: declining
+        threat_level: 0.65
+        corridor_dependency: 0.9
+        habitat_requirements: [pollinator_corridor, urban_green_space, native_restoration]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 0.95
+        citation: "Phoenix Pollinator Action Plan 2025"
+    }
+    
+    @species_entry crotalus_atrox {
+        agent_id: "SA-000002-CROT"
+        species_name: "Crotalus atrox"
+        common_name: "Western Diamondback Rattlesnake"
+        oodham_name: "Gohk"
+        class: reptilian
+        population_estimate: 250000
+        population_trend: stable
+        threat_level: 0.3
+        corridor_dependency: 0.7
+        habitat_requirements: [desert_scrub, wildlife_crossing, conservation_easement]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 0.7
+        citation: "Sonoran Desert Network Conservation Plan"
+    }
+    
+    @species_entry phrynosoma_solare {
+        agent_id: "SA-000003-PHRY"
+        species_name: "Phrynosoma solare"
+        common_name: "Sun Horned Lizard"
+        oodham_name: "Pi'ish"
+        class: reptilian
+        population_estimate: 150000
+        population_trend: declining
+        threat_level: 0.55
+        corridor_dependency: 0.65
+        habitat_requirements: [desert_scrub, native_restoration]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 0.75
+        citation: "Arizona Game and Fish Department 2025"
+    }
+    
+    @species_entry cynomex_mexicanus {
+        agent_id: "SA-000004-CYNO"
+        species_name: "Cynomex mexicanus"
+        common_name: "Mexican Free-tailed Bat"
+        oodham_name: "Vam"
+        class: mammalian
+        population_estimate: 5000000
+        population_trend: stable
+        threat_level: 0.4
+        corridor_dependency: 0.8
+        habitat_requirements: [riparian_corridor, wildlife_crossing, urban_green_space]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 0.85
+        citation: "Bat Conservation International 2025"
+    }
+    
+    @species_entry Carnegiea_gigantea {
+        agent_id: "SA-000005-CARN"
+        species_name: "Carnegiea gigantea"
+        common_name: "Saguaro Cactus"
+        oodham_name: "Ha:shan"
+        class: keystone
+        population_estimate: 2000000
+        population_trend: stable
+        threat_level: 0.35
+        corridor_dependency: 0.5
+        habitat_requirements: [desert_scrub, conservation_easement, native_restoration]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 1.0
+        citation: "Saguaro National Park Service 2025"
+    }
+    
+    @species_entry callipepla_squamata {
+        agent_id: "SA-000006-CALL"
+        species_name: "Callipepla squamata"
+        common_name: "Scaled Quail"
+        oodham_name: "Kue:ne"
+        class: avian
+        population_estimate: 750000
+        population_trend: declining
+        threat_level: 0.6
+        corridor_dependency: 0.75
+        habitat_requirements: [desert_scrub, pollinator_corridor, native_restoration]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 0.8
+        citation: "Audubon Arizona 2025"
+    }
+    
+    @species_entry ambystoma mavortium {
+        agent_id: "SA-000007-AMBY"
+        species_name: "Ambystoma mavortium"
+        common_name: "Barred Tiger Salamander"
+        oodham_name: "Huhugam"
+        class: amphibian
+        population_estimate: 50000
+        population_trend: critical
+        threat_level: 0.85
+        corridor_dependency: 0.95
+        habitat_requirements: [riparian_corridor, wildlife_crossing, conservation_easement]
+        fpic_verified: true
+        indigenous_knowledge_integrated: true
+        conservation_priority: 0.95
+        citation: "Arizona Wildlife Conservation Review 2025"
+    }
+}
+
+// ============================================================================
+// SECTION 2: LIGHT POLLUTION CONSTRAINTS
+// ============================================================================
+
+@light_pollution_policy {
+    name: "Aletheion_Dark_Sky_Corridor_Policy"
+    version: "001"
+    
+    @constraint ambient_lux_max {
+        domain: biotic
+        parameter: "ambient_lux"
+        max_value: 10.0
+        target_value: 2.0
+        unit: "lux"
+        critical: true
+        citation: "International Dark-Sky Association standards"
+    }
+    
+    @constraint ambient_lux_nocturnal {
+        domain: biotic
+        parameter: "ambient_lux"
+        max_value: 5.0
+        target_value: 1.0
+        unit: "lux"
+        critical: true
+        condition: "nocturnal_species_present == true"
+        citation: "Nocturnal wildlife protection threshold"
+    }
+    
+    @constraint sky_glow_index_max {
+        domain: biotic
+        parameter: "sky_glow_index"
+        max_value: 0.3
+        target_value: 0.1
+        unit: "normalized_index"
+        critical: false
+        citation: "Bortle Scale Class 4 maximum"
+    }
+    
+    @constraint spectral_blue_light_ratio {
+        domain: biotic
+        parameter: "blue_light_ratio"
+        max_value: 0.15
+        target_value: 0.05
+        unit: "ratio"
+        critical: true
+        citation: "Blue light disruption to circadian rhythms"
+    }
+    
+    @constraint lighting_fixture_cutoff {
+        domain: biotic
+        parameter: "fixture_cutoff_angle"
+        min_value: 90.0
+        max_value: 180.0
+        target_value: 180.0
+        unit: "degrees"
+        critical: false
+        citation: "Full cutoff fixture requirement"
+    }
+    
+    @constraint lighting_operating_hours {
+        domain: biotic
+        parameter: "lights_off_period"
+        required_start: "22:00"
+        required_end: "05:00"
+        unit: "local_time"
+        critical: false
+        exception: "safety_critical_infrastructure"
+        citation: "Nocturnal activity period protection"
+    }
+    
+    @invariant light_invariant_001 {
+        description: "Ambient lux must not exceed 10.0 in biotic corridors"
+        condition: ambient_lux <= 10.0
+        enforcement: hard_block
+    }
+    
+    @invariant light_invariant_002 {
+        description: "Nocturnal corridors require ambient lux <= 5.0"
+        condition: nocturnal_corridor == true => ambient_lux <= 5.0
+        enforcement: hard_block
+    }
+    
+    @invariant light_invariant_003 {
+        description: "Blue light ratio must not exceed 15% in habitat zones"
+        condition: blue_light_ratio <= 0.15
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 3: NOISE POLLUTION CONSTRAINTS
+// ============================================================================
+
+@noise_pollution_policy {
+    name: "Aletheion_Wildlife_Disturbance_Policy"
+    version: "001"
+    
+    @constraint ambient_db_max {
+        domain: biotic
+        parameter: "ambient_db"
+        max_value: 55.0
+        target_value: 35.0
+        unit: "decibels_A_weighted"
+        critical: true
+        citation: "Wildlife disturbance threshold"
+    }
+    
+    @constraint ambient_db_breeding {
+        domain: biotic
+        parameter: "ambient_db"
+        max_value: 45.0
+        target_value: 30.0
+        unit: "decibels_A_weighted"
+        critical: true
+        condition: "breeding_season == true"
+        citation: "Breeding season noise reduction"
+    }
+    
+    @constraint peak_events_per_hour {
+        domain: biotic
+        parameter: "peak_noise_events"
+        max_value: 10
+        target_value: 3
+        unit: "events_per_hour"
+        critical: false
+        citation: "Startle event frequency limit"
+    }
+    
+    @constraint peak_event_db_max {
+        domain: biotic
+        parameter: "peak_event_db"
+        max_value: 80.0
+        target_value: 60.0
+        unit: "decibels_A_weighted"
+        critical: true
+        citation: "Maximum single event noise level"
+    }
+    
+    @constraint low_frequency_noise {
+        domain: biotic
+        parameter: "low_frequency_db"
+        max_value: 50.0
+        target_value: 35.0
+        unit: "decibels_below_200Hz"
+        critical: false
+        citation: "Low frequency wildlife impact"
+    }
+    
+    @constraint quiet_hours {
+        domain: biotic
+        parameter: "noise_restriction_period"
+        required_start: "20:00"
+        required_end: "07:00"
+        max_db_during_period: 40.0
+        unit: "local_time"
+        critical: false
+        exception: "emergency_services"
+        citation: "Nocturnal quiet period enforcement"
+    }
+    
+    @invariant noise_invariant_001 {
+        description: "Ambient noise must not exceed 55 dB in biotic corridors"
+        condition: ambient_db <= 55.0
+        enforcement: hard_block
+    }
+    
+    @invariant noise_invariant_002 {
+        description: "Breeding season requires ambient noise <= 45 dB"
+        condition: breeding_season == true => ambient_db <= 45.0
+        enforcement: hard_block
+    }
+    
+    @invariant noise_invariant_003 {
+        description: "Peak noise events limited to 10 per hour"
+        condition: peak_noise_events <= 10
+        enforcement: soft_warning
+    }
+}
+
+// ============================================================================
+// SECTION 4: PESTICIDE ZERO-TOLERANCE POLICY
+// ============================================================================
+
+@pesticide_policy {
+    name: "Aletheion_Zero_Pesticide_BioticTreaty"
+    version: "001"
+    
+    @constraint concentration_ppb_max {
+        domain: biotic
+        parameter: "pesticide_concentration"
+        max_value: 0.0
+        target_value: 0.0
+        unit: "parts_per_billion"
+        critical: true
+        citation: "Zero-tolerance BioticTreaty enforcement"
+    }
+    
+    @constraint compound_blacklist {
+        domain: biotic
+        parameter: "prohibited_compounds"
+        blocked_compounds: [
+            "neonicotinoid",
+            "imidacloprid",
+            "clothianidin",
+            "thiamethoxam",
+            "fipronil",
+            "chlorpyrifos",
+            "malathion",
+            "glyphosate",
+            "atrazine",
+            "paraquat"
+        ]
+        critical: true
+        citation: "Pollinator-toxic compound ban"
+    }
+    
+    @constraint buffer_zone_min {
+        domain: biotic
+        parameter: "pesticide_buffer_distance"
+        min_value: 500.0
+        target_value: 1000.0
+        unit: "meters"
+        critical: true
+        citation: "BeeCorridorRouter enforcement zone"
+    }
+    
+    @constraint bioaccumulation_threshold {
+        domain: biotic
+        parameter: "bioaccumulation_factor"
+        max_value: 0.0
+        target_value: 0.0
+        unit: "normalized_factor"
+        critical: true
+        citation: "Food chain contamination prevention"
+    }
+    
+    @constraint pollinator_toxicity_max {
+        domain: biotic
+        parameter: "pollinator_toxicity_score"
+        max_value: 0.0
+        target_value: 0.0
+        unit: "normalized_score"
+        critical: true
+        citation: "Pollinator protection mandate"
+    }
+    
+    @constraint aquatic_toxicity_max {
+        domain: biotic
+        parameter: "aquatic_toxicity_score"
+        max_value: 0.0
+        target_value: 0.0
+        unit: "normalized_score"
+        critical: true
+        citation: "Riparian ecosystem protection"
+    }
+    
+    @invariant pesticide_invariant_001 {
+        description: "Pesticide concentration must be zero in all biotic corridors"
+        condition: pesticide_concentration == 0.0
+        enforcement: hard_block
+    }
+    
+    @invariant pesticide_invariant_002 {
+        description: "Blacklisted compounds prohibited in all Aletheion zones"
+        condition: prohibited_compounds_detected == 0
+        enforcement: hard_block
+    }
+    
+    @invariant pesticide_invariant_003 {
+        description: "Buffer zones must extend minimum 500 meters from habitat"
+        condition: pesticide_buffer_distance >= 500.0
+        enforcement: hard_block
+    }
+    
+    @invariant pesticide_invariant_004 {
+        description: "Zero bioaccumulation risk required"
+        condition: bioaccumulation_factor == 0.0
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 5: HABITAT CORRIDOR CONSTRAINTS
+// ============================================================================
+
+@habitat_corridor_policy {
+    name: "Aletheion_Wildlife_Corridor_Continuity_Policy"
+    version: "001"
+    
+    @constraint corridor_width_min {
+        domain: biotic
+        parameter: "corridor_width"
+        min_value: 50.0
+        target_value: 200.0
+        unit: "meters"
+        critical: true
+        citation: "Wildlife corridor minimum width standard"
+    }
+    
+    @constraint corridor_width_pollinator {
+        domain: biotic
+        parameter: "pollinator_corridor_width"
+        min_value: 10.0
+        target_value: 50.0
+        unit: "meters"
+        critical: true
+        citation: "Bee sovereignty corridor minimum"
+    }
+    
+    @constraint corridor_connectivity_min {
+        domain: biotic
+        parameter: "corridor_connectivity"
+        min_value: 0.7
+        target_value: 0.9
+        unit: "connectivity_coefficient"
+        critical: true
+        citation: "Habitat fragmentation prevention"
+    }
+    
+    @constraint corridor_length_max_gap {
+        domain: biotic
+        parameter: "corridor_gap_distance"
+        max_value: 500.0
+        target_value: 100.0
+        unit: "meters"
+        critical: true
+        citation: "Maximum gap between habitat patches"
+    }
+    
+    @constraint native_vegetation_ratio {
+        domain: biotic
+        parameter: "native_vegetation_coverage"
+        min_value: 0.8
+        target_value: 0.95
+        unit: "ratio"
+        critical: true
+        citation: "Native plant species requirement"
+    }
+    
+    @constraint wildlife_crossing_density {
+        domain: biotic
+        parameter: "crossings_per_km"
+        min_value: 1.0
+        target_value: 3.0
+        unit: "crossings_per_kilometer"
+        critical: false
+        citation: "Road mortality reduction standard"
+    }
+    
+    @constraint underpass_dimensions {
+        domain: biotic
+        parameter: "underpass_width"
+        min_value: 10.0
+        target_value: 30.0
+        unit: "meters"
+        critical: false
+        citation: "Wildlife underpass minimum dimensions"
+    }
+    
+    @constraint overpass_vegetation {
+        domain: biotic
+        parameter: "overpass_soil_depth"
+        min_value: 0.5
+        target_value: 1.5
+        unit: "meters"
+        critical: false
+        citation: "Green bridge vegetation support"
+    }
+    
+    @invariant corridor_invariant_001 {
+        description: "Wildlife corridors must maintain minimum 50 meter width"
+        condition: corridor_width >= 50.0
+        enforcement: hard_block
+    }
+    
+    @invariant corridor_invariant_002 {
+        description: "Corridor connectivity must exceed 0.7 coefficient"
+        condition: corridor_connectivity >= 0.7
+        enforcement: hard_block
+    }
+    
+    @invariant corridor_invariant_003 {
+        description: "Native vegetation must comprise minimum 80% of corridor"
+        condition: native_vegetation_coverage >= 0.8
+        enforcement: hard_block
+    }
+    
+    @invariant corridor_invariant_004 {
+        description: "Habitat gaps must not exceed 500 meters"
+        condition: corridor_gap_distance <= 500.0
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 6: HABITAT CONTINUITY SCORING
+// ============================================================================
+
+@habitat_continuity_scoring {
+    name: "Aletheion_Habitat_Continuity_Index"
+    version: "001"
+    
+    @scoring_component light_compliance {
+        weight: 0.25
+        calculation: "1.0 - (ambient_lux / max_allowed_lux)"
+        min_score: 0.0
+        max_score: 1.0
+    }
+    
+    @scoring_component noise_compliance {
+        weight: 0.25
+        calculation: "1.0 - (wildlife_disturbance_index)"
+        min_score: 0.0
+        max_score: 1.0
+    }
+    
+    @scoring_component pesticide_compliance {
+        weight: 0.30
+        calculation: "pesticide_concentration == 0.0 ? 1.0 : 0.0"
+        min_score: 0.0
+        max_score: 1.0
+    }
+    
+    @scoring_component corridor_connectivity {
+        weight: 0.20
+        calculation: "corridor_connectivity"
+        min_score: 0.0
+        max_score: 1.0
+    }
+    
+    @aggregate_formula {
+        calculation: "(light_compliance * 0.25) + (noise_compliance * 0.25) + (pesticide_compliance * 0.30) + (corridor_connectivity * 0.20)"
+        min_passing_score: 0.7
+        target_score: 0.9
+    }
+    
+    @invariant scoring_invariant_001 {
+        description: "Habitat continuity score must exceed 0.7 for approval"
+        condition: aggregate_habitat_continuity_score >= 0.7
+        enforcement: hard_block
+    }
+    
+    @invariant scoring_invariant_002 {
+        description: "Pesticide compliance is binary (zero-tolerance)"
+        condition: pesticide_compliance == 1.0
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 7: TREATY ENFORCEMENT & GOVERNANCE
+// ============================================================================
+
+@treaty_enforcement {
+    name: "Aletheion_BioticTreaty_Enforcement"
+    version: "001"
+    
+    @field treaty_id {
+        type: "string"
+        pattern: "^MT-[0-9]{6}-BIOT$"
+        required: true
+        immutable: true
+        description: "MicroTreaty identifier for biotic treaties"
+    }
+    
+    @field version {
+        type: "string"
+        pattern: "^[0-9]{3}$"
+        required: true
+        immutable: false
+        description: "Treaty version number"
+    }
+    
+    @field stake_multisig_verified {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Stake multisig verification status"
+    }
+    
+    @field indigenous_consultation_complete {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Indigenous consultation completion status"
+    }
+    
+    @field fpic_verified {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Free, Prior, and Informed Consent verification"
+    }
+    
+    @field sovereignty_scalar {
+        type: "float"
+        min: 0.0
+        max: 1.0
+        required: true
+        mutable: false
+        description: "Sovereignty enforcement coefficient"
+    }
+    
+    @field roH_bound {
+        type: "float"
+        min: 0.0
+        max: 0.3
+        required: true
+        mutable: false
+        description: "Rate-of-Harm sovereignty bound"
+    }
+    
+    @field eco_impact_delta {
+        type: "float"
+        min: -1.0
+        max: 1.0
+        required: true
+        mutable: true
+        description: "CEIM/NanoKarma environmental accounting delta"
+    }
+    
+    @field evp_record_present {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "EvolutionProposalRecord in .evolve.jsonl"
+    }
+    
+    @invariant treaty_invariant_001 {
+        description: "Stake multisig verification required for treaty enforcement"
+        condition: stake_multisig_verified == true
+        enforcement: hard_block
+    }
+    
+    @invariant treaty_invariant_002 {
+        description: "Indigenous consultation required for biotic treaties"
+        condition: indigenous_consultation_complete == true
+        enforcement: hard_block
+    }
+    
+    @invariant treaty_invariant_003 {
+        description: "FPIC verification required for all biotic operations"
+        condition: fpic_verified == true
+        enforcement: hard_block
+    }
+    
+    @invariant treaty_invariant_004 {
+        description: "Rate-of-Harm must not exceed 0.3 sovereignty bound"
+        condition: roH_bound <= 0.3
+        enforcement: hard_block
+    }
+    
+    @invariant treaty_invariant_005 {
+        description: "EVP record required for all treaty modifications"
+        condition: evp_record_present == true
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 8: SEASONAL & TEMPORAL ADAPTATIONS
+// ============================================================================
+
+@seasonal_adaptations {
+    name: "Aletheion_Biotic_Seasonal_Policy"
+    version: "001"
+    
+    @season monsoon {
+        months: [7, 8, 9]
+        description: "North American Monsoon season"
+        
+        @adaptation flash_flood_corridor_closure {
+            condition: "flash_flood_warning == true"
+            action: "temporarily_close_low_lying_corridors"
+            duration: "until_all_clear"
+            citation: "Maricopa County Flood Control District"
+        }
+        
+        @adaptation breeding_season_protection {
+            condition: "breeding_season == true"
+            action: "reduce_noise_limits_to_45dB"
+            duration: "seasonal"
+            citation: "Arizona Game and Fish Department"
+        }
+        
+        @adaptation amphibian_migration {
+            condition: "post_rainfall_48hrs"
+            action: "activate_amphibian_crossing_signals"
+            duration: "72_hours"
+            citation: "Sonoran Desert Amphibian Study 2025"
+        }
+    }
+    
+    @season extreme_heat {
+        months: [5, 6, 7, 8, 9]
+        description: "Phoenix extreme heat period (100°F+)"
+        
+        @adaptation wildlife_water_stations {
+            condition: "ambient_temp_c > 40.0"
+            action: "activate_automatic_watering_systems"
+            duration: "daily_dusk_to_dawn"
+            citation: "Phoenix Wildlife Water Program 2025"
+        }
+        
+        @adaptation nocturnal_activity_shift {
+            condition: "heat_index_c > 45.0"
+            action: "extend_quiet_hours_daytime"
+            duration: "10:00_to_18:00"
+            citation: "Urban Heat Island Mitigation"
+        }
+    }
+    
+    @season migration {
+        months: [3, 4, 9, 10]
+        description: "Spring and Fall migration periods"
+        
+        @adaptation bird_migration_corridor {
+            condition: "migration_peak == true"
+            action: "reduce_light_pollution_to_1lux"
+            duration: "migration_window"
+            citation: "Audubon Arizona Migration Study"
+        }
+        
+        @adaptation construction_moratorium {
+            condition: "migration_corridor_active == true"
+            action: "halt_construction_in_corridors"
+            duration: "migration_window"
+            citation: "Wildlife Corridor Protection Act"
+        }
+    }
+}
+
+// ============================================================================
+// SECTION 9: VIOLATION RESPONSE & REMEDIATION
+// ============================================================================
+
+@violation_response {
+    name: "Aletheion_BioticTreaty_Violation_Response"
+    version: "001"
+    
+    @violation_type pesticide_detection {
+        severity: critical
+        immediate_action: "halt_all_operations_in_zone"
+        notification: ["stake_multisig", "indigenous_authority", "environmental_agency"]
+        remediation: "soil_remediation_and_retesting"
+        penalty: "suspension_until_compliance"
+        citation: "Zero-tolerance BioticTreaty enforcement"
+    }
+    
+    @violation_type corridor_fragmentation {
+        severity: high
+        immediate_action: "temporary_corridor_closure"
+        notification: ["synthexis_engine", "city_planning"]
+        remediation: "habitat_restoration_plan"
+        penalty: "mandatory_connectivity_improvement"
+        citation: "Habitat fragmentation prevention"
+    }
+    
+    @violation_type noise_exceedance {
+        severity: medium
+        immediate_action: "noise_source_identification"
+        notification: ["noise_control_authority"]
+        remediation: "noise_barrier_installation"
+        penalty: "fine_per_exceedance_event"
+        citation: "Wildlife disturbance threshold"
+    }
+    
+    @violation_type light_pollution {
+        severity: medium
+        immediate_action: "fixture_audit"
+        notification: ["lighting_authority"]
+        remediation: "fixture_replacement_with_dark_sky_compliant"
+        penalty: "mandatory_upgrade_timeline"
+        citation: "Dark sky corridor protection"
+    }
+    
+    @violation_type treaty_non_compliance {
+        severity: critical
+        immediate_action: "suspend_treaty_privileges"
+        notification: ["stake_multisig", "governance_council"]
+        remediation: "treaty_renegotiation_required"
+        penalty: "evp_record_and_stake_review"
+        citation: "MicroTreaty enforcement standards"
+    }
+}
+
+// ============================================================================
+// SECTION 10: VERSIONING & EVOLUTION TRACKING
+// ============================================================================
+
+@evolution_track {
+    version: "001"
+    effective_date: "2026-03-08T00:00:00Z"
+    superseded_versions: []
+    next_review_date: "2026-06-08T00:00:00Z"
+    review_frequency_days: 90
+    change_approval_required: ["stake_multisig", "indigenous_consultation", "environmental_audit"]
+    evp_record_location: ".evolve.jsonl"
+}
+
+@audit_log {
+    enabled: true
+    retention_days: 2555
+    encryption: "XChaCha20-Poly1305"
+    access_control: "stake_multisig_verified"
+    export_format: "JSONL"
+    citation: "7-year audit retention for environmental compliance"
+}
+
+@compliance_verification {
+    enabled: true
+    verification_tools: ["ALE-SYNTHEXIS-IFC-KERNEL-001.rs", "ALE-COMPLIANCE-IFC-NEURORIGHTS-001.rs"]
+    ci_integration: true
+    preflight_required: true
+    citation: "Compliance preflight per Aletheion CI/CD standards"
+}
