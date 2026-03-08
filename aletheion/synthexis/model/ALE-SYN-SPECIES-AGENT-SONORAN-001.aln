@@ -1,0 +1,1116 @@
+TITLE ALE-SYN-SPECIES-AGENT-SONORAN-001
+ROLE  Synthexis Cross-Species Interface – Sonoran Urban Biome Catalog
+LAYER L2-L4
+BIRTH_SIGN Desert/Sonoran
+
+// ---------------------------------------------------------------------
+// 0. Core type grammar – Synthexis Sonoran schema
+// ---------------------------------------------------------------------
+
+TYPE Birth_Sign =
+  | Desert_Sonoran
+;
+
+TYPE Taxon_Class =
+  | Mammal
+  | Bird
+  | Reptile
+  | Amphibian
+  | Fish
+  | Invertebrate
+  | Plant
+  | Fungi
+;
+
+TYPE Habitat_Stratum =
+  | Ground
+  | Arboreal
+  | Aerial
+  | Riparian
+  | Aquatic
+  | Subterranean
+  | Indoor_Domestic
+  | Indoor_Commercial
+;
+
+TYPE Water_Dependency =
+  | Minimal
+  | Moderate
+  | High
+;
+
+TYPE Light_Profile =
+  | Diurnal
+  | Crepuscular
+  | Nocturnal
+  | Cathemeral
+;
+
+TYPE Noise_Sensitivity_Level =
+  | Low
+  | Medium
+  | High
+  | Extreme
+;
+
+TYPE Chemical_Risk_Level =
+  | Low
+  | Medium
+  | High
+;
+
+TYPE Pesticide_Avoid_Class =
+  | None
+  | Insecticide
+  | Rodenticide
+  | Herbicide
+  | Broad_Spectrum
+;
+
+TYPE Season_Tag =
+  | Winter
+  | Spring
+  | Summer
+  | Fall
+  | Monsoon
+;
+
+TYPE Ecosystem_Service_Tag =
+  | Pollination
+  | Pest_Control
+  | Seed_Dispersal
+  | Scavenging
+  | Soil_Health
+  | Decomposition
+  | Cultural_Symbolic
+  | Food_Web_Keystone
+;
+
+TYPE Human_Risk_Tag =
+  | Zoonosis_Risk
+  | Allergen_Risk
+  | Bite_Sting_Risk
+  | Infrastructure_Damage_Risk
+  | Vectoring_Pesticide_Exposure
+  | Minimal_Risk
+;
+
+TYPE Infra_Domain =
+  | Street_Lighting
+  | Building_Facade_Lighting
+  | XR_Display
+  | XR_Audio
+  | XR_Haptics
+  | Cooling_Asset
+  | Pesticide_Program
+  | Waste_Handling
+  | Sewer_Stormwater
+  | Canal_Wetland
+  | Rooftop_Solar
+  | Traffic_Noise
+  | Rail_Aviation_Noise
+;
+
+TYPE Risk_Coord_Name =
+  | ALAN_Lux
+  | ALAN_Blue_Fraction
+  | Noise_dBA
+  | Peak_Noise_dBC
+  | Air_Temp_C
+  | Surface_Temp_C
+  | Pesticide_Dose_Index
+  | Particulate_Load_Index
+;
+
+TYPE Corridor_Policy =
+  | Hard_Limit
+  | Soft_Limit_Derate
+;
+
+RECORD Risk_Coord_Band {
+  coord_name      : Risk_Coord_Name,
+  min_safe        : Float,      // normalized 0–1 corridor min
+  max_safe        : Float,      // normalized 0–1 corridor max
+  policy          : Corridor_Policy
+}
+
+RECORD Seasonal_Window {
+  seasons         : [Season_Tag],
+  local_note      : String      // e.g., "bat commuting over canals at nautical twilight"
+}
+
+RECORD Species_Taxon {
+  kingdom         : String,
+  phylum          : String,
+  class           : Taxon_Class,
+  order           : String,
+  family          : String,
+  genus           : String,
+  species         : String,
+  common_name     : String
+}
+
+RECORD Habitat_Requirements {
+  strata          : [Habitat_Stratum],
+  water_need      : Water_Dependency,
+  shade_needed    : Bool,
+  cooling_asset_ok: Bool,       // can share cooled corridors with humans
+  indoor_compatible: Bool       // survives in built indoor Sonoran settings
+}
+
+RECORD Light_Envelope {
+  profile         : Light_Profile,
+  light_averse    : Bool,
+  max_lux_corridor: Float,      // normalized ALAN_Lux bound for corridors
+  max_lux_foraging: Float,      // normalized ALAN_Lux bound for foraging/rest
+  avoid_blue_frac : Float       // fraction of 400–500 nm to avoid (0–1)
+}
+
+RECORD Noise_Envelope {
+  sensitivity     : Noise_Sensitivity_Level,
+  max_dBA_night   : Float,      // normalized Noise_dBA threshold
+  impulsive_penalty: Float,     // 0–1 cost for fireworks, sirens, etc.
+  continuous_penalty: Float     // 0–1 cost for traffic, HVAC drones
+}
+
+RECORD Chemical_Envelope {
+  risk_level      : Chemical_Risk_Level,
+  avoided_classes : [Pesticide_Avoid_Class],
+  drift_distance_m: Float,      // indicative buffer distance
+  particulate_sensitivity: Float // normalized Particulate_Load_Index
+}
+
+RECORD Seasonal_Sensitivity {
+  active          : [Seasonal_Window],
+  breeding        : [Seasonal_Window],
+  migration       : [Seasonal_Window],
+  critical_dark   : [Seasonal_Window] // windows requiring strict ALAN and noise control
+}
+
+RECORD Priority_Weights {
+  conservation    : Float,      // 0–1
+  ecosystem       : [Ecosystem_Service_Tag],
+  ecosystem_weight: Float,      // 0–1
+  cultural_weight : Float,      // 0–1
+  human_risks     : [Human_Risk_Tag],
+  human_risk_weight: Float      // 0–1
+}
+
+RECORD SpeciesAgent {
+  id              : String,     // stable key e.g., "canis_lupus_familiaris_dog"
+  birth_sign      : Birth_Sign,
+  taxon           : Species_Taxon,
+  habitat         : Habitat_Requirements,
+  light_env       : Light_Envelope,
+  noise_env       : Noise_Envelope,
+  chemical_env    : Chemical_Envelope,
+  seasonal        : Seasonal_Sensitivity,
+  priority        : Priority_Weights
+}
+
+// BioticTreaty ties SpeciesAgents to infrastructure and ecosafety corridors.
+
+RECORD BioticTreaty {
+  treaty_id       : String,
+  birth_sign      : Birth_Sign,
+  species_ids     : [String],        // SpeciesAgent.id
+  infra_domains   : [Infra_Domain],
+  spatial_scope   : String,         // e.g., corridor/neighborhood/canal id
+  temporal_scope  : [Seasonal_Window],
+  risk_bands      : [Risk_Coord_Band],
+  ecosafety_corridor_ids : [String], // refs into ALE-ERM-ECOSAFETY-GRAMMAR-001
+  enforcement_mode: String,         // "Hard", "Advisory"
+  notes           : String
+}
+
+// Cross-species interface contracts bind human neurorights and nonhuman envelopes.
+
+TYPE Neuroright_Envelope =
+  | Soma_Safety
+  | Cognitive_Load
+  | Emotion_Fear
+  | Emotion_Pain
+  | Emotion_Sanity
+;
+
+RECORD CrossSpeciesInterfaceContract {
+  contract_id     : String,
+  birth_sign      : Birth_Sign,
+  human_neurorights : [Neuroright_Envelope],
+  species_ids     : [String],
+  infra_domains   : [Infra_Domain],
+  risk_bands      : [Risk_Coord_Band],
+  notes           : String
+}
+
+// ---------------------------------------------------------------------
+// 1. Sonoran urban companion + commensal mammals
+// ---------------------------------------------------------------------
+
+SPECIES_AGENT dog_companion_canis_lupus_familiaris {
+  id          = "canis_lupus_familiaris_dog";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Mammal;
+    order       = "Carnivora";
+    family      = "Canidae";
+    genus       = "Canis";
+    species     = "lupus familiaris";
+    common_name = "Dog";
+  };
+  habitat     = {
+    strata          = [Ground, Indoor_Domestic, Indoor_Commercial];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.85;
+    max_lux_foraging= 0.85;
+    avoid_blue_frac = 0.40;
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.70;
+    impulsive_penalty = 0.60;
+    continuous_penalty= 0.40;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Rodenticide, Broad_Spectrum];
+    drift_distance_m= 15.0;
+    particulate_sensitivity = 0.40;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Urban companion, walks in early morning/evening heat windows in Phoenix."}];
+    breeding        = [];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.10;
+    ecosystem           = [Pest_Control];
+    ecosystem_weight    = 0.20;
+    cultural_weight     = 0.90;
+    human_risks         = [Bite_Sting_Risk, Zoonosis_Risk];
+    human_risk_weight   = 0.50;
+  };
+}
+
+SPECIES_AGENT cat_companion_felis_catus {
+  id          = "felis_catus_cat";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Mammal;
+    order       = "Carnivora";
+    family      = "Felidae";
+    genus       = "Felis";
+    species     = "catus";
+    common_name = "Cat";
+  };
+  habitat     = {
+    strata          = [Ground, Arboreal, Indoor_Domestic];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Crepuscular;
+    light_averse    = True;
+    max_lux_corridor= 0.65;
+    max_lux_foraging= 0.55;
+    avoid_blue_frac = 0.50;
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.60;
+    impulsive_penalty = 0.70;
+    continuous_penalty= 0.50;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Insecticide, Rodenticide, Broad_Spectrum];
+    drift_distance_m= 20.0;
+    particulate_sensitivity = 0.60;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Outdoor roaming increased at night, risk to birds/reptiles."}];
+    breeding        = [];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.10;
+    ecosystem           = [Pest_Control];
+    ecosystem_weight    = 0.20;
+    cultural_weight     = 0.80;
+    human_risks         = [Zoonosis_Risk, Allergen_Risk];
+    human_risk_weight   = 0.40;
+  };
+}
+
+SPECIES_AGENT pig_sus_scrofa_domestic {
+  id          = "sus_scrofa_domestic_pig";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Mammal;
+    order       = "Artiodactyla";
+    family      = "Suidae";
+    genus       = "Sus";
+    species     = "scrofa domesticus";
+    common_name = "Pig (domestic, smallholdings)";
+  };
+  habitat     = {
+    strata          = [Ground, Indoor_Commercial];
+    water_need      = High;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = False;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.80;
+    max_lux_foraging= 0.70;
+    avoid_blue_frac = 0.30;
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.60;
+    impulsive_penalty = 0.50;
+    continuous_penalty= 0.40;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 25.0;
+    particulate_sensitivity = 0.50;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Outdoor pens require strict heat and odor management in Phoenix."}];
+    breeding        = [];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.05;
+    ecosystem           = [Soil_Health];
+    ecosystem_weight    = 0.10;
+    cultural_weight     = 0.30;
+    human_risks         = [Zoonosis_Risk, Allergen_Risk, Infrastructure_Damage_Risk];
+    human_risk_weight   = 0.60;
+  };
+}
+
+// ---------------------------------------------------------------------
+// 2. Synanthropic birds, bats, and owls
+// ---------------------------------------------------------------------
+
+SPECIES_AGENT pigeon_feral_columba_livia {
+  id          = "columba_livia_pigeon";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Bird;
+    order       = "Columbiformes";
+    family      = "Columbidae";
+    genus       = "Columba";
+    species     = "livia";
+    common_name = "Rock pigeon (feral)";
+  };
+  habitat     = {
+    strata          = [Aerial, Ground, Building_Facade_Lighting, Indoor_Commercial];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = False;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.90;
+    max_lux_foraging= 0.85;
+    avoid_blue_frac = 0.30;
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.70;
+    impulsive_penalty = 0.50;
+    continuous_penalty= 0.50;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Herbicide];
+    drift_distance_m= 20.0;
+    particulate_sensitivity = 0.50;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Flocks around transit hubs and rooftops."}];
+    breeding        = [];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.05;
+    ecosystem           = [Seed_Dispersal, Scavenging];
+    ecosystem_weight    = 0.30;
+    cultural_weight     = 0.20;
+    human_risks         = [Allergen_Risk, Infrastructure_Damage_Risk];
+    human_risk_weight   = 0.60;
+  };
+}
+
+SPECIES_AGENT owl_great_horned_bubo_virginianus {
+  id          = "bubo_virginianus_great_horned_owl";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Bird;
+    order       = "Strigiformes";
+    family      = "Strigidae";
+    genus       = "Bubo";
+    species     = "virginianus";
+    common_name = "Great horned owl";
+  };
+  habitat     = {
+    strata          = [Arboreal, Aerial, Riparian, Ground];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = False;
+  };
+  light_env   = {
+    profile         = Nocturnal;
+    light_averse    = True;
+    max_lux_corridor= 0.25;
+    max_lux_foraging= 0.15;
+    avoid_blue_frac = 0.70;
+  };
+  noise_env   = {
+    sensitivity     = High;
+    max_dBA_night   = 0.35;
+    impulsive_penalty = 0.80;
+    continuous_penalty= 0.70;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Rodenticide, Broad_Spectrum];
+    drift_distance_m= 100.0;
+    particulate_sensitivity = 0.70;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Fall]; local_note="Nocturnal hunting over canals, parks, and low-density neighborhoods."}];
+    breeding        = [{seasons=[Winter,Spring]; local_note="Nest disturbance highly sensitive to ALAN/noise."}];
+    migration       = [];
+    critical_dark   = [{seasons=[Winter,Spring,Fall]; local_note="Enforce dark, quiet corridors around riparian and park roosts."}];
+  };
+  priority    = {
+    conservation        = 0.80;
+    ecosystem           = [Pest_Control, Food_Web_Keystone];
+    ecosystem_weight    = 0.80;
+    cultural_weight     = 0.70;
+    human_risks         = [Minimal_Risk];
+    human_risk_weight   = 0.10;
+  };
+}
+
+// Example bat guild representative used by existing Synthexis research.
+
+SPECIES_AGENT bat_commuter_guild_sonoran {
+  id          = "bat_guild_sonoran_commuter";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Mammal;
+    order       = "Chiroptera";
+    family      = "Vespertilionidae";
+    genus       = "Myotis";
+    species     = "guild_sonoran";
+    common_name = "Sonoran bat commuter guild";
+  };
+  habitat     = {
+    strata          = [Aerial, Riparian, Arboreal, Subterranean];
+    water_need      = High;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = False;
+  };
+  light_env   = {
+    profile         = Nocturnal;
+    light_averse    = True;
+    max_lux_corridor= 0.20;
+    max_lux_foraging= 0.10;
+    avoid_blue_frac = 0.80;
+  };
+  noise_env   = {
+    sensitivity     = High;
+    max_dBA_night   = 0.30;
+    impulsive_penalty = 0.85;
+    continuous_penalty= 0.70;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Insecticide, Broad_Spectrum];
+    drift_distance_m= 150.0;
+    particulate_sensitivity = 0.80;
+  };
+  seasonal    = {
+    active          = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Strong commuting along dark riparian and canal corridors."}];
+    breeding        = [{seasons=[Spring,Summer]; local_note="Roost protection requires strict pesticide and ALAN corridors."}];
+    migration       = [{seasons=[Fall,Spring]; local_note="Bridge/overpass and canal crossings high priority."}];
+    critical_dark   = [{seasons=[Spring,Summer,Fall]; local_note="Nautical twilight to pre-dawn dark corridor continuity."}];
+  };
+  priority    = {
+    conservation        = 0.90;
+    ecosystem           = [Pest_Control, Pollination];
+    ecosystem_weight    = 0.90;
+    cultural_weight     = 0.60;
+    human_risks         = [Minimal_Risk];
+    human_risk_weight   = 0.10;
+  };
+}
+
+// ---------------------------------------------------------------------
+// 3. Urban invertebrates – pollinators and pests
+// ---------------------------------------------------------------------
+
+SPECIES_AGENT bee_native_guild_sonoran {
+  id          = "native_bee_guild_sonoran";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Arthropoda";
+    class       = Invertebrate;
+    order       = "Hymenoptera";
+    family      = "Apidae";
+    genus       = "Guild";
+    species     = "native_bee_sonoran";
+    common_name = "Sonoran native bees (guild)";
+  };
+  habitat     = {
+    strata          = [Ground, Arboreal, Indoor_Commercial];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = False;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.90;
+    max_lux_foraging= 0.80;
+    avoid_blue_frac = 0.40;
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.80;
+    impulsive_penalty = 0.40;
+    continuous_penalty= 0.40;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Insecticide, Broad_Spectrum];
+    drift_distance_m= 60.0;
+    particulate_sensitivity = 0.70;
+  };
+  seasonal    = {
+    active          = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Foraging on Sonoran Desert pollinator plants and irrigated landscapes."}];
+    breeding        = [{seasons=[Spring,Summer]; local_note="Ground-nesting and cavity-nesting zones need pesticide buffers."}];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.90;
+    ecosystem           = [Pollination, Soil_Health];
+    ecosystem_weight    = 0.95;
+    cultural_weight     = 0.60;
+    human_risks         = [Bite_Sting_Risk];
+    human_risk_weight   = 0.30;
+  };
+}
+
+SPECIES_AGENT wasp_urban_hymenoptera {
+  id          = "wasp_urban_guild";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Arthropoda";
+    class       = Invertebrate;
+    order       = "Hymenoptera";
+    family      = "Vespidae";
+    genus       = "Guild";
+    species     = "wasp_urban";
+    common_name = "Urban wasps";
+  };
+  habitat     = {
+    strata          = [Arboreal, Building_Facade_Lighting, Indoor_Commercial];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = False;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.90;
+    max_lux_foraging= 0.85;
+    avoid_blue_frac = 0.30;
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.80;
+    impulsive_penalty = 0.50;
+    continuous_penalty= 0.40;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 30.0;
+    particulate_sensitivity = 0.50;
+  };
+  seasonal    = {
+    active          = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Aggregation near outdoor food, fountains, and trash nodes."}];
+    breeding        = [{seasons=[Spring,Summer]; local_note="Nest disturbance in eaves, structures, and vegetation."}];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.40;
+    ecosystem           = [Pest_Control, Decomposition];
+    ecosystem_weight    = 0.60;
+    cultural_weight     = 0.10;
+    human_risks         = [Bite_Sting_Risk, Allergen_Risk];
+    human_risk_weight   = 0.70;
+  };
+}
+
+SPECIES_AGENT bedbug_cimex_lectularius {
+  id          = "cimex_lectularius_bedbug";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Arthropoda";
+    class       = Invertebrate;
+    order       = "Hemiptera";
+    family      = "Cimicidae";
+    genus       = "Cimex";
+    species     = "lectularius";
+    common_name = "Common bed bug";
+  };
+  habitat     = {
+    strata          = [Indoor_Domestic, Indoor_Commercial];
+    water_need      = Minimal;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Nocturnal;
+    light_averse    = True;
+    max_lux_corridor= 0.60;
+    max_lux_foraging= 0.40;
+    avoid_blue_frac = 0.50;
+  };
+  noise_env   = {
+    sensitivity     = Low;
+    max_dBA_night   = 0.90;
+    impulsive_penalty = 0.20;
+    continuous_penalty= 0.20;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 5.0;
+    particulate_sensitivity = 0.40;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Indoor-only lifecycle."}];
+    breeding        = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Year-round breeding indoors in Phoenix climate."}];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.01;
+    ecosystem           = [];
+    ecosystem_weight    = 0.01;
+    cultural_weight     = 0.00;
+    human_risks         = [Bite_Sting_Risk, Allergen_Risk];
+    human_risk_weight   = 0.80;
+  };
+}
+
+SPECIES_AGENT fly_house_musca_domestica {
+  id          = "musca_domestica_housefly";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Arthropoda";
+    class       = Invertebrate;
+    order       = "Diptera";
+    family      = "Muscidae";
+    genus       = "Musca";
+    species     = "domestica";
+    common_name = "House fly";
+  };
+  habitat     = {
+    strata          = [Ground, Indoor_Domestic, Indoor_Commercial, Waste_Handling];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.95;
+    max_lux_foraging= 0.90;
+    avoid_blue_frac = 0.30;
+  };
+  noise_env   = {
+    sensitivity     = Low;
+    max_dBA_night   = 0.95;
+    impulsive_penalty = 0.20;
+    continuous_penalty= 0.20;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 15.0;
+    particulate_sensitivity = 0.40;
+  };
+  seasonal    = {
+    active          = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="High association with waste, food service, and livestock zones."}];
+    breeding        = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Larval development in waste streams and organics."}];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.01;
+    ecosystem           = [Decomposition];
+    ecosystem_weight    = 0.30;
+    cultural_weight     = 0.00;
+    human_risks         = [Zoonosis_Risk];
+    human_risk_weight   = 0.70;
+  };
+}
+
+SPECIES_AGENT roach_urban_periplaneta_guild {
+  id          = "cockroach_urban_guild";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Arthropoda";
+    class       = Invertebrate;
+    order       = "Blattodea";
+    family      = "Blattidae";
+    genus       = "Guild";
+    species     = "urban_roaches";
+    common_name = "Urban cockroach guild";
+  };
+  habitat     = {
+    strata          = [Sewer_Stormwater, Indoor_Domestic, Indoor_Commercial, Subterranean];
+    water_need      = Moderate;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Nocturnal;
+    light_averse    = True;
+    max_lux_corridor= 0.70;
+    max_lux_foraging= 0.50;
+    avoid_blue_frac = 0.50;
+  };
+  noise_env   = {
+    sensitivity     = Low;
+    max_dBA_night   = 0.95;
+    impulsive_penalty = 0.20;
+    continuous_penalty= 0.20;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 10.0;
+    particulate_sensitivity = 0.50;
+  };
+  seasonal    = {
+    active          = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Sewers, building basements, and moist niches; spikes in monsoon humidity."}];
+    breeding        = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Year-round in warm indoor spaces."}];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.01;
+    ecosystem           = [Decomposition];
+    ecosystem_weight    = 0.20;
+    cultural_weight     = 0.00;
+    human_risks         = [Zoonosis_Risk, Allergen_Risk];
+    human_risk_weight   = 0.80;
+  };
+}
+
+SPECIES_AGENT ant_urban_guild_sonoran {
+  id          = "ant_urban_guild_sonoran";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Arthropoda";
+    class       = Invertebrate;
+    order       = "Hymenoptera";
+    family      = "Formicidae";
+    genus       = "Guild";
+    species     = "urban_ant";
+    common_name = "Urban ants (Sonoran guild)";
+  };
+  habitat     = {
+    strata          = [Ground, Subterranean, Indoor_Domestic, Indoor_Commercial];
+    water_need      = Minimal;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.95;
+    max_lux_foraging= 0.90;
+    avoid_blue_frac = 0.30;
+  };
+  noise_env   = {
+    sensitivity     = Low;
+    max_dBA_night   = 0.95;
+    impulsive_penalty = 0.20;
+    continuous_penalty= 0.20;
+  };
+  chemical_env= {
+    risk_level      = Medium;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 10.0;
+    particulate_sensitivity = 0.40;
+  };
+  seasonal    = {
+    active          = [{seasons=[Spring,Summer,Monsoon,Fall]; local_note="Surface foraging peaks after monsoon precipitation and near irrigation."}];
+    breeding        = [{seasons=[Spring,Summer,Monsoon]; local_note="Nuptial flights near lights and pavements."}];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.30;
+    ecosystem           = [Soil_Health, Decomposition];
+    ecosystem_weight    = 0.60;
+    cultural_weight     = 0.10;
+    human_risks         = [Bite_Sting_Risk, Infrastructure_Damage_Risk];
+    human_risk_weight   = 0.40;
+  };
+}
+
+// ---------------------------------------------------------------------
+// 4. Humans and zoo inhabitants
+// ---------------------------------------------------------------------
+
+SPECIES_AGENT human_homo_sapiens_urban_phoenix {
+  id          = "homo_sapiens_human_phoenix";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Mammal;
+    order       = "Primates";
+    family      = "Hominidae";
+    genus       = "Homo";
+    species     = "sapiens";
+    common_name = "Human (Phoenix resident)";
+  };
+  habitat     = {
+    strata          = [Indoor_Domestic, Indoor_Commercial, Ground, Aerial];
+    water_need      = High;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = False;
+    max_lux_corridor= 0.95;
+    max_lux_foraging= 0.90;
+    avoid_blue_frac = 0.60; // neuroright-friendly blue-light exposure caps in evenings
+  };
+  noise_env   = {
+    sensitivity     = Medium;
+    max_dBA_night   = 0.60;
+    impulsive_penalty = 0.70;
+    continuous_penalty= 0.60;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 150.0;
+    particulate_sensitivity = 0.80;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Outdoor exposure constrained by 120F summers and heat budgets."}];
+    breeding        = [];
+    migration       = [];
+    critical_dark   = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Neurorights heat, fear, pain, sanity envelopes apply to XR, EM fields, and advertising patterns."}];
+  };
+  priority    = {
+    conservation        = 0.80;
+    ecosystem           = [];
+    ecosystem_weight    = 0.10;
+    cultural_weight     = 1.00;
+    human_risks         = [];
+    human_risk_weight   = 0.00;
+  };
+}
+
+// Zoo and sanctuary inhabitants are modeled as a generic protected guild;
+// facility-specific overrides live in local BioticTreaties.
+
+SPECIES_AGENT zoo_inhabitants_guild_sonoran {
+  id          = "zoo_inhabitants_guild_sonoran";
+  birth_sign  = Desert_Sonoran;
+  taxon       = {
+    kingdom     = "Animalia";
+    phylum      = "Chordata";
+    class       = Mammal;
+    order       = "Mixed";
+    family      = "Mixed";
+    genus       = "Guild";
+    species     = "zoo_inhabitants";
+    common_name = "Zoo and sanctuary inhabitants (guild)";
+  };
+  habitat     = {
+    strata          = [Indoor_Commercial, Ground, Arboreal, Aquatic];
+    water_need      = High;
+    shade_needed    = True;
+    cooling_asset_ok= True;
+    indoor_compatible = True;
+  };
+  light_env   = {
+    profile         = Diurnal;
+    light_averse    = True;
+    max_lux_corridor= 0.60;
+    max_lux_foraging= 0.50;
+    avoid_blue_frac = 0.70;
+  };
+  noise_env   = {
+    sensitivity     = High;
+    max_dBA_night   = 0.40;
+    impulsive_penalty = 0.80;
+    continuous_penalty= 0.70;
+  };
+  chemical_env= {
+    risk_level      = High;
+    avoided_classes = [Broad_Spectrum];
+    drift_distance_m= 100.0;
+    particulate_sensitivity = 0.70;
+  };
+  seasonal    = {
+    active          = [{seasons=[Winter,Spring,Summer,Fall,Monsoon]; local_note="Facility-managed thermal and microclimate regimes; external ALAN/noise must respect exhibit boundaries."}];
+    breeding        = [];
+    migration       = [];
+    critical_dark   = [];
+  };
+  priority    = {
+    conservation        = 0.95;
+    ecosystem           = [Cultural_Symbolic];
+    ecosystem_weight    = 0.80;
+    cultural_weight     = 0.90;
+    human_risks         = [Bite_Sting_Risk, Zoonosis_Risk];
+    human_risk_weight   = 0.40;
+  };
+}
+
+// ---------------------------------------------------------------------
+// 5. Example Sonoran BioticTreaties binding to ecosafety corridors
+// ---------------------------------------------------------------------
+
+BIOTIC_TREATY bt_sonoran_bats_riparian_dark_corridors {
+  treaty_id   = "BT-SONORAN-BATS-RIPARIAN-DARK-001";
+  birth_sign  = Desert_Sonoran;
+  species_ids = ["bat_guild_sonoran_commuter"];
+  infra_domains = [Street_Lighting, Building_Facade_Lighting, Canal_Wetland, XR_Display];
+  spatial_scope = "Riparian_and_canal_corridors_Phoenix_Metro";
+  temporal_scope = [
+    {seasons=[Spring,Summer,Fall,Monsoon]; local_note="Nautical twilight to pre-dawn along canals and rivers."}
+  ];
+  risk_bands = [
+    {coord_name=ALAN_Lux;          min_safe=0.00; max_safe=0.20; policy=Hard_Limit},
+    {coord_name=ALAN_Blue_Fraction;min_safe=0.00; max_safe=0.20; policy=Hard_Limit},
+    {coord_name=Noise_dBA;         min_safe=0.00; max_safe=0.40; policy=Soft_Limit_Derate},
+    {coord_name=Pesticide_Dose_Index;min_safe=0.00; max_safe=0.20; policy=Hard_Limit}
+  ];
+  ecosafety_corridor_ids = ["MARDESERTPFASV1", "CANALDARKBIOTICBATV1"];
+  enforcement_mode = "Hard";
+  notes = "Enforce dark, low-noise, low-pesticide corridors for commuting bats along Phoenix riparian and canal systems.";
+}
+
+BIOTIC_TREATY bt_sonoran_native_bees_pollinator_network {
+  treaty_id   = "BT-SONORAN-NATIVE-BEES-001";
+  birth_sign  = Desert_Sonoran;
+  species_ids = ["native_bee_guild_sonoran"];
+  infra_domains = [Pesticide_Program, Cooling_Asset, Rooftop_Solar, Waste_Handling];
+  spatial_scope = "Pollinator_citywide_network_Sonoran_Plants";
+  temporal_scope = [
+    {seasons=[Spring,Summer,Monsoon]; local_note="Peak native bee foraging and nesting."}
+  ];
+  risk_bands = [
+    {coord_name=Pesticide_Dose_Index;min_safe=0.00; max_safe=0.15; policy=Hard_Limit},
+    {coord_name=Particulate_Load_Index;min_safe=0.00; max_safe=0.50; policy=Soft_Limit_Derate}
+  ];
+  ecosafety_corridor_ids = ["SONORANPOLLINATORCHEMICALV1"];
+  enforcement_mode = "Hard";
+  notes = "Limits insecticide and broad-spectrum pesticide use near native pollinator corridors and Sonoran Desert plantings.";
+}
+
+BIOTIC_TREATY bt_sonoran_owl_quiet_roosts {
+  treaty_id   = "BT-SONORAN-OWL-QUIET-001";
+  birth_sign  = Desert_Sonoran;
+  species_ids = ["bubo_virginianus_great_horned_owl"];
+  infra_domains = [Street_Lighting, Traffic_Noise, Rail_Aviation_Noise, XR_Audio];
+  spatial_scope = "Owl_roosts_and_hunting_territories_in_riparian_parks";
+  temporal_scope = [
+    {seasons=[Winter,Spring,Fall]; local_note="Nocturnal roosting and hunting."}
+  ];
+  risk_bands = [
+    {coord_name=Noise_dBA;      min_safe=0.00; max_safe=0.35; policy=Hard_Limit},
+    {coord_name=Peak_Noise_dBC; min_safe=0.00; max_safe=0.40; policy=Hard_Limit},
+    {coord_name=ALAN_Lux;       min_safe=0.00; max_safe=0.30; policy=Soft_Limit_Derate}
+  ];
+  ecosafety_corridor_ids = ["OWLQUIETCORRIDORV1"];
+  enforcement_mode = "Hard";
+  notes = "Protects owl roosts from impulsive and continuous noise and excessive night lighting near riparian parks.";
+}
+
+// ---------------------------------------------------------------------
+// 6. Cross-species interface contracts (humans + nonhumans)
+// ---------------------------------------------------------------------
+
+XSI_CONTRACT csi_xr_grid_humans_bats_owls {
+  contract_id = "CSI-XR-GRID-HUMANS-BATS-OWLS-001";
+  birth_sign  = Desert_Sonoran;
+  human_neurorights = [Soma_Safety, Cognitive_Load, Emotion_Fear, Emotion_Pain, Emotion_Sanity];
+  species_ids = ["homo_sapiens_human_phoenix", "bat_guild_sonoran_commuter", "bubo_virginianus_great_horned_owl"];
+  infra_domains = [XR_Display, XR_Audio, XR_Haptics, Street_Lighting, Building_Facade_Lighting];
+  risk_bands = [
+    {coord_name=ALAN_Lux;          min_safe=0.00; max_safe=0.50; policy=Soft_Limit_Derate},
+    {coord_name=ALAN_Blue_Fraction;min_safe=0.00; max_safe=0.40; policy=Soft_Limit_Derate},
+    {coord_name=Noise_dBA;         min_safe=0.00; max_safe=0.60; policy=Soft_Limit_Derate}
+  ];
+  notes = "XR grids and lighting patterns must satisfy both human neuroright envelopes and nonhuman dark/quiet corridor needs in Sonoran settings.";
+}
+
+// EOF ALE-SYN-SPECIES-AGENT-SONORAN-001
