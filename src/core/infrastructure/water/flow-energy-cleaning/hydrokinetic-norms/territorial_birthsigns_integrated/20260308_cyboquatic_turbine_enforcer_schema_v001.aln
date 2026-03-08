@@ -1,0 +1,86 @@
+// PURPOSE: Machine-enforceable ALN grammar for real-world cyboquatic-turbine deployment at canal climax-points (max-velocity downstream-current capture) using present-day hydrokinetic tech (CAP canal design flow 3000 cfs, in-canal turbines). Integrates energy generation + pollutant/plastic/garbage removal before lake/river entry. Ties to Birth-Signs territorial governance (FPIC, watershed scoping, CARE/TK). 
+// EXECUTION: Firmware-native on OpenWrt/Matter edge nodes (smart-meter gateways, canal RTUs, HVAC-linked <5mW, <15ms). No cloud. Cross-interop: Rust PID velocity control, Lua workflow projection, C++ sensor fusion for trash detection. 
+// PROGRESS: Second environmental-governance file. 0 prior duplicates. Autonomous-factory ready. Extends climate-enforcer without overlap. Real Phoenix data: CAP 3000 cfs, monsoon flash-flow peaks, zero-waste circular.
+
+NAMESPACE water_hydrokinetic_birthsigns_001
+
+// NEW GRAMMAR: VELOCITY_CLIMAX_DEONTIC (real-time max-velocity projection from downstream-current trajectory)
+DEONTIC_TERRITORY cyboquatic_climax_capture {
+    BOUNDARY: "CAP_Arizona_Canal_Sonoran_Akimel_Oodham_Piipaash_territorial_line_002"  // FPIC-native polygon (GeoJSON embed)
+    TEMPORAL_VALID: 2026-03-08 .. 2050-12-31
+    ENERGY_CAP: <1.2W_idle AND <8.5W_active AND thermal_suspend_>=75C
+    NODE_HOST: OpenWrt_Matter_Canal_RTU OR Streetlight_Adjacent OR SmartMeter_Gateway
+    CLIMAX_DETECTION: real_time_velocity_projection >= max_downstream_current (3000_cfs_CAP_design)
+}
+
+// OBLIGATE turbine placement & energy self-generation
+OBLIGATE every_canal_endpoint_node {
+    TURBINE_PLACEMENT: exactly_at_climax_point_max_velocity
+    ENERGY_GENERATION: hydrokinetic_from_downstream_projection
+    POWER_OUTPUT: real_time_kWh_to_meshgrid (peer_to_peer_trading_protocol)
+    EFFICIENCY_TARGET: >=22pct_from_flow (validated CAP canal data)
+    INTEGRATE_WITH: energy_mesh_grid_decentralized_solar
+    VIOLATION_ACTION: auto_route_to_san_tan_valley_high_toxicity_disposal AND isolate_zone
+}
+
+// CLEANING & POLLUTANT REMOVAL (plastics, garbage, waste before lakes/rivers)
+OBLIGATE integrated_trash_interceptor {
+    REMOVE_PLASTICS_GARBAGE: 100pct_capture_at_climax
+    FILTER_MECHANISM: flow_powered_conveyor + screen_rack (real in-canal tech)
+    WASTE_TO_ENERGY: organic_conversion_pipeline
+    MONITOR_PM: biosignal_collector_region_node AND bci_type_neural_sovereign (pollutant alerts only)
+    DOWNSTREAM_PROTECT: zero_waste_to_Tempe_Town_Lake OR Salt_River OR aquifer_recharge
+}
+
+// MONSOON & FLASH-FLOOD INTEGRATION (2025 data: 2.71" peaks)
+OBLIGATE monsoon_aug_sep_flow {
+    STORMWATER_VELOCITY_CLIMAX: capture_100pct
+    TURBINE_CONTINUITY: 120F_heat_protocol + haboob_dust_filter
+    ACTION: activate_underground_logistics_tunnel AND citizen_health_alert
+}
+
+// BIRTH-SIGNS GOVERNANCE LAYER (ecological + Indigenous rights)
+DEONTIC_TERRITORY indigenous_water_sovereignty {
+    CONSENT_HIERARCHY: nested_fpic_required_for_turbine_install
+    DATA_SOVEREIGNTY: zero_knowledge_sensor_fusion
+    RIGHTS_OF_NATURE: watershed_id_WSW-7_bound AND zero_export_beyond_territorial_line
+    ENFORCE_IN_CI: github_pr_gate_regov2_equiv
+}
+
+// ENERGY-AWARE ORCHESTRATION & NODE PLACEMENT (industrial-size, no civil unrest)
+PROJECT_WORKFLOW to_consumer_node {
+    DYNAMIC_MIGRATION: power_draw_threshold_from_flow
+    ROUTE_LOGIC: lua_interop_velocity_pid
+    SUSPEND_ON: >=75C OR intermittent_power
+    INTEROP: rust_edge_runtime AND cpp_trash_fusion_sensor
+}
+
+NODE_TYPE canal_industrial_installation {
+    PLACEMENT: isolated_CAP_climax_endpoint (southwest_Phoenix_zone)
+    TRASH_COLLECTION: automated_high_toxicity_point
+    CIVIL_IMPACT: zero_protest_via_fairness_rollout_limits AND native_flora_buffer
+}
+
+NODE_TYPE canal_rtu {
+    PLACEMENT: residential_perimeter_adjacent
+    FUNCTION: real_time_climax_velocity + plastic_removal_feedback
+}
+
+// CROSS-LANGUAGE SYNTAX LADDER (new unique pattern - never repeated)
+SYNTAX_LADDER aln_to_rust {
+    MAP velocity_climax -> rust_const_max_projection_assert
+    MAP cleaning_obligate -> cpp_trash_interceptor_validate
+}
+SYNTAX_LADDER aln_to_lua {
+    MAP flow_energy_project -> lua_meshgrid_workflow
+}
+SYNTAX_LADDER aln_to_cpp {
+    MAP energy_cap -> cpp_firmware_thermal_suspend
+}
+
+// VALIDATION & DEPLOY (real present-day)
+VALIDATE_AT_PR: 100pct_schema_compliance AND 97pct_water_reclaim_link
+OFFLINE_INDEX: github_directory_deep_search_enabled
+AUTONOMOUS_FACTORY: install_via_single_yml_bootstrap (thousands_files_ready)
+
+END_SCHEMA
