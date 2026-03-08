@@ -1,0 +1,57 @@
+// Ecosafety grammar spine: normalized risk coordinates rx and Lyapunov residual Vt
+// for cyboquatic nodes, MAR vaults, wetlands, biofilms, and flowvac substrates.
+
+namespace Compliance.Ecosafety
+
+type CorridorId = string
+type NodeId     = string
+
+record RiskCoordinate {
+  r_mass      : float  // normalized pollutant or load fraction.
+  r_energy    : float  // normalized specific energy / shear.
+  r_temp      : float  // normalized temperature deviation.
+  r_bio       : float  // normalized ecological stress index.
+}
+
+record LyapunovResidual {
+  value       : float  // V(t); must be non-increasing under safe dynamics.
+  derivative  : float  // dV/dt estimate.
+}
+
+record CorridorBounds {
+  id          : CorridorId
+  max_r_mass  : float
+  max_r_energy: float
+  max_r_temp  : float
+  max_r_bio   : float
+  max_V       : float
+}
+
+record NodeEcosafetyState {
+  node_id     : NodeId
+  rx          : RiskCoordinate
+  Vt          : LyapunovResidual
+  corridor    : CorridorBounds
+}
+
+contract EcosafetyValidator {
+  // Hard gate: no corridor, no build.
+  function has_corridor(state : NodeEcosafetyState) -> bool
+
+  // Check that current state lies within corridor.
+  function within_corridor(state : NodeEcosafetyState) -> bool
+
+  // Safestep invariant: if violated, caller must derate/stop.
+  function satisfies_safestep(state_prev : NodeEcosafetyState,
+                              state_now  : NodeEcosafetyState)
+    -> bool
+}
+
+contract CyboquaticCorridorPolicy {
+  // Compute recommended derating factor 0.0–1.0 when out of bounds.
+  function compute_derate(state : NodeEcosafetyState) -> float
+
+  // Emit human-readable reason codes for audit logs.
+  function reason_codes(state : NodeEcosafetyState) -> list<string>
+}
+end
