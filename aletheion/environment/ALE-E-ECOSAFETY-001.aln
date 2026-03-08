@@ -1,0 +1,200 @@
+// Aletheion Ecosafety Corridor Schema
+// File: ALE-E-ECOSAFETY-001.aln
+// Path: aletheion/environment/ALE-E-ECOSAFETY-001.aln
+//
+// Role:
+//   - Define normalized ecosafety coordinates r_x and Lyapunov-style residuals V_t
+//   - Express safe operating envelopes ("corridors") for Phoenix systems
+//   - Bind each corridor to SevenCapitalState dimensions and physical assets
+//
+// Notes:
+//   - No control logic here; this is a declarative spec.
+//   - Used by: water, thermal, cyboquatic, Synthexis, LexEthos verifiers.
+
+namespace aletheion.environment.ecosafety.v1
+
+// ---- Core identifiers ----
+
+type CorridorId   = string   // e.g. "MARDESERT_PFAS_V1", "CANAL_COOL_TEMP_V1"
+type AssetClass   = string   // "mar_vault","canal_reach","wetland_cell","pump","soft_robot"
+type DistrictId   = string
+type CapitalName  = string   // "Water","Thermal","Waste","Biotic","Neurobiome","Somatic","Treaty"
+type ParameterKey = string   // "temp_C","pfas_ngL","do_mgL","lux","dba","vibration_rms"
+
+// ---- Normalized risk coordinate r_x ----
+//
+// r_x is a normalized coordinate in [0,1] mapping a raw parameter
+// (e.g. temperature, PFAS concentration, lux, dBA) into an ecosafety scale.
+//
+//   0.0      -> best/ideal condition
+//   r_min    -> minsafe bound
+//   r_max    -> maxsafe bound
+//   1.0      -> absolute hard limit (do not exceed)
+//
+// This lets different parameters live in comparable corridors.
+
+record RxMapping {
+  parameter:     ParameterKey,
+  raw_unit:      string,      // "C","ng/L","mg/L","lux","dBA"
+  raw_min:       float,       // minimum representable
+  raw_max:       float,       // maximum representable
+  minsafe_raw:   float,       // lower safe bound (if applicable)
+  maxsafe_raw:   float,       // upper safe bound
+  hardlimit_raw: float,       // hard physical/ethical limit
+}
+
+// ---- Lyapunov residual V_t ----
+//
+// V_t is a scalar measuring distance from a desired stable state.
+// Each corridor can define a specific residual for its dynamics
+// (e.g. MAR mass-balance, canal level, wetland nutrient load).
+
+record VtDefinition {
+  name:          string,      // "MAR_mass_balance","canal_energy_balance"
+  description:   string,
+  target_value:  float,       // desired equilibrium (often 0.0)
+  max_allowed:   float,       // maximum acceptable residual
+  window_steps:  int,         // number of timesteps in evaluation window
+}
+
+// ---- Corridor envelope ----
+//
+// A corridor is a set of constraints on one system or subsystem,
+// expressed as r_x bands and V_t stability requirements.
+
+record RxBand {
+  parameter:     ParameterKey,
+  // Normalized thresholds in [0,1]
+  r_min_safe:    float,       // lower safe band (inclusive)
+  r_max_safe:    float,       // upper safe band (inclusive)
+  r_hard_min:    float,       // absolute minimum (often 0.0)
+  r_hard_max:    float,       // absolute maximum (often 1.0)
+}
+
+record StabilityEnvelope {
+  vt:            VtDefinition,
+  // Simple rule: V_t must be <= max_allowed for at least
+  // stable_steps_out_of window_steps, or corridor is considered violated.
+  stable_steps_required: int,
+}
+
+record CapitalBinding {
+  capital:       CapitalName, // which SevenCapital dimension is protected
+  weight:        float,       // contribution weight 0–1
+}
+
+// For governance wiring: how corridor violations map to enforcement modes.
+enum CorridorEnforcement {
+  hard_block,  // "no corridor, no build / violated corridor, stop"
+  derate,      // auto-throttle or reduce scope
+  monitor_only,
+}
+
+record EcosafetyCorridor {
+  corridor_id:  CorridorId,
+  description:  string,
+
+  // Physical and organizational scope
+  asset_classes:  [AssetClass],
+  districts:      [DistrictId],
+
+  // Normalized parameter bands and stability requirements
+  rx_bands:     [RxBand],
+  vt_envelope:  ?StabilityEnvelope,
+
+  // Cross-capital semantics
+  capitals:     [CapitalBinding],
+
+  enforcement:  CorridorEnforcement,
+
+  // Provenance
+  created_by:   string,    // DID
+  created_at:   string,    // ISO-8601
+  version:      string,
+  data_sources: [string],  // studies, regulations, Phoenix specs
+}
+
+// ---- Phoenix corridor presets (schema-only examples) ----
+//
+// These are minimal, non-numeric presets intended as anchors for
+// later calibration jobs in Rust/ALN modules.
+
+// Managed Aquifer Recharge corridor (PFAS + mass-balance stability)
+const corridor E_MAR_PFAS_STABILITY_V1: EcosafetyCorridor = {
+  corridor_id: "E_MAR_PFAS_STABILITY_V1",
+  description: "MAR vault ecosafety corridor for PFAS concentration and mass-balance stability in Phoenix dryland recharge sites.",
+
+  asset_classes: ["mar_vault","recharge_basin"],
+  districts:     ["district_mar_recharge_zone_any"],
+
+  rx_bands: [
+    {
+      parameter:   "pfas_ngL",
+      r_min_safe:  0.0,
+      r_max_safe:  0.4,
+      r_hard_min:  0.0,
+      r_hard_max:  1.0,
+    }
+  ],
+  vt_envelope: {
+    vt: {
+      name:         "MAR_mass_balance",
+      description:  "Residual between inflow, storage, and outflow in MAR basins.",
+      target_value: 0.0,
+      max_allowed:  0.1,
+      window_steps: 24,
+    },
+    stable_steps_required: 20,
+  },
+  capitals: [
+    { capital: "Water",  weight: 0.7 },
+    { capital: "Biotic", weight: 0.2 },
+    { capital: "Treaty", weight: 0.1 },
+  ],
+  enforcement:  CorridorEnforcement.hard_block,
+
+  created_by:   "did:aletheion:phx:ecosafety",
+  created_at:   "2026-03-07T21:53:00-07:00",
+  version:      "1.0.0",
+  data_sources: ["phoenix_mar_spec_v1","pfas_guidance_phx_2025"],
+}
+
+// Downtown canal cool corridor (thermal + level stability)
+const corridor E_CANAL_COOL_THERMAL_V1: EcosafetyCorridor = {
+  corridor_id: "E_CANAL_COOL_THERMAL_V1",
+  description: "Canal reach ecosafety corridor for water temperature and level stability supporting Thermal and Biotic capitals.",
+
+  asset_classes: ["canal_reach"],
+  districts:     ["district_downtown_cool_corridor"],
+
+  rx_bands: [
+    {
+      parameter:   "temp_C",
+      r_min_safe:  0.1,
+      r_max_safe:  0.7,
+      r_hard_min:  0.0,
+      r_hard_max:  1.0,
+    }
+  ],
+  vt_envelope: {
+    vt: {
+      name:         "canal_level_balance",
+      description:  "Residual of canal level vs target operating band considering inflows, outflows, and withdrawals.",
+      target_value: 0.0,
+      max_allowed:  0.15,
+      window_steps: 12,
+    },
+    stable_steps_required: 9,
+  },
+  capitals: [
+    { capital: "Thermal", weight: 0.6 },
+    { capital: "Water",   weight: 0.3 },
+    { capital: "Biotic",  weight: 0.1 },
+  ],
+  enforcement:  CorridorEnforcement.derate,
+
+  created_by:   "did:aletheion:phx:ecosafety",
+  created_at:   "2026-03-07T21:53:00-07:00",
+  version:      "1.0.0",
+  data_sources: ["canal_cool_program_phx_2025","heat_mitigation_studies_phx"],
+}
