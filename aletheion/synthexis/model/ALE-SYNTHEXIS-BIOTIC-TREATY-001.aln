@@ -1,0 +1,305 @@
+# Layer: L2 State Modeling / L3 Blockchain Trust (treaty anchors)
+# Domain: Synthexis CrossSpecies Interface — BioticTreaty core schema
+# Interop:
+#   - aletheion/synthexis/model/SpeciesAgent.aln        (SpeciesAgentId)
+#   - aletheion/governance/lexethos/ALE-LEX-RIGHTS-GRAMMAR-001.aln (RightsAtom, MicroTreaty)
+#   - aletheion/erm/ecosafety/ALE-ERM-ECOSAFETY-GRAMMAR-001.aln   (RiskCoordAtom, CorridorAtom)
+#   - aletheion/erm/workflow-index/ALE-ERM-CORRIDOR-FUNCTION-FAMILIES-001.aln (corridor bindings)
+#   - SMART-chain IDs for water/thermal/biotic domains (e.g., SMART01_AWP_THERMAL_THERMAPHORA, SMART03_ECOSAFETY_SYNTHEXIS)
+
+module BioticTreatyModel {
+  ##########################################################################
+  # 1. Primitive identifiers and enums
+  ##########################################################################
+
+  atom TreatyId {
+    field value : String;        # Globally unique, stable treaty identifier (e.g., "BT-PHX-BATS-RIPARIAN-0001")
+  }
+
+  atom TreatyVersion {
+    field major : Int;           # Backward-incompatible changes
+    field minor : Int;           # Backward-compatible schema/content changes
+    field patch : Int;           # Fixups, clarifications, non-semantic edits
+  }
+
+  atom SpeciesAgentId {
+    field value : String;        # Foreign key into SpeciesAgent.aln (e.g., "myotis_velifer", "native_bee_guild_X")
+  }
+
+  enum TreatyStatus {
+    Draft;                       # Not yet attached to any SMART-chain
+    Active;                      # In force, must gate infrastructure operations
+    Suspended;                   # Temporarily disabled via governance process
+    Retired;                     # Superseded or sunset; still auditable on-chain
+  }
+
+  enum EnforcementMode {
+    HardLimit;                   # Systems must refuse configurations that violate this treaty
+    Advisory;                    # Systems may propose violations but must emit alerts and alternatives
+  }
+
+  enum SpatialType {
+    Corridor;                    # Linear, path-like geometries (e.g., riparian strips, flight corridors)
+    Patch;                       # Habitat patches (parks, preserves, connected canopy clusters)
+    Buffer;                      # Offset buffers around sensitive features (roosts, nests, wetlands)
+    Region;                      # Larger governance areas (e.g., DowntownCentral, canal reach)
+  }
+
+  enum TemporalRecurrence {
+    None;                        # One-off fixed interval
+    Yearly;                      # Same window each year
+    Seasonal;                    # Season token (e.g., "SonoranMonsoon", "SpringMigration")
+    Weekly;                      # Named weekday patterns (e.g., "FriSatNights")
+  }
+
+  enum InfraDomain {
+    Lighting;                    # Luminaires, facades, signs
+    Noise;                       # Traffic, HVAC, events, machinery
+    Chemicals;                   # Pesticides, herbicides, fertilizers, particulates
+    Vegetation;                  # Tree canopy, understory, snags, native plantings
+  }
+
+  enum MetricId {
+    CorridorConnectivityScore;   # 0–1, from HabitatContinuityEngine
+    AlanViolationCount;          # Artificial Light At Night violations over window
+    PesticideViolationCount;     # Treaty-aligned chemical rule violations
+    SpeciesActivityIndex;        # Activity/presence index from species monitoring
+  }
+
+  ##########################################################################
+  # 2. Spatial scope and references to corridor ecosystem
+  ##########################################################################
+
+  atom GeoCoordinate {
+    field lat : Float;           # WGS84 latitude
+    field lon : Float;           # WGS84 longitude
+  }
+
+  atom GeoPolygon {
+    field vertices : List<GeoCoordinate>;   # Closed polygon; first == last enforced in validation
+  }
+
+  atom CorridorSegmentRef {
+    field corridor_id : String;            # Reference into CorridorRegistry (e.g., "CANAL_METROCENTER_PARKWAY")
+    field segment_id  : String;            # Segment identifier inside that corridor
+  }
+
+  atom SpatialScope {
+    field spatial_type       : SpatialType;
+    field polygons           : List<GeoPolygon>;         # For Patch/Region/Buffer
+    field corridor_segments  : List<CorridorSegmentRef>; # For Corridor or hybrid scopes
+    field habitat_notes      : String?;                  # Human-readable grounding note (e.g., "bat riparian commute")
+  }
+
+  ##########################################################################
+  # 3. Temporal windows and species activity coupling
+  ##########################################################################
+
+  atom TimeOfDayWindow {
+    field start_local_minute : Int;         # Minutes since local midnight [0, 1440)
+    field end_local_minute   : Int;         # Minutes since local midnight [0, 1440), may wrap across midnight
+  }
+
+  atom DateRangeUTC {
+    field start_utc : String;              # ISO-8601 (e.g., "2026-05-01T00:00:00Z")
+    field end_utc   : String;              # ISO-8601
+  }
+
+  atom SeasonalWindow {
+    field recurrence     : TemporalRecurrence;
+    field date_range     : DateRangeUTC?;         # Optional explicit range for None/Yearly
+    field time_windows   : List<TimeOfDayWindow>; # Daily windows (e.g., 18:00–06:00 commuting)
+    field species_window : String?;               # Link into species activity model (e.g., "bat_commute_dark_only")
+  }
+
+  ##########################################################################
+  # 4. Domain-specific constraint atoms (lighting, noise, chemicals, vegetation)
+  ##########################################################################
+
+  # 4.1 Lighting constraints
+  atom LightingSpectrumBand {
+    field min_nm : Float;                    # Lower bound of wavelength band
+    field max_nm : Float;                    # Upper bound
+  }
+
+  atom LightingConstraint {
+    field max_lux_corridor   : Float;        # Max ALAN in designated movement corridors
+    field max_lux_foraging   : Float;        # Max ALAN in feeding/foraging zones
+    field allowed_spectra    : List<LightingSpectrumBand>;  # Allowed spectra envelopes (e.g., amber low-blue)
+    field shielding_required : Bool;         # True if fully shielded fixtures required
+    field dark_corridor_segments : List<CorridorSegmentRef>; # Segments requiring near-zero ALAN
+  }
+
+  # 4.2 Noise constraints
+  atom NoiseBand {
+    field start_minute : Int;                # Local minute-of-day
+    field end_minute   : Int;
+    field max_dba      : Float;              # Max A-weighted level in this band
+  }
+
+  atom NoiseConstraint {
+    field bands : List<NoiseBand>;
+    field forbidden_impulsive_sources : List<String>;  # E.g., "leaf_blower", "pile_driver"
+    field notes : String?;                             # Grounding in local code or studies
+  }
+
+  # 4.3 Chemical constraints
+  atom PesticideClassRef {
+    field code : String;                    # Identifier mapping to Phoenix/Arizona pesticide registry
+  }
+
+  atom ChemicalConstraint {
+    field banned_classes          : List<PesticideClassRef>; # Classes never permitted in scope
+    field spray_blackout_windows  : List<TimeOfDayWindow>;   # E.g., peak pollinator hours
+    field nospray_buffers_m       : Float;                   # Min distance from nests/riparian edges
+    field particulate_sensitivity : String?;                 # E.g., "high_dust_sensitivity"
+  }
+
+  # 4.4 Vegetation and habitat structure constraints
+  atom VegetationConstraint {
+    field required_native_fraction : Float;      # Fraction [0,1] of landscaping from approved native list
+    field required_host_plant_ids  : List<String>;  # IDs mapping to pollinator plant guides
+    field snag_cavity_required     : Bool;       # Snags/cavities required for bats/birds
+    field minimum_canopy_height_m  : Float?;     # Minimum canopy height where relevant
+  }
+
+  ##########################################################################
+  # 5. Metrics, ecosafety corridor binding, and SMART-chain hooks
+  ##########################################################################
+
+  atom TreatyMetric {
+    field id        : MetricId;
+    field target_lo : Float;             # Lower bound of desired range (normalized or physical)
+    field target_hi : Float;             # Upper bound
+    field source    : String;            # Upstream calculator (e.g., "HabitatContinuityEngine")
+  }
+
+  atom EcosafetyCorridorBinding {
+    field corridor_atoms : List<String>; # IDs of CorridorAtom from ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+    field policy_ref     : String;       # EcosafetyPolicy id (derate/stop semantics)
+  }
+
+  atom SmartChainBinding {
+    field chain_ids      : List<String>; # SMART-chain IDs this treaty must attach to
+    field pq_mode        : String;       # PQ strength required (e.g., "PQ_STRICT")
+    field lexethos_refs  : List<String>; # Linked MicroTreaty IDs from LexEthos
+  }
+
+  ##########################################################################
+  # 6. Treaty parties, provenance, and governance
+  ##########################################################################
+
+  atom TreatyPartyRef {
+    field did            : String;   # DID / Augmented identity (species guardians, agencies, communities)
+    field role           : String;   # E.g., "species_steward", "municipal_agency", "indigenous_nation"
+    field signature_hash : String;   # Hash/pointer to on-chain multi-sig attestation (Googolswarm)
+  }
+
+  atom TreatyProvenance {
+    field created_at_utc  : String;  # ISO-8601
+    field created_by      : TreatyPartyRef;
+    field last_updated_at : String;
+    field last_updated_by : TreatyPartyRef;
+    field fpIC_required   : Bool;    # Whether FPIC applies
+    field fpIC_granted    : Bool;    # Current FPIC state (mirrors TreatyCapital)
+  }
+
+  ##########################################################################
+  # 7. Core BioticTreaty aggregate
+  ##########################################################################
+
+  atom BioticTreaty {
+    field treaty_id          : TreatyId;
+    field version            : TreatyVersion;
+    field status             : TreatyStatus;
+
+    field species_bound      : List<SpeciesAgentId>;     # One or more SpeciesAgent references
+    field spatial_scope      : SpatialScope;
+    field seasonal_windows   : List<SeasonalWindow>;     # When treaty is in force
+
+    field infra_domains      : List<InfraDomain>;        # Domains this treaty constrains
+
+    field lighting_rules     : LightingConstraint?;      # Present if Lighting in infra_domains
+    field noise_rules        : NoiseConstraint?;         # Present if Noise in infra_domains
+    field chemical_rules     : ChemicalConstraint?;      # Present if Chemicals in infra_domains
+    field vegetation_rules   : VegetationConstraint?;    # Present if Vegetation in infra_domains
+
+    field enforcement_mode   : EnforcementMode;
+
+    field metrics_to_track   : List<TreatyMetric>;       # For dashboards and validation
+    field ecosafety_binding  : EcosafetyCorridorBinding; # Required: no corridor, no build
+    field smartchain_binding : SmartChainBinding;        # Required: no chain, no deployment
+
+    field parties            : List<TreatyPartyRef>;     # Multisig-capable party set
+    field provenance         : TreatyProvenance;
+
+    field description        : String;                   # Plain-language statement of obligations
+  }
+
+  ##########################################################################
+  # 8. Validation contracts (schema-level invariants)
+  ##########################################################################
+
+  contract BioticTreatyInvariants(b : BioticTreaty) {
+    rule treaty_id_non_empty {
+      assert b.treaty_id.value != "";
+    }
+
+    rule species_non_empty {
+      assert len(b.species_bound) > 0;
+    }
+
+    rule infra_domain_consistency {
+      # If a domain is declared, its constraint block must be present.
+      if contains(b.infra_domains, InfraDomain::Lighting) {
+        assert b.lighting_rules != null;
+      }
+      if contains(b.infra_domains, InfraDomain::Noise) {
+        assert b.noise_rules != null;
+      }
+      if contains(b.infra_domains, InfraDomain::Chemicals) {
+        assert b.chemical_rules != null;
+      }
+      if contains(b.infra_domains, InfraDomain::Vegetation) {
+        assert b.vegetation_rules != null;
+      }
+    }
+
+    rule ecosafety_corridor_required {
+      # No corridor, no build — must bind to at least one ecosafety CorridorAtom
+      assert len(b.ecosafety_binding.corridor_atoms) > 0;
+    }
+
+    rule smartchain_binding_required {
+      # Must declare at least one SMART-chain, and a PQ mode
+      assert len(b.smartchain_binding.chain_ids) > 0;
+      assert b.smartchain_binding.pq_mode != "";
+    }
+
+    rule fpIC_consistency {
+      # If FPIC is required, it must be eventually granted before status can be Active.
+      if b.provenance.fpIC_required && b.status == TreatyStatus::Active {
+        assert b.provenance.fpIC_granted == true;
+      }
+    }
+  }
+
+  ##########################################################################
+  # 9. Interop contracts with LexEthos and Ecosafety grammars
+  ##########################################################################
+
+  # Ensures this treaty can be projected into a LexEthos MicroTreaty set.
+  contract LexEthosProjection(b : BioticTreaty) {
+    rule rights_atoms_mappable {
+      # At least one LexEthos reference per infra domain, to allow rights/treaties composition.
+      assert len(b.smartchain_binding.lexethos_refs) >= len(b.infra_domains);
+    }
+  }
+
+  # Ensures this treaty is compatible with ecosafety corridor policies.
+  contract EcosafetyCompatibility(b : BioticTreaty) {
+    rule ecosafety_policy_defined {
+      assert b.ecosafety_binding.policy_ref != "";
+    }
+  }
+}
