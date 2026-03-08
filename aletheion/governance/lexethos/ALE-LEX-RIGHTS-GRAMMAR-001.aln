@@ -1,0 +1,319 @@
+// Aletheion LexEthos Rights Grammar Core
+// File: ALE-LEX-RIGHTS-GRAMMAR-001.aln
+// Path: aletheion/governance/lexethos/ALE-LEX-RIGHTS-GRAMMAR-001.aln
+
+namespace aletheion.governance.lexethos.grammar.v1
+
+// ---- Primitive enums ----
+
+enum RightType {
+  noise_quiet_hours,
+  noise_peak_ceiling,
+  shade_waiting_area,
+  shade_transit_peak_heat,
+  shade_crossing_refuge,
+  water_access_basic,
+  augmentation_boundary,
+  data_privacy_local
+}
+
+enum MetricKind {
+  dba_at_facade,
+  dba_at_lot_line,
+  lux_horizontal,
+  lux_vertical,
+  shade_fraction,
+  shade_length_m,
+  duration_minutes,
+  distance_m
+}
+
+enum Comparator {
+  lt,   // <
+  lte,  // <=
+  gt,   // >
+  gte,  // >=
+  eq,   // ==
+}
+
+enum EnforcementMode {
+  hard_block,   // plan must be rejected or structurally changed
+  derate,       // plan may be auto-modified (time/route/intensity)
+  warn_only     // log and notify, no auto-change
+}
+
+enum CapitalTag {
+  Water,
+  Thermal,
+  Waste,
+  Biotic,
+  Neurobiome,
+  Somatic,
+  Treaty
+}
+
+// ---- Core identifiers ----
+
+type RightId = string
+type TreatyId = string
+type DistrictId = string        // aligns with SevenCapitalState districts
+type CorridorId = string        // canal, shade corridor, riparian segment
+type AssetType = string         // e.g. "construction_site", "bus_stop", "freight_link"
+type Did = string               // W3C DID
+type GoogolswarmTxHash = string // Googolswarm transaction anchor
+
+// ---- Time and scope primitives ----
+
+type LocalTime = string         // "HH:MM", 24h local
+type LocalDate = string         // "YYYY-MM-DD"
+type DayOfWeek = string         // "Mon"|"Tue"|...
+
+record TimeScope {
+  start_time: LocalTime,        // inclusive
+  end_time:   LocalTime,        // exclusive
+  days_of_week: [DayOfWeek],    // empty => all days
+}
+
+record SeasonalWindow {
+  start_date: LocalDate,        // inclusive
+  end_date:   LocalDate,        // inclusive
+}
+
+record Jurisdiction {
+  districts:   [DistrictId],    // one or more districts
+  corridors:   [CorridorId],    // optional linear identities
+  asset_types: [AssetType],     // which asset classes this atom binds
+}
+
+// ---- Threshold and metric binding ----
+
+record Threshold {
+  metric:     MetricKind,
+  comparator: Comparator,
+  value:      float,
+}
+
+// ---- RightsAtom: minimal enforceable unit ----
+
+record RightsAtom {
+  right_id:       RightId,
+  right_type:     RightType,
+  subject_role:   string,        // "resident", "worker", "clinic_patient", "school_child"
+  obligor_role:   string,        // "city_ops", "contractor", "fleet_operator", "building_owner"
+
+  jurisdiction:   Jurisdiction,
+  time_scope:     TimeScope,
+  season:        ?SeasonalWindow,
+
+  threshold:      Threshold,
+  enforcement:    EnforcementMode,
+  capital_links:  [CapitalTag],
+
+  provenance_did_issuer:  Did,
+  provenance_tx_anchor:   GoogolswarmTxHash,
+  version:        string,        // e.g. "PHX-NOISE-SHADE-V1"
+  created_at:     string,        // ISO-8601 timestamp
+}
+
+// ---- MicroTreaty schema shell (no logic here) ----
+
+record MicroTreaty {
+  treaty_id:      TreatyId,
+  name:           string,
+  description:    string,
+  atoms:          [RightsAtom],
+
+  valid_from:     LocalDate,
+  valid_until:    LocalDate,
+
+  jurisdictions:  [Jurisdiction],
+  supersedes:     [TreatyId],
+  authors:        [Did],
+  reviewers:      [Did],
+  version:        string,
+}
+
+// ---- Phoenix noise / shade mini-grammar presets ----
+// These atoms are designed to be compiled by ALE-LEX-COMPILER-001.rs
+// into executable MicroTreaties and attached to districts like
+// "Downtown Cool Corridor" and heat-vulnerable neighborhoods.
+
+// 1. Residential night quiet hours – baseline Phoenix pattern
+const atom PHX_NOISE_RESIDENTIAL_QUIET_V1: RightsAtom = {
+  right_id:     "PHX_NOISE_RESIDENTIAL_QUIET_V1",
+  right_type:   RightType.noise_quiet_hours,
+  subject_role: "resident",
+  obligor_role: "contractor",
+
+  jurisdiction: {
+    districts:   ["district_phx_residential_any"],
+    corridors:   [],
+    asset_types: ["construction_site", "leaf_blower_zone"]
+  },
+
+  time_scope: {
+    start_time:    "21:00",
+    end_time:      "07:00",
+    days_of_week:  ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+  },
+  season: null,
+
+  threshold: {
+    metric:     MetricKind.dba_at_facade,
+    comparator: Comparator.lte,
+    value:      45.0
+  },
+  enforcement:   EnforcementMode.hard_block,
+  capital_links: [CapitalTag.Neurobiome, CapitalTag.Somatic, CapitalTag.Treaty],
+
+  provenance_did_issuer: "did:aletheion:phx:lexethos",
+  provenance_tx_anchor:  "googolswarm:tx:PHX_NOISE_RESIDENTIAL_QUIET_V1",
+  version:               "1.0.0",
+  created_at:            "2026-03-07T21:47:00-07:00",
+}
+
+// 2. Downtown Cool Corridor night quiet hours – stronger envelope
+const atom PHX_NOISE_DOWNTOWN_COOL_QUIET_V1: RightsAtom = {
+  right_id:     "PHX_NOISE_DOWNTOWN_COOL_QUIET_V1",
+  right_type:   RightType.noise_quiet_hours,
+  subject_role: "resident",
+  obligor_role: "city_ops",
+
+  jurisdiction: {
+    districts:   ["district_downtown_cool_corridor"],
+    corridors:   ["corridor_downtown_cool_shade_core"],
+    asset_types: ["construction_site","freight_link","event_venue"]
+  },
+
+  time_scope: {
+    start_time:    "20:00",
+    end_time:      "06:00",
+    days_of_week:  ["Mon","Tue","Wed","Thu","Sun"]
+  },
+  season: {
+    start_date: "2026-05-01",
+    end_date:   "2026-10-15"
+  },
+
+  threshold: {
+    metric:     MetricKind.dba_at_facade,
+    comparator: Comparator.lte,
+    value:      40.0
+  },
+  enforcement:   EnforcementMode.hard_block,
+  capital_links: [CapitalTag.Neurobiome, CapitalTag.Somatic, CapitalTag.Thermal, CapitalTag.Treaty],
+
+  provenance_did_issuer: "did:aletheion:phx:lexethos",
+  provenance_tx_anchor:  "googolswarm:tx:PHX_NOISE_DOWNTOWN_COOL_QUIET_V1",
+  version:               "1.0.0",
+  created_at:            "2026-03-07T21:47:00-07:00",
+}
+
+// 3. Peak-heat shade requirement at transit stops in PeakHeatZone
+const atom PHX_SHADE_TRANSIT_PEAKHEAT_V1: RightsAtom = {
+  right_id:     "PHX_SHADE_TRANSIT_PEAKHEAT_V1",
+  right_type:   RightType.shade_transit_peak_heat,
+  subject_role: "transit_rider",
+  obligor_role: "city_ops",
+
+  jurisdiction: {
+    districts:   ["district_peak_heat_zone"],
+    corridors:   ["corridor_bus_rapid_main","corridor_downtown_cool_shade_core"],
+    asset_types: ["bus_stop","light_rail_platform","transit_queue_zone"]
+  },
+
+  time_scope: {
+    start_time:    "15:00",
+    end_time:      "18:00",
+    days_of_week:  ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+  },
+  season: {
+    start_date: "2026-05-01",
+    end_date:   "2026-10-15"
+  },
+
+  threshold: {
+    metric:     MetricKind.shade_fraction,
+    comparator: Comparator.gte,
+    value:      0.70
+  },
+  enforcement:   EnforcementMode.hard_block,
+  capital_links: [CapitalTag.Thermal, CapitalTag.Somatic, CapitalTag.Treaty],
+
+  provenance_did_issuer: "did:aletheion:phx:lexethos",
+  provenance_tx_anchor:  "googolswarm:tx:PHX_SHADE_TRANSIT_PEAKHEAT_V1",
+  version:               "1.0.0",
+  created_at:            "2026-03-07T21:47:00-07:00",
+}
+
+// 4. Shade refuge at pedestrian crossings in heat-vulnerable neighborhoods
+const atom PHX_SHADE_CROSSING_REFUGE_V1: RightsAtom = {
+  right_id:     "PHX_SHADE_CROSSING_REFUGE_V1",
+  right_type:   RightType.shade_crossing_refuge,
+  subject_role: "pedestrian",
+  obligor_role: "city_ops",
+
+  jurisdiction: {
+    districts:   ["district_high_vulnerability_neighborhood"],
+    corridors:   ["corridor_school_zone_any","corridor_healthcare_cluster_any"],
+    asset_types: ["crosswalk_queue_zone","median_refuge"]
+  },
+
+  time_scope: {
+    start_time:    "14:00",
+    end_time:      "19:00",
+    days_of_week:  ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"]
+  },
+  season: {
+    start_date: "2026-05-01",
+    end_date:   "2026-10-15"
+  },
+
+  threshold: {
+    metric:     MetricKind.shade_length_m,
+    comparator: Comparator.gte,
+    value:      1.50
+  },
+  enforcement:   EnforcementMode.derate,
+  capital_links: [CapitalTag.Thermal, CapitalTag.Somatic],
+
+  provenance_did_issuer: "did:aletheion:phx:lexethos",
+  provenance_tx_anchor:  "googolswarm:tx:PHX_SHADE_CROSSING_REFUGE_V1",
+  version:               "1.0.0",
+  created_at:            "2026-03-07T21:47:00-07:00",
+}
+
+// 5. Phoenix Noise+Shade MiniTreaty bundle for Downtown Cool Corridor
+const treaty PHX_MINI_NOISE_SHADE_DOWNTOWN_COOL_V1: MicroTreaty = {
+  treaty_id:   "PHX_MINI_NOISE_SHADE_DOWNTOWN_COOL_V1",
+  name:        "Phoenix Downtown Cool Corridor Noise & Shade v1",
+  description: "Baseline quiet-hours and peak-heat shade guarantees for Downtown Cool Corridor and adjacent heat-vulnerable districts.",
+
+  atoms: [
+    PHX_NOISE_RESIDENTIAL_QUIET_V1,
+    PHX_NOISE_DOWNTOWN_COOL_QUIET_V1,
+    PHX_SHADE_TRANSIT_PEAKHEAT_V1,
+    PHX_SHADE_CROSSING_REFUGE_V1
+  ],
+
+  valid_from:  "2026-05-01",
+  valid_until: "2030-12-31",
+
+  jurisdictions: [
+    {
+      districts:   ["district_downtown_cool_corridor","district_high_vulnerability_neighborhood"],
+      corridors:   ["corridor_downtown_cool_shade_core"],
+      asset_types: ["construction_site","leaf_blower_zone","bus_stop","light_rail_platform","crosswalk_queue_zone","median_refuge"]
+    }
+  ],
+  supersedes: [],
+  authors: [
+    "did:aletheion:phx:lexethos",
+    "did:aletheion:phx:community:noise_shade_panel"
+  ],
+  reviewers: [
+    "did:aletheion:phx:legal",
+    "did:aletheion:phx:indigenous:fpic_council"
+  ],
+  version: "1.0.0",
+}
