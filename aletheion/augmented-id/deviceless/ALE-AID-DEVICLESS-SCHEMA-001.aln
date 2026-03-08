@@ -1,0 +1,16 @@
+schema DevicelessTrace {
+  trace_id: TraceId                // anonymized, non-linkable outside chain
+  origin_corridor: CorridorId      // Phoenix corridor or neighborhood
+  origin_region: RegionId          // e.g., REGION_DOWNTOWN_CORE
+  timestamp_window: TimeWindow     // coarse window, not exact timestamp
+  pattern_ref: PatternIdentityRef  // stable pattern pointer
+  somatic_env: SomaticEnvelopeRef  // body-budget context if present
+  biophysical_id: BiophysicalIdentityRef? // eco / microbiome linkage
+  species_ref: SpeciesPatternRef?  // nonhuman patterns (Synthexis)
+  fpic_context: FPICContextRef?    // FPIC + micro-treaty attachment
+  neurorights_guard: NeurorightsGuardRef? // FEAR/PAIN/SANITY, CryptoSomatic
+  trust_link: TrustLedgerRef       // Googolswarm transaction pointer
+  parse_layer: ParseLayerId        // which parser family saw this
+  exec_chain: SMARTChainId         // which SMART-chain must be satisfied
+  opacity_class: OpacityClass      // how much structure is hidden from app
+}
