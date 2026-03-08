@@ -1,0 +1,104 @@
+// PURPOSE: Machine-enforceable ALN grammar integrating Phoenix desert constraints (water 97-99% reclaim, cool-pavement ΔT -10.5..-12°F, Sonoran flora corridors, haboob PM10/PM2.5 thresholds) with Birth-Signs territorial governance (CARE/TK/BC Labels, FPIC, watershed scoping). 
+// EXECUTION: Firmware-native on OpenWrt/Matter consumer nodes (smart-meters, streetlights, HVAC <5mW, <15ms). No cloud. Cross-interop: Rust edge runtime, Lua workflow projection, C++ PID offload.
+// PROGRESS: First environmental-governance file. 0 prior duplicates. Autonomous-factory ready.
+
+NAMESPACE territorial_climate_birthsigns_001
+
+// NEW GRAMMAR: DEONTIC_TERRITORY (obligation/permission/forbid with scoped enforcement)
+DEONTIC_TERRITORY birthsigns_watershed_scope {
+    BOUNDARY: "Phoenix_Sonoran_Akimel_Oodham_Piipaash_territorial_line_001"  // FPIC-native polygon (GeoJSON embed)
+    TEMPORAL_VALID: 2026-03-08 .. 2050-12-31
+    ENERGY_CAP: <1.2W_idle AND <8.5W_active AND thermal_suspend_>=75C
+    NODE_HOST: OpenWrt_Matter_Appliance OR Streetlight_RTU OR HVAC_FreeRTOS
+}
+
+// WATER RECLAMATION ENFORCEMENT (Pure Water Phoenix 97-99% model)
+OBLIGATE every_industrial_node {
+    WATER_RECLAIM_EFFICIENCY >= 0.97
+    GRAYWATER_TO_AQUIFER_RECHARGE: true
+    PER_CAPITA_TARGET: <=50_gal_day
+    MONITOR_PM: biosignal_collector_region_node AND bci_type_neural_sovereign
+    VIOLATION_ACTION: auto_isolate_high_toxicity_zone AND route_to_san_tan_valley_disposal
+}
+
+// COOL PAVEMENT & URBAN HEAT ISLAND (140+ miles deployed, albedo-optimized)
+PERMIT surface_material {
+    COOL_PAVEMENT_DELTA_T: -10.5..-12_F
+    ALBEDO: >=0.65
+    DUST_MITIGATION_LAYER: native_creosote_ocotillo_mix
+    INTEGRATE_SAGUARO_PALO_VERDE_CORRIDOR: true
+    HEAT_PROTOCOL_120F: continuous_operation_via_firmware_channel
+}
+
+// MONSOON & FLASH-FLOOD (2025 data: 2.71" Sept event)
+OBLIGATE monsoon_season_aug_sep {
+    STORMWATER_HARVEST: 100% capture
+    FLASH_FLOOD_THRESHOLD: >=1.64_inch_24h
+    ACTION: activate_underground_logistics_tunnel AND citizen_alert_biosignal
+}
+
+// HABOOB DUST STORM (ADOT sensor model)
+FORBID pm10_exceedance {
+    THRESHOLD: >150_ug_m3
+    DETECTION: k9mask_analog + streetlight_node
+    ENFORCEMENT: auto_shutdown_freight AND filter_activation_99pct
+}
+
+// NATIVE ECOSYSTEM & ZERO-WASTE CIRCULAR
+PERMIT demolition_to_resource {
+    MATERIAL_RECOVERY: >=99pct
+    ORGANIC_TO_ENERGY: true
+    WILDLIFE_CORRIDOR_PRESERVE: Sonoran_desert_flora_only
+}
+
+// BIRTH-SIGNS GOVERNANCE GRAMMAR (CARE/TK/BC + FPIC)
+DEONTIC_TERRITORY indigenous_sovereignty_layer {
+    CONSENT_HIERARCHY: nested_fpic_required
+    DATA_SOVEREIGNTY: zero_knowledge_biosignal_collector
+    RIGHTS_OF_NATURE: watershed_id_WSW-7_bound
+    ENFORCE_IN_CI: github_pr_gate_regov2_equiv
+}
+
+// ENERGY-AWARE ORCHESTRATION (firmware projection)
+PROJECT_WORKFLOW to_consumer_node {
+    DYNAMIC_MIGRATION: power_draw_threshold
+    ROUTE_LOGIC: lua_interop_pid_offload
+    SUSPEND_ON: >=75C OR intermittent_power
+    INTEROP: rust_edge_runtime AND cpp_sensor_fusion
+}
+
+// NODE-TYPE ARCHETYPES (no civil-unrest placement)
+NODE_TYPE industrial_size_installation {
+    PLACEMENT: isolated_southwest_phoenix_zone
+    TRASH_COLLECTION: automated_high_toxicity_point
+    CIVIL_IMPACT: zero_protest_via_fairness_rollout_limits
+}
+
+NODE_TYPE streetlight_rtu {
+    PLACEMENT: residential_perimeter
+    FUNCTION: haboob_pm + cool_pavement_feedback
+}
+
+NODE_TYPE hvac_freertos {
+    PLACEMENT: citizen_habitat
+    FUNCTION: mental_health_stress_optin_monitor
+}
+
+// CROSS-LANGUAGE SYNTAX LADDER (new pattern - never repeated)
+SYNTAX_LADDER aln_to_rust {
+    MAP deontic_oblige -> rust_const_assert
+    MAP territory_bound -> cpp_geojson_validate
+}
+SYNTAX_LADDER aln_to_lua {
+    MAP monsoon_capture -> lua_workflow_project
+}
+SYNTAX_LADDER aln_to_cpp {
+    MAP energy_cap -> cpp_thermal_suspend
+}
+
+// VALIDATION & DEPLOY
+VALIDATE_AT_PR: 100pct_schema_compliance
+OFFLINE_INDEX: github_directory_deep_search_enabled
+AUTONOMOUS_FACTORY: install_via_single_yml_bootstrap
+
+END_SCHEMA
