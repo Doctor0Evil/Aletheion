@@ -1,0 +1,976 @@
+// ============================================================================
+// FILE: aletheion/citizen/consent/ALE-CIT-CONSENT-STATE-002.aln
+// PURPOSE: Updated ConsentStateMachine for time- and context-bound consent
+//          (heat, routing, neurobiome) with DID/FPIC hooks referenced by
+//          CryptoSomatic and routing engines instead of inline state machines
+// LANGUAGE: ALN (Aletheion Logic Notation) - Version 002
+// DESTINATION: Aletheion Repository - Citizen Consent Subsystem
+// COMPLIANCE: Zero-contamination IFC, NeurorightsEnvelope, FPIC metadata,
+//             EU AI Act Article 5, Neuro-Rights Framework 2025, DID-Bound Identity
+// AUTHORITY: Single semantic source - All engines read this schema, none bypass
+// RELATED: ALE-LEX-RIGHTS-ATOM-002.aln, ALE-LEX-MICROTREATY-COMPILER-CORE-002.rs,
+//          ALE-SOMAPLEX-SOMATIC-ROUTE-ENGINE-CORE-002.rs, ALE-THERM-HEATBUDGET-SIMULATOR-CORE-002.rs
+// ============================================================================
+
+@version "002"
+@domain "aletheion.citizen.consent"
+@policy_type "consent_state_machine"
+@effective_date "2026-03-08T00:00:00Z"
+@jurisdiction "Phoenix, Arizona, USA"
+@indigenous_territory "Akimel O'odham and Piipaash ancestral lands"
+
+// ============================================================================
+// SECTION 1: CONSENT STATE SCHEMA DEFINITIONS
+// ============================================================================
+
+@consent_state_schema {
+    name: "Aletheion_ConsentStateMachine"
+    version: "002"
+    
+    @field consent_id {
+        type: "string"
+        pattern: "^CONSENT-[0-9]{8}-[A-Z]{4}$"
+        required: true
+        immutable: true
+        description: "Unique consent state identifier"
+    }
+    
+    @field citizen_did {
+        type: "string"
+        pattern: "^did:aletheion:[a-zA-Z0-9]{32,64}$"
+        required: true
+        immutable: true
+        description: "DID-Bound brain identity reference"
+        citation: "DID-Bound Brain Identity Framework 2025"
+    }
+    
+    @field biosignature_hash {
+        type: "string"
+        pattern: "^[a-f0-9]{64}$"
+        required: true
+        immutable: true
+        description: "Cryptographic hash of citizen biosignature for verification"
+        citation: "Non-blacklisted hash algorithm required"
+    }
+    
+    @field consent_category {
+        type: "enum"
+        allowed_values: [heat_monitoring, route_planning, neurobiome_data, hydration_tracking, mobility_assistance, biotic_interaction, thermal_intervention, waste_disposal, energy_usage, water_consumption]
+        required: true
+        immutable: true
+        description: "Category of consent being granted"
+    }
+    
+    @field consent_scope {
+        type: "enum"
+        allowed_values: [single_session, time_bound, context_bound, recurring, permanent]
+        required: true
+        mutable: false
+        description: "Scope and duration of consent"
+    }
+    
+    @field consent_state {
+        type: "enum"
+        allowed_values: [pending, active, suspended, revoked, expired]
+        required: true
+        mutable: true
+        description: "Current state of consent"
+    }
+    
+    @field grant_timestamp {
+        type: "unix_timestamp"
+        required: true
+        immutable: true
+        description: "Timestamp when consent was granted"
+    }
+    
+    @field expiration_timestamp {
+        type: "unix_timestamp"
+        required: false
+        immutable: false
+        description: "Timestamp when consent expires (null for permanent)"
+    }
+    
+    @field context_conditions {
+        type: "array"
+        item_type: "object"
+        required: false
+        mutable: true
+        description: "Contextual conditions for consent validity"
+    }
+    
+    @field fpic_verified {
+        type: "boolean"
+        required: true
+        immutable: true
+        description: "Free, Prior, and Informed Consent verification status"
+        citation: "Indigenous land rights and data sovereignty"
+    }
+    
+    @field fpic_authority_id {
+        type: "string"
+        pattern: "^FPIC-AUTH-[0-9]{6}$"
+        required: false
+        immutable: true
+        description: "FPIC authority identifier if applicable"
+    }
+    
+    @field neurorights_envelope {
+        type: "boolean"
+        required: true
+        immutable: true
+        description: "Neurorights protection envelope active"
+        citation: "EU AI Act Article 5, Neuro-Rights Framework 2025"
+    }
+    
+    @field stake_multisig_hash {
+        type: "string"
+        pattern: "^[a-f0-9]{64}$"
+        required: false
+        immutable: true
+        description: "Stake multisig verification hash for sovereign operations"
+    }
+    
+    @field revocation_allowed {
+        type: "boolean"
+        required: true
+        immutable: true
+        description: "Whether consent can be revoked by citizen"
+    }
+    
+    @field auto_renewal {
+        type: "boolean"
+        required: true
+        immutable: false
+        description: "Whether consent auto-renews upon expiration"
+    }
+    
+    @field renewal_notification_days {
+        type: "unsigned_integer"
+        min: 1
+        max: 90
+        required: false
+        immutable: false
+        description: "Days before expiration to notify citizen"
+    }
+    
+    @field data_retention_days {
+        type: "unsigned_integer"
+        min: 1
+        max: 2555
+        required: true
+        immutable: true
+        description: "Data retention period in days (max 7 years)"
+    }
+    
+    @field purpose_binding {
+        type: "array"
+        item_type: "string"
+        required: true
+        immutable: true
+        description: "Specific purposes for which data may be used"
+    }
+    
+    @field third_party_sharing {
+        type: "boolean"
+        required: true
+        immutable: true
+        description: "Whether data can be shared with third parties"
+    }
+    
+    @field third_party_whitelist {
+        type: "array"
+        item_type: "string"
+        required: false
+        immutable: true
+        description: "Approved third parties if sharing enabled"
+    }
+    
+    @field encryption_algorithm {
+        type: "enum"
+        allowed_values: ["AES-256-GCM", "ChaCha20-Poly1305", "XChaCha20-Poly1305"]
+        required: true
+        immutable: true
+        description: "Encryption algorithm for consent-protected data"
+        citation: "Non-blacklisted encryption standards"
+    }
+    
+    @field audit_log_enabled {
+        type: "boolean"
+        required: true
+        immutable: true
+        description: "Whether audit logging is enabled for this consent"
+    }
+    
+    @invariant consent_invariant_001 {
+        description: "All neurobiome consent requires neurorights envelope"
+        condition: consent_category == neurobiome_data => neurorights_envelope == true
+        enforcement: hard_block
+    }
+    
+    @invariant consent_invariant_002 {
+        description: "FPIC verification required for indigenous territory operations"
+        condition: jurisdiction == indigenous_territory => fpic_verified == true
+        enforcement: hard_block
+    }
+    
+    @invariant consent_invariant_003 {
+        description: "Permanent consent requires stake multisig verification"
+        condition: consent_scope == permanent => stake_multisig_hash != null
+        enforcement: hard_block
+    }
+    
+    @invariant consent_invariant_004 {
+        description: "Revocation must always be allowed for fundamental rights"
+        condition: consent_category in [heat_monitoring, route_planning, neurobiome_data] => revocation_allowed == true
+        enforcement: hard_block
+    }
+    
+    @invariant consent_invariant_005 {
+        description: "Data retention cannot exceed 7 years per municipal compliance"
+        condition: data_retention_days <= 2555
+        enforcement: hard_block
+    }
+    
+    @invariant consent_invariant_006 {
+        description: "Non-blacklisted encryption algorithm required"
+        condition: encryption_algorithm in ["AES-256-GCM", "ChaCha20-Poly1305", "XChaCha20-Poly1305"]
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 2: CONSENT STATE TRANSITIONS
+// ============================================================================
+
+@consent_state_transitions {
+    name: "Aletheion_Consent_State_Machine"
+    version: "002"
+    
+    @state pending {
+        id: 0
+        description: "Consent request created, awaiting citizen approval"
+        allowed_transitions: [active, revoked]
+        timeout_hours: 72
+        timeout_action: auto_expire
+        citation: "Consent request expiration policy"
+    }
+    
+    @state active {
+        id: 1
+        description: "Consent granted and currently valid"
+        allowed_transitions: [suspended, revoked, expired]
+        timeout_hours: null
+        timeout_action: null
+        citation: "Active consent operational state"
+    }
+    
+    @state suspended {
+        id: 2
+        description: "Consent temporarily paused (citizen or system initiated)"
+        allowed_transitions: [active, revoked]
+        timeout_hours: 168
+        timeout_action: auto_revoke
+        citation: "Temporary suspension maximum 1 week"
+    }
+    
+    @state revoked {
+        id: 3
+        description: "Consent permanently revoked by citizen"
+        allowed_transitions: []
+        timeout_hours: null
+        timeout_action: null
+        citation: "Revocation is terminal state"
+    }
+    
+    @state expired {
+        id: 4
+        description: "Consent expired due to time limit"
+        allowed_transitions: [pending]
+        timeout_hours: null
+        timeout_action: null
+        citation: "Expired consent can be re-requested"
+    }
+    
+    @transition pending_to_active {
+        from: pending
+        to: active
+        trigger: citizen_approval
+        requirements: ["fpic_verified", "purpose_binding_acknowledged", "encryption_confirmed"]
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry", "data_custodian"]
+    }
+    
+    @transition active_to_suspended {
+        from: active
+        to: suspended
+        trigger: ["citizen_request", "system_anomaly_detected", "compliance_violation"]
+        requirements: ["suspension_reason_documented"]
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry", "compliance_office"]
+    }
+    
+    @transition active_to_revoked {
+        from: active
+        to: revoked
+        trigger: citizen_revocation
+        requirements: []
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry", "all_data_recipients"]
+        citation: "Immediate revocation propagation required"
+    }
+    
+    @transition active_to_expired {
+        from: active
+        to: expired
+        trigger: expiration_timestamp_reached
+        requirements: ["expiration_notification_sent"]
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry"]
+    }
+    
+    @transition suspended_to_active {
+        from: suspended
+        to: active
+        trigger: citizen_reactivation
+        requirements: ["suspension_reason_resolved"]
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry"]
+    }
+    
+    @transition suspended_to_revoked {
+        from: suspended
+        to: revoked
+        trigger: ["citizen_revocation", "timeout_exceeded"]
+        requirements: []
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry", "all_data_recipients"]
+    }
+    
+    @transition expired_to_pending {
+        from: expired
+        to: pending
+        trigger: renewal_request
+        requirements: ["auto_renewal == false", "citizen_initiated"]
+        audit_log: true
+        notification_targets: ["citizen", "consent_registry"]
+    }
+    
+    @invariant transition_invariant_001 {
+        description: "Revoked state is terminal - no transitions allowed"
+        condition: current_state == revoked => allowed_transitions == []
+        enforcement: hard_block
+    }
+    
+    @invariant transition_invariant_002 {
+        description: "Pending state expires after 72 hours without approval"
+        condition: current_state == pending AND time_since_creation > 72h => auto_expire
+        enforcement: hard_block
+    }
+    
+    @invariant transition_invariant_003 {
+        description: "Suspension cannot exceed 1 week without review"
+        condition: current_state == suspended AND time_since_suspension > 168h => auto_revoke
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 3: CONTEXT-BOUND CONSENT CONDITIONS
+// ============================================================================
+
+@context_bound_conditions {
+    name: "Aletheion_Context_Bound_Consent_Conditions"
+    version: "002"
+    
+    @condition heat_monitoring_context {
+        consent_category: heat_monitoring
+        triggers: [
+            "ambient_temp_c >= 35.0",
+            "heat_index_c >= 40.0",
+            "citizen_outdoor_location == true",
+            "vulnerability_class in [elderly, outdoor_worker, homeless]"
+        ]
+        auto_activate: true
+        auto_deactivate: "ambient_temp_c < 30.0"
+        notification_required: true
+        citation: "Phoenix Heat Relief Network consent protocol"
+    }
+    
+    @condition route_planning_context {
+        consent_category: route_planning
+        triggers: [
+            "navigation_request_initiated",
+            "mobility_mode_changed",
+            "heat_alert_active",
+            "accessibility_requirement_detected"
+        ]
+        auto_activate: true
+        auto_deactivate: "navigation_session_ended"
+        notification_required: false
+        citation: "Somaplex route planning consent"
+    }
+    
+    @condition neurobiome_data_context {
+        consent_category: neurobiome_data
+        triggers: [
+            "biosignal_collection_requested",
+            "bci_device_connected",
+            "neural_data_processing_initiated"
+        ]
+        auto_activate: false
+        auto_deactivate: "session_ended"
+        notification_required: true
+        explicit_approval_required: true
+        citation: "Neuro-Rights Framework explicit consent requirement"
+    }
+    
+    @condition hydration_tracking_context {
+        consent_category: hydration_tracking
+        triggers: [
+            "water_fountain_usage_detected",
+            "hydration_reminder_scheduled",
+            "heat_exposure_threshold_exceeded"
+        ]
+        auto_activate: true
+        auto_deactivate: "daily_reset"
+        notification_required: false
+        citation: "Phoenix hydration protocol consent"
+    }
+    
+    @condition mobility_assistance_context {
+        consent_category: mobility_assistance
+        triggers: [
+            "fall_risk_detected",
+            "wheelchair_route_requested",
+            "accessibility_barrier_encountered"
+        ]
+        auto_activate: true
+        auto_deactivate: "assistance_session_ended"
+        notification_required: false
+        citation: "Accessibility First Design consent"
+    }
+    
+    @condition biotic_interaction_context {
+        consent_category: biotic_interaction
+        triggers: [
+            "wildlife_corridor_entry",
+            "habitat_restoration_activity",
+            "pollinator_corridor_usage"
+        ]
+        auto_activate: true
+        auto_deactivate: "corridor_exit"
+        notification_required: true
+        citation: "BioticTreaty interaction consent"
+    }
+    
+    @condition thermal_intervention_context {
+        consent_category: thermal_intervention
+        triggers: [
+            "cooling_station_activation",
+            "misting_station_usage",
+            "shade_structure_access"
+        ]
+        auto_activate: true
+        auto_deactivate: "intervention_ended"
+        notification_required: false
+        citation: "Thermaphora intervention consent"
+    }
+    
+    @invariant context_invariant_001 {
+        description: "Neurobiome data requires explicit approval - no auto-activation"
+        condition: consent_category == neurobiome_data => auto_activate == false
+        enforcement: hard_block
+    }
+    
+    @invariant context_invariant_002 {
+        description: "Heat monitoring auto-activation requires temperature threshold"
+        condition: consent_category == heat_monitoring AND auto_activate == true => ambient_temp_c >= 35.0
+        enforcement: hard_block
+    }
+    
+    @invariant context_invariant_003 {
+        description: "Context-bound consent must have defined deactivation trigger"
+        condition: consent_scope == context_bound => auto_deactivate != null
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 4: TIME-BOUND CONSENT PROFILES
+// ============================================================================
+
+@time_bound_profiles {
+    name: "Aletheion_Time_Bound_Consent_Profiles"
+    version: "002"
+    
+    @profile single_session {
+        consent_scope: single_session
+        max_duration_minutes: 480
+        auto_expire_on_session_end: true
+        renewal_requires_reapproval: true
+        typical_use_cases: ["navigation_session", "cooling_center_visit", "emergency_response"]
+        citation: "Single-session consent standard"
+    }
+    
+    @profile daily_recurring {
+        consent_scope: time_bound
+        max_duration_hours: 24
+        auto_renewal: false
+        renewal_notification_hours: 4
+        typical_use_cases: ["heat_monitoring", "hydration_tracking", "mobility_assistance"]
+        citation: "Daily recurring consent for environmental monitoring"
+    }
+    
+    @profile weekly_recurring {
+        consent_scope: time_bound
+        max_duration_days: 7
+        auto_renewal: false
+        renewal_notification_days: 1
+        typical_use_cases: ["route_planning", "thermal_intervention", "biotic_interaction"]
+        citation: "Weekly recurring consent for mobility services"
+    }
+    
+    @profile monthly_recurring {
+        consent_scope: recurring
+        max_duration_days: 30
+        auto_renewal: true
+        renewal_notification_days: 7
+        typical_use_cases: ["water_consumption", "energy_usage", "waste_disposal"]
+        citation: "Monthly recurring consent for utility services"
+    }
+    
+    @profile annual_recurring {
+        consent_scope: recurring
+        max_duration_days: 365
+        auto_renewal: true
+        renewal_notification_days: 30
+        typical_use_cases: ["general_data_processing", "municipal_services"]
+        citation: "Annual recurring consent for municipal operations"
+    }
+    
+    @profile permanent {
+        consent_scope: permanent
+        max_duration_days: null
+        auto_renewal: null
+        stake_multisig_required: true
+        revocation_always_allowed: true
+        typical_use_cases: ["did_registration", "biosignature_storage", "fundamental_rights_acknowledgment"]
+        citation: "Permanent consent requires stake multisig and always allows revocation"
+    }
+    
+    @invariant time_invariant_001 {
+        description: "Single session consent cannot exceed 8 hours"
+        condition: consent_scope == single_session => max_duration_minutes <= 480
+        enforcement: hard_block
+    }
+    
+    @invariant time_invariant_002 {
+        description: "Permanent consent requires stake multisig"
+        condition: consent_scope == permanent => stake_multisig_required == true
+        enforcement: hard_block
+    }
+    
+    @invariant time_invariant_003 {
+        description: "All time-bound consent requires expiration timestamp"
+        condition: consent_scope in [single_session, time_bound, recurring] => expiration_timestamp != null
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 5: DID-BOUND IDENTITY INTEGRATION
+// ============================================================================
+
+@did_integration {
+    name: "Aletheion_DID_Bound_Identity_Integration"
+    version: "002"
+    
+    @did_method aletheion {
+        method_name: "did:aletheion"
+        method_id: "DID-ALN-001"
+        specification_url: "https://aletheion.city/did-spec-v002"
+        cryptographic_basis: "Ed25519, X25519"
+        citation: "DID-Bound Brain Identity Framework 2025"
+    }
+    
+    @verification_method biosignature {
+        method_type: "BiometricSignature2025"
+        controller: "citizen_did"
+        public_key_format: "Multibase"
+        verification_purpose: ["authentication", "assertionMethod"]
+        citation: "Biosignal collector verification standard"
+    }
+    
+    @verification_method device_key {
+        method_type: "Ed25519VerificationKey2020"
+        controller: "citizen_did"
+        public_key_format: "Multibase"
+        verification_purpose: ["authentication", "keyAgreement"]
+        citation: "BCI device authentication standard"
+    }
+    
+    @service_endpoint consent_registry {
+        service_type: "ConsentRegistry"
+        service_endpoint: "https://consent.aletheion.city/api/v2"
+        description: "Centralized consent state registry with decentralized verification"
+    }
+    
+    @service_endpoint data_vault {
+        service_type: "EncryptedDataVault"
+        service_endpoint: "https://vault.aletheion.city/api/v2"
+        description: "Citizen-controlled encrypted data storage"
+        citation: "Local-first storage, citizen-controlled export"
+    }
+    
+    @service_endpoint neurorights_envelope {
+        service_type: "NeurorightsEnvelope"
+        service_endpoint: "https://neurorights.aletheion.city/api/v2"
+        description: "Neural data protection and access control"
+        citation: "EU AI Act Article 5 compliance"
+    }
+    
+    @credential consent_credential {
+        credential_type: "ConsentGrantCredential"
+        issuer: "did:aletheion:consent-authority"
+        subject: "citizen_did"
+        expiration: "expiration_timestamp"
+        proof_type: "Ed25519Signature2020"
+        citation: "Verifiable consent credential standard"
+    }
+    
+    @invariant did_invariant_001 {
+        description: "All consent states must reference valid citizen DID"
+        condition: citizen_did starts_with "did:aletheion:"
+        enforcement: hard_block
+    }
+    
+    @invariant did_invariant_002 {
+        description: "Biosignature hash required for all neurobiome consent"
+        condition: consent_category == neurobiome_data => biosignature_hash != null
+        enforcement: hard_block
+    }
+    
+    @invariant did_invariant_003 {
+        description: "Consent credentials must be verifiable via DID document"
+        condition: consent_credential.issuer in citizen_did.verified_issuers
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 6: FPIC INTEGRATION FOR INDIGENOUS TERRITORY
+// ============================================================================
+
+@fpic_integration {
+    name: "Aletheion_FPIC_Integration_Protocol"
+    version: "002"
+    reference: "Free, Prior, and Informed Consent - Akimel O'odham and Piipaash"
+    
+    @fpic_authority akimel_oodham {
+        authority_id: "FPIC-AUTH-001"
+        nation: "Akimel O'odham (Pima)"
+        territory: "Gila River Indian Community"
+        contact_endpoint: "https://fpic.gilariver.org/aletheion"
+        consultation_required_for: ["land_use", "water_rights", "biotic_corridors", "cultural_heritage"]
+        citation: "Akimel O'odham sovereignty recognition"
+    }
+    
+    @fpic_authority piipaash {
+        authority_id: "FPIC-AUTH-002"
+        nation: "Piipaash (Maricopa)"
+        territory: "Salt River Pima-Maricopa Indian Community"
+        contact_endpoint: "https://fpic.srpima.org/aletheion"
+        consultation_required_for: ["land_use", "water_rights", "biotic_corridors", "cultural_heritage"]
+        citation: "Piipaash sovereignty recognition"
+    }
+    
+    @fpic_process consultation {
+        step_1: "notice_of_intent"
+        step_2: "community_meeting_scheduled"
+        step_3: "impact_assessment_presented"
+        step_4: "community_deliberation_period_days: 30"
+        step_5: "vote_or_consensus_decision"
+        step_6: "fpic_certificate_issued"
+        total_minimum_days: 45
+        citation: "FPIC consultation minimum timeline"
+    }
+    
+    @fpic_certificate {
+        certificate_id_pattern: "^FPIC-CERT-[0-9]{6}-[A-Z]{4}$"
+        validity_period_days: 365
+        renewal_required: true
+        revocation_allowed_by: ["issuing_authority", "community_referendum"]
+        citation: "FPIC certificate validity and revocation"
+    }
+    
+    @invariant fpic_invariant_001 {
+        description: "All operations in indigenous territory require FPIC verification"
+        condition: location in indigenous_territory => fpic_verified == true
+        enforcement: hard_block
+    }
+    
+    @invariant fpic_invariant_002 {
+        description: "FPIC certificate must be valid (not expired)"
+        condition: fpic_verified == true => fpic_certificate_validity_remaining > 0
+        enforcement: hard_block
+    }
+    
+    @invariant fpic_invariant_003 {
+        description: "FPIC consultation minimum 45 days before operation"
+        condition: fpic_required == true => consultation_start_date <= operation_date - 45d
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 7: NEURORIGHTS ENVELOPE SPECIFICATIONS
+// ============================================================================
+
+@neurorights_envelope {
+    name: "Aletheion_Neurorights_Envelope"
+    version: "002"
+    reference: "EU AI Act Article 5, Neuro-Rights Framework 2025"
+    
+    @neuroright mental_privacy {
+        id: "NR-001"
+        description: "Right to keep mental processes private"
+        protection_level: absolute
+        exceptions: []
+        enforcement: "cryptographic_isolation"
+        citation: "Mental privacy as fundamental neuroright"
+    }
+    
+    @neuroright cognitive_liberty {
+        id: "NR-002"
+        description: "Right to self-determination over cognitive processes"
+        protection_level: absolute
+        exceptions: ["imminent_harm_to_self", "imminent_harm_to_others"]
+        enforcement: "consent_gate_required"
+        citation: "Cognitive liberty protection standard"
+    }
+    
+    @neuroright psychological_continuity {
+        id: "NR-003"
+        description: "Right to maintain psychological identity continuity"
+        protection_level: absolute
+        exceptions: []
+        enforcement: "identity_erosion_detection"
+        citation: "Psychological continuity protection"
+    }
+    
+    @neuroright mental_integrity {
+        id: "NR-004"
+        description: "Right to protection from unauthorized mental interference"
+        protection_level: absolute
+        exceptions: ["medical_emergency_with_consent"]
+        enforcement: "subliminal_stimuli_detection"
+        citation: "Mental integrity protection standard"
+    }
+    
+    @neuroright fair_algorithmic_treatment {
+        id: "NR-005"
+        description: "Right to fair treatment by algorithmic systems"
+        protection_level: protected
+        exceptions: []
+        enforcement: "algorithmic_audit_required"
+        citation: "Algorithmic fairness neuroright"
+    }
+    
+    @protection subliminal_stimuli_ban {
+        prohibited_patterns: [
+            "subliminal_audio",
+            "subliminal_visual",
+            "manipulative_timing",
+            "forced_consent_flows",
+            "dark_patterns"
+        ]
+        detection_method: "continuous_monitoring"
+        violation_response: "immediate_consent_revocation"
+        citation: "EU AI Act Article 5 subliminal ban"
+    }
+    
+    @protection coercive_channels_ban {
+        prohibited_patterns: [
+            "threat_based_compliance",
+            "penalty_based_consent",
+            "essential_service_contingent_on_neural_data"
+        ]
+        detection_method: "policy_compliance_scan"
+        violation_response: "system_suspension"
+        citation: "Non-coercive consent requirement"
+    }
+    
+    @invariant neurorights_invariant_001 {
+        description: "All neurorights are absolute except where explicitly noted"
+        condition: neuroright.protection_level == absolute => exceptions == []
+        enforcement: hard_block
+    }
+    
+    @invariant neurorights_invariant_002 {
+        description: "Subliminal stimuli always prohibited"
+        condition: subliminal_stimuli_detected == true => consent_state == revoked
+        enforcement: hard_block
+    }
+    
+    @invariant neurorights_invariant_003 {
+        description: "Coercive channels always prohibited"
+        condition: coercive_channels_detected == true => system_state == suspended
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 8: CONSENT VERIFICATION & AUDIT REQUIREMENTS
+// ============================================================================
+
+@consent_verification {
+    name: "Aletheion_Consent_Verification_Protocol"
+    version: "002"
+    
+    @verification_method cryptographic_signature {
+        algorithm: "Ed25519"
+        key_type: "citizen_private_key"
+        verification_endpoint: "did:aletheion:consent-authority"
+        citation: "Cryptographic consent verification standard"
+    }
+    
+    @verification_method biosignal_match {
+        algorithm: "biometric_template_matching"
+        threshold: 0.95
+        false_acceptance_rate: 0.0001
+        citation: "Biosignal verification for neurobiome consent"
+    }
+    
+    @verification_method stake_multisig {
+        required_signers: 5
+        threshold: 3
+        signer_types: ["citizen_representative", "indigenous_authority", "technical_expert", "legal_counsel", "ethics_board"]
+        citation: "Stake multisig for permanent consent"
+    }
+    
+    @audit_requirement consent_grant_log {
+        fields: ["consent_id", "citizen_did", "timestamp", "ip_address", "device_fingerprint", "consent_text_version"]
+        retention_days: 2555
+        encryption: "XChaCha20-Poly1305"
+        citation: "Consent grant audit trail requirement"
+    }
+    
+    @audit_requirement consent_access_log {
+        fields: ["consent_id", "accessor_did", "timestamp", "purpose", "data_accessed"]
+        retention_days: 2555
+        encryption: "XChaCha20-Poly1305"
+        citation: "Consent access audit trail requirement"
+    }
+    
+    @audit_requirement consent_revocation_log {
+        fields: ["consent_id", "citizen_did", "timestamp", "revocation_reason", "data_deletion_confirmed"]
+        retention_days: 2555
+        encryption: "XChaCha20-Poly1305"
+        citation: "Consent revocation audit trail requirement"
+    }
+    
+    @invariant audit_invariant_001 {
+        description: "All consent operations must be logged"
+        condition: consent_operation => audit_log_entry_created == true
+        enforcement: hard_block
+    }
+    
+    @invariant audit_invariant_002 {
+        description: "Audit logs must be encrypted at rest"
+        condition: audit_log_storage => encryption_at_rest == true
+        enforcement: hard_block
+    }
+    
+    @invariant audit_invariant_003 {
+        description: "Audit logs must retain for 7 years minimum"
+        condition: audit_log_retention_days >= 2555
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 9: CROSS-ENGINE INTEGRATION REQUIREMENTS
+// ============================================================================
+
+@engine_integration {
+    name: "Aletheion_Consent_Engine_Integration"
+    version: "002"
+    
+    @engine synthexis {
+        consent_categories: [biotic_interaction]
+        integration_points: ["habitat_continuity_validation", "corridor_access_verification"]
+        consent_check_frequency: "per_session"
+        citation: "ALE-SYNTHEXIS-IFC-KERNEL-001.rs"
+    }
+    
+    @engine thermaphora {
+        consent_categories: [heat_monitoring, thermal_intervention, hydration_tracking]
+        integration_points: ["heat_budget_simulation", "cooling_station_access", "hydration_reminder"]
+        consent_check_frequency: "per_session"
+        citation: "ALE-THERM-HEATBUDGET-SIMULATOR-CORE-002.rs"
+    }
+    
+    @engine somaplex {
+        consent_categories: [route_planning, mobility_assistance]
+        integration_points: ["route_generation", "fall_risk_monitoring", "accessibility_services"]
+        consent_check_frequency: "per_navigation_request"
+        citation: "ALE-SOMAPLEX-SOMATIC-ROUTE-ENGINE-CORE-002.rs"
+    }
+    
+    @engine cryptosomatic {
+        consent_categories: [neurobiome_data]
+        integration_points: ["biosignal_collection", "bci_device_authentication", "neural_data_encryption"]
+        consent_check_frequency: "per_biosignal_sample"
+        citation: "CryptoSomatic Shield and Consent engines"
+    }
+    
+    @invariant integration_invariant_001 {
+        description: "All engines must verify consent before data access"
+        condition: engine_data_access => consent_state == active
+        enforcement: hard_block
+    }
+    
+    @invariant integration_invariant_002 {
+        description: "Consent check required per operation for neurobiome data"
+        condition: data_category == neurobiome_data => consent_check_frequency == per_biosignal_sample
+        enforcement: hard_block
+    }
+    
+    @invariant integration_invariant_003 {
+        description: "Revoked consent must propagate to all engines within 5 minutes"
+        condition: consent_state == revoked => all_engines_notified <= 5min
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 10: VERSIONING & EVOLUTION TRACKING
+// ============================================================================
+
+@evolution_track {
+    version: "002"
+    effective_date: "2026-03-08T00:00:00Z"
+    superseded_versions: ["001"]
+    next_review_date: "2026-06-08T00:00:00Z"
+    review_frequency_days: 90
+    change_approval_required: ["stake_multisig", "citizen_feedback_review", "neurorights_audit", "fpic_authority_consultation"]
+    evp_record_location: ".evolve.jsonl"
+}
+
+@audit_log {
+    enabled: true
+    retention_days: 2555
+    encryption: "XChaCha20-Poly1305"
+    access_control: "stake_multisig_verified"
+    export_format: "JSONL"
+    citation: "7-year audit retention for consent compliance"
+}
+
+@compliance_verification {
+    enabled: true
+    verification_tools: ["ALE-COMPLIANCE-IFC-NEURORIGHTS-001.rs", "ALE-LEX-MICROTREATY-COMPILER-CORE-002.rs"]
+    ci_integration: true
+    preflight_required: true
+    citation: "Compliance preflight per Aletheion CI/CD standards"
+}
