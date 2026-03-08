@@ -1,0 +1,265 @@
+ALN-SCHEMA ALE-TRUST-GOVERNED-DECISION-TX-001
+
+meta {
+  version        = "1.0.0"
+  status         = "ACTIVE"
+  jurisdiction   = "PHX-DOWNTOWN-CENTRAL"
+  description    = "Canonical governed-decision envelope for Googolswarm transactions; imported by all trust-domain schemas (water, energy, materials, Synthexis, LexEthos, consent, grievance)."
+  authoring-body = "Aletheion-Trust-Layer"
+}
+
+/* ---------- Core identifiers ---------- */
+
+type TxId               = string  // unique per Googolswarm transaction
+type WorkflowId         = string  // e.g., ALE-RM-WATER-ALLOCATION-001
+type WorkflowStage      = string  // Optimization | GovernancePreflight | Actuation | EmergencyOverride
+type BirthSignId        = string  // from ALE-GOV-BIRTH-SIGN-MODEL-001.rs
+type AlnNormId          = string  // from ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln
+type BioticTreatyId     = string
+type MicroTreatyId      = string
+type Did                = string  // W3C DID; ALN/KYC/DID compliant
+type NodeProfileId      = string  // from edge orchestration model
+type DomainTag          = string  // water | energy | materials | mobility | biosignals | augmentation | biotic | treaty | grievance
+type PqMode             = string  // CLASSICAL_ONLY | HYBRID | PQ_STRICT
+type TrustStreamId      = string  // logical ledger; e.g., WATER-TX-MAIN, ENERGY-TX-MICROGRID-01
+type Hash256            = string  // hex-encoded, algorithm declared separately in policy
+type Timestamp          = string  // RFC3339 UTC
+
+/* ---------- Decision outcome + evaluation ---------- */
+
+enum DecisionOutcome {
+  APPROVED,
+  APPROVED_WITH_DERATING,
+  REJECTED,
+  PENDING_FPIC
+}
+
+enum ConstraintMode {
+  HARD,          // violations must reject
+  HIGH_PENALTY   // violations may derate in governed emergency modes
+}
+
+enum ConstraintOutcomeKind {
+  SATISFIED,
+  SOFT_VIOLATION,
+  HARD_VIOLATION
+}
+
+record ConstraintOutcome {
+  norm-id       : AlnNormId
+  kind          : ConstraintOutcomeKind
+  message       : string  // minimal human-readable note; no secrets
+}
+
+enum FpicRequirement {
+  NOT_APPLICABLE,
+  REQUIRED_BEFORE_PLANNING,
+  REQUIRED_BEFORE_EXECUTION,
+  EMERGENCY_OVERRIDE_WITH_AUDIT
+}
+
+enum FpicStatus {
+  NOT_REQUIRED,
+  GRANTED,
+  PENDING,
+  DENIED
+}
+
+record GovernanceEvaluation {
+  birth-sign-id       : BirthSignId
+  constraint-mode     : ConstraintMode
+  outcomes            : ConstraintOutcome[1..*]
+  fpic-requirement    : FpicRequirement
+  fpic-status         : FpicStatus
+}
+
+/* ---------- Multi-sig attestation ---------- */
+
+enum AttestorRole {
+  CITY_OPERATOR,
+  TRIBAL_AUTHORITY,
+  ECOLOGICAL_STEWARD,
+  CITIZEN_AUDITOR,
+  AUTOMATED_AGENT
+}
+
+record Attestor {
+  did          : Did
+  role         : AttestorRole
+  signature    : string  // signature over canonical tx hash
+  pq-mode      : PqMode  // PQ mode used for this signature
+}
+
+/* ---------- Envelope body ---------- */
+
+enum TxDomainKind {
+  WATER,
+  ENERGY,
+  MATERIALS,
+  MOBILITY,
+  BIOSIGNALS,
+  AUGMENTATION,
+  BIOTIC,
+  NEUROBIOME,
+  RIGHTS_GOVERNANCE,
+  CONSENT,
+  GRIEVANCE,
+  EMERGENCY
+}
+
+record GovernedDecisionEnvelope {
+  /* Identity and routing */
+  tx-id               : TxId
+  trust-stream-id     : TrustStreamId
+  created-at          : Timestamp
+  workflow-id         : WorkflowId
+  workflow-stage      : WorkflowStage
+  domains             : TxDomainKind[1..*]
+
+  /* Spatial and jurisdictional context */
+  birth-sign-ids      : BirthSignId[1..*]
+
+  /* Governance contracts actually consulted */
+  applied-aln-norms       : AlnNormId[0..*]
+  applied-biotic-treaties : BioticTreatyId[0..*]
+  applied-micro-treaties  : MicroTreatyId[0..*]
+
+  /* Participants + node profile */
+  subject-did         : Did?          // citizen, asset, or community subject
+  operator-did        : Did?          // human or agent responsible
+  node-profile-id     : NodeProfileId?
+
+  /* Input/output hashes (for replay & audit) */
+  inputs-hash         : Hash256
+  outputs-hash        : Hash256
+
+  /* Aggregate governance evaluation + final outcome */
+  evaluation          : GovernanceEvaluation
+  outcome             : DecisionOutcome
+
+  /* Security posture at commit time */
+  pq-mode             : PqMode       // effective PQ mode for this transaction
+  multisig-threshold  : int          // e.g., 2 or 3
+  attestors           : Attestor[1..*]
+
+  /* Citizen + regulator surfaces */
+  explanation         : string?      // brief rationale suitable for S7
+  tags                : map<string,string> // domain-specific, non-secret metadata
+}
+
+/* ---------- Envelope-level invariants ---------- */
+
+rule TX-MUST-HAVE-BIRTHSIGNS(GovernedDecisionEnvelope e) {
+  require size(e.birth-sign-ids) >= 1
+    else "Every governed decision must bind at least one BirthSignId.";
+}
+
+rule TX-MUST-HAVE-NONEMPTY-DOMAINS(GovernedDecisionEnvelope e) {
+  require size(e.domains) >= 1
+    else "Governed decision must declare at least one TxDomainKind.";
+}
+
+rule TX-MUST-HAVE-EVAL-OUTCOMES(GovernedDecisionEnvelope e) {
+  require size(e.evaluation.outcomes) >= 1
+    else "GovernanceEvaluation must contain at least one ConstraintOutcome.";
+}
+
+rule TX-FPIC-CONSISTENCY(GovernedDecisionEnvelope e) {
+  if e.evaluation.fpic-requirement != NOT_APPLICABLE {
+    require e.evaluation.fpic-status != NOT_REQUIRED
+      else "FPIC requirement set but FPIC status is NOT_REQUIRED.";
+  }
+}
+
+/* FPIC gates: prevent silent execution when FPIC is blocking */
+
+rule TX-FPIC-PENDING-BLOCKS-EXEC(GovernedDecisionEnvelope e) {
+  if e.workflow-stage == "Actuation" {
+    require e.evaluation.fpic-status != PENDING
+      else "Actuation forbidden while FPIC is PENDING.";
+  }
+}
+
+rule TX-FPIC-DENIED-BLOCKS-EXEC(GovernedDecisionEnvelope e) {
+  if e.workflow-stage == "Actuation" {
+    require e.evaluation.fpic-status != DENIED
+      else "Actuation forbidden when FPIC is DENIED.";
+  }
+}
+
+/* Constraint semantics: HARD violations must reject */
+
+rule TX-HARD-VIOLATION-IMPLIES-REJECT(GovernedDecisionEnvelope e) {
+  let has-hard = exists c in e.evaluation.outcomes where c.kind == HARD_VIOLATION
+  if has-hard {
+    require e.outcome == REJECTED
+      else "Any HARD_VIOLATION must yield DecisionOutcome=REJECTED.";
+  }
+}
+
+/* HIGH_PENALTY mode may derate but not silently approve */
+
+rule TX-HIGH-PENALTY-SOFT-VIOLATION-IMPLIES-DERATE(GovernedDecisionEnvelope e) {
+  if e.evaluation.constraint-mode == HIGH_PENALTY {
+    let has-soft = exists c in e.evaluation.outcomes where c.kind == SOFT_VIOLATION
+    if has-soft {
+      require e.outcome == APPROVED_WITH_DERATING
+        else "In HIGH_PENALTY mode, SOFT_VIOLATION must yield APPROVED_WITH_DERATING.";
+    }
+  }
+}
+
+/* PQ + multisig requirements for sensitive domains */
+
+rule TX-PQ-STRICT-FOR-SOMATIC-BIOTIC(GovernedDecisionEnvelope e) {
+  let sensitive = exists d in e.domains where
+      d == BIOSIGNALS or d == AUGMENTATION or d == BIOTIC or d == NEUROBIOME
+  if sensitive {
+    require e.pq-mode == PQ_STRICT
+      else "Biosignals, augmentation, biotic, and neurobiome domains require PQ_STRICT.";
+  }
+}
+
+rule TX-MIN-MULTISIG-THRESHOLD(GovernedDecisionEnvelope e) {
+  require e.multisig-threshold >= 2
+    else "multisig-threshold must be at least 2 for all governed decisions.";
+}
+
+/* Attestor sanity checks */
+
+rule TX-ATTESTOR-COUNT(GovernedDecisionEnvelope e) {
+  require size(e.attestors) >= e.multisig-threshold
+    else "Attestor set must meet or exceed multisig-threshold.";
+}
+
+rule TX-ATTESTOR-UNIQUE-DIDS(GovernedDecisionEnvelope e) {
+  let ids = set{ a.did | a in e.attestors }
+  require size(ids) == size(e.attestors)
+    else "All attestors in a governed decision must have distinct DIDs.";
+}
+
+/* Domain-specific hooks: WATER example */
+
+rule TX-WATER-MUST-HAVE-WATER-DOMAIN(GovernedDecisionEnvelope e) {
+  if any t in e.tags where t.key == "water-tx-kind" {
+    require exists d in e.domains where d == WATER
+      else "Any envelope tagged as water-tx-kind must include domain WATER.";
+  }
+}
+
+/* Binding requirement for domain schemas */
+
+contract MUST-EMBED-GOVERNED-DECISION-ENVELOPE {
+  applies-to = [
+    "ALE-TRUST-WATER-TX-*",
+    "ALE-TRUST-ENERGY-TX-*",
+    "ALE-TRUST-MATERIAL-TX-*",
+    "ALE-TRUST-MICROTREATY-TX-*",
+    "ALE-TRUST-GRIEVANCE-TX-*"
+  ]
+
+  rule EMBED-ENVELOPE {
+    require field-exists("governed-decision-envelope", GovernedDecisionEnvelope)
+      else "Domain trust schemas must embed a GovernedDecisionEnvelope field.";
+  }
+}
