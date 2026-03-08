@@ -1,0 +1,321 @@
+! Aletheion Corridor Function Families Index v1
+! File: ALE-ERM-CORRIDOR-FUNCTION-FAMILIES-001.aln
+! Path: aletheion/erm/workflow-index/ALE-ERM-CORRIDOR-FUNCTION-FAMILIES-001.aln
+!
+! Role
+! - Declare canonical three-tier function families (State / Service / Governance)
+!   for neighborhoods and corridors (canals, parkways) in Phoenix.
+! - Bind these families to SMART-chains, ecosafety corridors, and domains.
+! - Provide a single index that code generators and CI can read to create new
+!   modules and check their invariants.
+!
+! Scope
+! - Downtown / Central Phoenix as primary region.
+! - Water, Waste, Neurobiome, and Mobility-related Somatic/Thermal functions first.
+
+schema CorridorFunctionFamiliesV1
+
+  region-id ::= "REGION_DOWNTOWN_CORE" | string
+
+  domain-tag ::=
+      "water"
+    | "waste"
+    | "neurobiome"
+    | "somatic"
+    | "thermal"
+    | "biotic"
+    | "treaty"
+    | "logistics"
+
+  layer-tag ::= "STATE" | "SERVICE" | "GOVERNANCE"
+
+  smart-chain-id ::=
+      "SMART01_AWP_THERMAL_THERMAPHORA"
+    | "SMART03_SYNTHEXIS_LNP_ENV"
+    | "SMART04_NEUROBIOME_MESH"
+    | "SMART05_SOMAPLEX_ROUTING"
+    | string
+
+  corridor-id ::=
+      "MARDESERT_PFAS_V1"
+    | "WETLAND_ECO_V1"
+    | "SOFTBOT_ECOSAFETY_V1"
+    | "BIOCHAR_AIR_ECO_V1"
+    | string
+
+  ! ---------------------------------------------------------------------------
+  ! 1. Function signature atoms
+  ! ---------------------------------------------------------------------------
+
+  NeighborhoodId ::= string
+  CorridorId     ::= string
+  SegmentId      ::= string
+
+  ! State tier: read-only mirrors of ERM state (no actuation).
+  NeighborhoodStateFn ::=
+    fn-id: string
+    region: region-id
+    domain: domain-tag
+    layer: "STATE"
+    signature: string       ! informal, for humans/tools
+    smart-chains: [smart-chain-id*]
+    corridors: [corridor-id*]
+
+  CorridorStateFn ::=
+    fn-id: string
+    region: region-id
+    domain: domain-tag
+    layer: "STATE"
+    signature: string
+    smart-chains: [smart-chain-id*]
+    corridors: [corridor-id*]
+
+  ! Service tier: optimization, planning, scheduling (no direct hardware writes).
+  NeighborhoodServiceFn ::=
+    fn-id: string
+    region: region-id
+    domain: domain-tag
+    layer: "SERVICE"
+    signature: string
+    smart-chains: [smart-chain-id+]
+    corridors: [corridor-id*]
+
+  CorridorServiceFn ::=
+    fn-id: string
+    region: region-id
+    domain: domain-tag
+    layer: "SERVICE"
+    signature: string
+    smart-chains: [smart-chain-id+]
+    corridors: [corridor-id*]
+
+  ! Governance tier: treaty / rights / ecosafety gating before actuation.
+  NeighborhoodGovernanceFn ::=
+    fn-id: string
+    region: region-id
+    domain: domain-tag
+    layer: "GOVERNANCE"
+    signature: string
+    smart-chains: [smart-chain-id+]
+    corridors: [corridor-id*]
+
+  CorridorGovernanceFn ::=
+    fn-id: string
+    region: region-id
+    domain: domain-tag
+    layer: "GOVERNANCE"
+    signature: string
+    smart-chains: [smart-chain-id+]
+    corridors: [corridor-id*]
+
+  ! ---------------------------------------------------------------------------
+  ! 2. WaterCapital families – Neighborhood and canal
+  ! ---------------------------------------------------------------------------
+
+  ! Neighborhood water state mirror
+  NEIGHBORHOOD_WATER_STATE_V1 :: NeighborhoodStateFn =
+    fn-id: "neighborhood_water_system_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "water"
+    layer: "STATE"
+    signature: "NeighborhoodWaterSystem neighborhood_water_system_state(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! Canal segment state mirror
+  CANAL_SEGMENT_STATE_V1 :: CorridorStateFn =
+    fn-id: "canal_segment_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "water"
+    layer: "STATE"
+    signature: "CanalSegmentState canal_segment_state(CorridorId, SegmentId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! Neighborhood water allocation plan
+  NEIGHBORHOOD_WATER_PLAN_V1 :: NeighborhoodServiceFn =
+    fn-id: "neighborhood_water_allocation_plan"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "water"
+    layer: "SERVICE"
+    signature: "NeighborhoodWaterPlan neighborhood_water_allocation_plan(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! Canal machinery autopilot for a corridor segment
+  CANAL_MACHINERY_AUTOPILOT_V1 :: CorridorServiceFn =
+    fn-id: "canal_machinery_autopilot"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "water"
+    layer: "SERVICE"
+    signature: "CanalSegmentSchedule canal_machinery_autopilot(CorridorId, SegmentId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! Neighborhood-level micro-treaty and treaty gate for water plans
+  NEIGHBORHOOD_WATER_TREATY_GATE_V1 :: NeighborhoodGovernanceFn =
+    fn-id: "neighborhood_microtreaty_gate_water"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "treaty"
+    layer: "GOVERNANCE"
+    signature: "GovernanceResult neighborhood_microtreaty_gate_water(NeighborhoodId, NeighborhoodWaterPlan)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! ---------------------------------------------------------------------------
+  ! 3. WasteCapital and NeurobiomeCapital – Neighborhood depth
+  ! ---------------------------------------------------------------------------
+
+  ! Waste state
+  NEIGHBORHOOD_WASTE_STATE_V1 :: NeighborhoodStateFn =
+    fn-id: "neighborhood_waste_flow_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "waste"
+    layer: "STATE"
+    signature: "NeighborhoodWasteState neighborhood_waste_flow_state(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: []
+
+  ! Waste → soil / organics routing plan
+  NEIGHBORHOOD_SOIL_CYCLE_PLAN_V1 :: NeighborhoodServiceFn =
+    fn-id: "neighborhood_soil_cycle_plan"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "waste"
+    layer: "SERVICE"
+    signature: "OrganicRoutingPlan neighborhood_soil_cycle_plan(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! Hazmat guardrail gate at neighborhood scale
+  NEIGHBORHOOD_HAZMAT_GUARDRAIL_V1 :: NeighborhoodGovernanceFn =
+    fn-id: "neighborhood_hazmat_guardrail"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "waste"
+    layer: "GOVERNANCE"
+    signature: "GovernanceResult neighborhood_hazmat_guardrail(NeighborhoodId, HazardousRoutingPlan)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1"]
+
+  ! Neurobiome state
+  NEIGHBORHOOD_NEUROBIOME_STATE_V1 :: NeighborhoodStateFn =
+    fn-id: "neighborhood_neurobiome_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "neurobiome"
+    layer: "STATE"
+    signature: "NeurobiomeState neighborhood_neurobiome_state(NeighborhoodId)"
+    smart-chains: ["SMART04_NEUROBIOME_MESH"]
+    corridors: []
+
+  ! Neurobiome operational policy
+  NEIGHBORHOOD_NEUROBIOME_POLICY_V1 :: NeighborhoodServiceFn =
+    fn-id: "neighborhood_neurobiome_policy"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "neurobiome"
+    layer: "SERVICE"
+    signature: "NeurobiomeOperationalPlan neighborhood_neurobiome_policy(NeighborhoodId)"
+    smart-chains: ["SMART04_NEUROBIOME_MESH"]
+    corridors: []
+
+  ! ---------------------------------------------------------------------------
+  ! 4. Somatic/ThermalCapital – Mobility and routing
+  ! ---------------------------------------------------------------------------
+
+  ! Somatic route state (per neighborhood)
+  NEIGHBORHOOD_SOMATIC_ROUTE_STATE_V1 :: NeighborhoodStateFn =
+    fn-id: "neighborhood_somatic_routes_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "somatic"
+    layer: "STATE"
+    signature: "SomaticRouteState neighborhood_somatic_routes_state(NeighborhoodId)"
+    smart-chains: ["SMART05_SOMAPLEX_ROUTING"]
+    corridors: []
+
+  ! Neighborhood service: somatic-aware micro-routes for city services
+  NEIGHBORHOOD_SOMATIC_ROUTES_PLAN_V1 :: NeighborhoodServiceFn =
+    fn-id: "neighborhood_somatic_routes_plan"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "somatic"
+    layer: "SERVICE"
+    signature: "NeighborhoodSomaticPlan neighborhood_somatic_routes_plan(NeighborhoodId)"
+    smart-chains: ["SMART05_SOMAPLEX_ROUTING"]
+    corridors: []
+
+  ! Thermal state for neighborhood (Thermaphora envelopes)
+  NEIGHBORHOOD_THERMAL_STATE_V1 :: NeighborhoodStateFn =
+    fn-id: "neighborhood_thermal_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "thermal"
+    layer: "STATE"
+    signature: "NeighborhoodThermalState neighborhood_thermal_state(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: []
+
+  ! Thermal allocation / HeatBudget plan
+  NEIGHBORHOOD_HEAT_BUDGET_PLAN_V1 :: NeighborhoodServiceFn =
+    fn-id: "neighborhood_heat_budget_plan"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "thermal"
+    layer: "SERVICE"
+    signature: "HeatBudgetPlan neighborhood_heat_budget_plan(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA", "SMART05_SOMAPLEX_ROUTING"]
+    corridors: []
+
+  ! ---------------------------------------------------------------------------
+  ! 5. Governance – Rights grammars and micro-treaties for neighborhoods
+  ! ---------------------------------------------------------------------------
+
+  ! Neighborhood rights grammar compilation
+  NEIGHBORHOOD_RIGHTS_GRAMMAR_V1 :: NeighborhoodGovernanceFn =
+    fn-id: "neighborhood_rights_grammar_compile"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "treaty"
+    layer: "GOVERNANCE"
+    signature: "RightsGrammar neighborhood_rights_grammar_compile(NeighborhoodId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA", "SMART05_SOMAPLEX_ROUTING"]
+    corridors: []
+
+  ! Micro-treaty gate for somatic / thermal / mobility
+  NEIGHBORHOOD_SOMATIC_THERMAL_TREATY_GATE_V1 :: NeighborhoodGovernanceFn =
+    fn-id: "neighborhood_somatic_thermal_treaty_gate"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "treaty"
+    layer: "GOVERNANCE"
+    signature: "GovernanceResult neighborhood_somatic_thermal_treaty_gate(NeighborhoodId, NeighborhoodSomaticPlan, HeatBudgetPlan)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA", "SMART05_SOMAPLEX_ROUTING"]
+    corridors: []
+
+  ! ---------------------------------------------------------------------------
+  ! 6. Corridor families for a canal parkway (example: METROCENTER)
+  ! ---------------------------------------------------------------------------
+
+  ! Canal cooling / ecotechnology state
+  CANAL_METROCENTER_STATE_V1 :: CorridorStateFn =
+    fn-id: "canal_metrocenter_state"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "water"
+    layer: "STATE"
+    signature: "CanalSegmentState canal_metrocenter_state(CorridorId, SegmentId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA"]
+    corridors: ["MARDESERT_PFAS_V1", "WETLAND_ECO_V1"]
+
+  ! Canal eco-routing / cooling schedule
+  CANAL_METROCENTER_SCHEDULE_V1 :: CorridorServiceFn =
+    fn-id: "canal_metrocenter_schedule"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "water"
+    layer: "SERVICE"
+    signature: "CanalSegmentSchedule canal_metrocenter_schedule(CorridorId, SegmentId)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA", "SMART03_SYNTHEXIS_LNP_ENV"]
+    corridors: ["MARDESERT_PFAS_V1", "WETLAND_ECO_V1"]
+
+  ! Canal treaty/ecosafety gate for flows and ecotechnology
+  CANAL_METROCENTER_TREATY_GATE_V1 :: CorridorGovernanceFn =
+    fn-id: "canal_metrocenter_treaty_gate"
+    region: "REGION_DOWNTOWN_CORE"
+    domain: "treaty"
+    layer: "GOVERNANCE"
+    signature: "GovernanceResult canal_metrocenter_treaty_gate(CorridorId, SegmentId, CanalSegmentSchedule)"
+    smart-chains: ["SMART01_AWP_THERMAL_THERMAPHORA", "SMART03_SYNTHEXIS_LNP_ENV"]
+    corridors: ["MARDESERT_PFAS_V1", "WETLAND_ECO_V1"]
+
+end schema
