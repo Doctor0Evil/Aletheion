@@ -1,0 +1,5 @@
+schema CorridorId {
+  id: String          // e.g. CANAL_METROCENTER_PARKWAY_HEAT
+  region: RegionId    // e.g. REGION_DOWNTOWN_CORE
+  corridor_type: CorridorType  // HEAT_RISK, RIPARIAN, MOBILITY, FPIC_ZONE
+}
