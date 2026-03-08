@@ -1,0 +1,24 @@
+schema PatternIdentityRef {
+  pattern_id: PatternId           // stable pattern key
+  modality: PatternModality       // gait, route, thermal, microbiome, etc.
+  cohort_tag: CohortTag           // e.g., "OUTDOOR_WORKER_HEAT", "ELDERLY_MOBILITY"
+  uniqueness_band: UniquenessBand // coarse: COHORT, SUBCOHORT, NEAR_INDIVIDUAL
+  origin_corridor: CorridorId
+}
+
+schema SomaticEnvelope {
+  envelope_id: SomaticEnvelopeId
+  scope: SomaticScope             // PER_PERSON, PER_COHORT, PER_CORRIDOR
+  corridor: CorridorId
+  heat_budget: HeatBudgetEnvelopeRef
+  joint_load_budget: SomaticCostEnvelopeRef
+  mobility_class: MobilityProfileClass
+  fear_pain_sanity: CryptoSomaticEnvelopeRef
+  fpci_treaty_ref: FPICContextRef?
+  valid_during: TimeWindow
+}
+
+schema SomaticEnvelopeRef {
+  envelope_id: SomaticEnvelopeId
+  scope: SomaticScope
+}
