@@ -1,0 +1,789 @@
+// ============================================================================
+// FILE: aletheion/governance/lexethos/ALE-LEX-RIGHTS-ATOM-002.aln
+// PURPOSE: Refined RightsAtom definitions for DowntownCentral Phoenix with
+//          shade, movement, noise, hydration rights compiled into MicroTreaties
+//          consumed by Synthexis, Thermaphora, Somaplex engines
+// LANGUAGE: ALN (Aletheion Logic Notation) - Version 002
+// DESTINATION: Aletheion Repository - Governance LexEthos Subsystem
+// COMPLIANCE: Zero-contamination IFC, NeurorightsEnvelope, FPIC metadata,
+//             EU AI Act Article 5, Neuro-Rights Framework 2025, WCAG 2.2 AAA
+// AUTHORITY: Single semantic source - All engines read this schema, none bypass
+// RELATED: ALE-LEX-MICROTREATY-COMPILER-CORE-002.rs, ALE-CIT-CONSENT-STATE-002.aln
+// ============================================================================
+
+@version "002"
+@domain "aletheion.governance.lexethos"
+@policy_type "rights_atom_core"
+@effective_date "2026-03-08T00:00:00Z"
+@jurisdiction "Phoenix, Arizona, USA"
+@indigenous_territory "Akimel O'odham and Piipaash ancestral lands"
+
+// ============================================================================
+// SECTION 1: RIGHTS ATOM SCHEMA DEFINITIONS
+// ============================================================================
+
+@rights_atom_schema {
+    name: "Aletheion_RightsAtom"
+    version: "002"
+    
+    @field atom_id {
+        type: "string"
+        pattern: "^RA-[0-9]{6}-[A-Z]{4}$"
+        required: true
+        immutable: true
+        description: "Unique rights atom identifier"
+    }
+    
+    @field right_category {
+        type: "enum"
+        allowed_values: [shade, movement, noise, hydration, thermal, biotic, somatic, neurobiome, treaty, waste]
+        required: true
+        immutable: true
+        description: "Rights category classification"
+    }
+    
+    @field right_name {
+        type: "string"
+        pattern: "^[A-Za-z_]+$"
+        required: true
+        immutable: true
+        description: "Human-readable right name"
+    }
+    
+    @field right_description {
+        type: "string"
+        max_length: 500
+        required: true
+        mutable: false
+        description: "Detailed rights description"
+    }
+    
+    @field legal_basis {
+        type: "array"
+        item_type: "string"
+        required: true
+        mutable: false
+        description: "Legal foundations (ADA, EU AI Act, Phoenix Municipal Code)"
+    }
+    
+    @field enforcement_level {
+        type: "enum"
+        allowed_values: [fundamental, protected, conditional, advisory]
+        required: true
+        mutable: false
+        description: "Rights enforcement classification"
+    }
+    
+    @field violation_severity {
+        type: "enum"
+        allowed_values: [critical, high, medium, low]
+        required: true
+        mutable: false
+        description: "Violation severity classification"
+    }
+    
+    @field remediation_required {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Automatic remediation trigger"
+    }
+    
+    @field stake_multisig_override {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Stake multisig can override"
+    }
+    
+    @field fpic_required {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "FPIC verification required"
+    }
+    
+    @field neurorights_envelope {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Neurorights protection applies"
+    }
+    
+    @field evp_record_required {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "EvolutionProposalRecord required for changes"
+    }
+    
+    @invariant rights_invariant_001 {
+        description: "Fundamental rights cannot be overridden without stake multisig"
+        condition: enforcement_level == fundamental => stake_multisig_override == true
+        enforcement: hard_block
+    }
+    
+    @invariant rights_invariant_002 {
+        description: "Critical violations require automatic remediation"
+        condition: violation_severity == critical => remediation_required == true
+        enforcement: hard_block
+    }
+    
+    @invariant rights_invariant_003 {
+        description: "Neurorights envelope required for neurobiome category"
+        condition: right_category == neurobiome => neurorights_envelope == true
+        enforcement: hard_block
+    }
+    
+    @invariant rights_invariant_004 {
+        description: "FPIC required for all fundamental and protected rights"
+        condition: enforcement_level in [fundamental, protected] => fpic_required == true
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 2: SHADE RIGHTS ATOMS (Phoenix Extreme Heat Context)
+// ============================================================================
+
+@rights_atom shade_access_fundamental {
+    atom_id: "RA-000001-SHAD"
+    right_category: shade
+    right_name: "Shade_Access_Right"
+    right_description: "Every citizen has the right to access shaded pedestrian corridors during extreme heat conditions (ambient temp >= 35°C)"
+    legal_basis: ["Phoenix Heat Relief Network Ordinance 2025", "ADA Accessibility Guidelines", "Thermal Human Rights Framework 2025"]
+    enforcement_level: fundamental
+    violation_severity: critical
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: true
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        ambient_temp_trigger_c: 35.0
+        shade_coverage_min_pct: 50.0
+        cooling_station_max_distance_m: 400.0
+        citation: "Phoenix HeatReady program 2025"
+    }
+    
+    @enforcement {
+        automatic_action: "activate_shade_structures"
+        notification_targets: ["city_planning", "heat_relief_network", "citizen_alert_system"]
+        timeline_hours: 2
+        citation: "Phoenix emergency heat protocol"
+    }
+}
+
+@rights_atom shade_tree_canopy {
+    atom_id: "RA-000002-TREE"
+    right_category: shade
+    right_name: "Tree_Canopy_Right"
+    right_description: "Every neighborhood has the right to minimum 30% tree canopy coverage for urban heat island mitigation"
+    legal_basis: ["Phoenix Urban Forestry Master Plan 2025", "Sonoran Desert Conservation Ordinance"]
+    enforcement_level: protected
+    violation_severity: high
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        canopy_coverage_min_pct: 30.0
+        native_species_ratio_min: 0.8
+        tree_spacing_max_m: 15.0
+        citation: "Phoenix shade tree canopy target 2025"
+    }
+    
+    @enforcement {
+        automatic_action: "initiate_tree_planting_program"
+        notification_targets: ["urban_forestry", "neighborhood_association"]
+        timeline_days: 90
+        citation: "Phoenix Urban Forestry implementation"
+    }
+}
+
+@rights_atom cool_pavement_access {
+    atom_id: "RA-000003-COOL"
+    right_category: shade
+    right_name: "Cool_Pavement_Right"
+    right_description: "Every pedestrian corridor has the right to cool pavement surfaces (10.5-12°F reduction) in high-traffic zones"
+    legal_basis: ["Phoenix Cool Pavement Program 2025", "Urban Heat Mitigation Standards"]
+    enforcement_level: protected
+    violation_severity: medium
+    remediation_required: true
+    stake_multisig_override: false
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        surface_temp_reduction_min_f: 10.5
+        albedo_coefficient_min: 0.25
+        high_traffic_threshold_ped_per_day: 1000
+        citation: "140+ miles cool pavement deployed Phoenix 2025"
+    }
+    
+    @enforcement {
+        automatic_action: "schedule_cool_pavement_application"
+        notification_targets: ["public_works", "transportation_department"]
+        timeline_days: 180
+        citation: "Phoenix Public Works cool pavement schedule"
+    }
+}
+
+// ============================================================================
+// SECTION 3: MOVEMENT RIGHTS ATOMS (Accessibility & Mobility)
+// ============================================================================
+
+@rights_atom wheelchair_accessibility {
+    atom_id: "RA-000004-WHEL"
+    right_category: movement
+    right_name: "Wheelchair_Accessibility_Right"
+    right_description: "Every citizen using mobility devices has the right to ADA-compliant routes (max slope 8.33%, min width 1.5m)"
+    legal_basis: ["Americans with Disabilities Act", "WCAG 2.2 AAA", "Phoenix Accessibility First Design Guidelines 2025"]
+    enforcement_level: fundamental
+    violation_severity: critical
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: true
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_slope_pct: 8.33
+        min_width_m: 1.5
+        min_surface_friction: 0.6
+        max_surface_evenness_mm: 13.0
+        citation: "ADA Section 405.2, WCAG 2.2.1"
+    }
+    
+    @enforcement {
+        automatic_action: "route_alternative_generation"
+        notification_targets: ["accessibility_office", "public_works", "citizen_alert"]
+        timeline_hours: 24
+        citation: "Phoenix ADA self-evaluation requirements"
+    }
+}
+
+@rights_atom heat_safe_routing {
+    atom_id: "RA-000005-HRTE"
+    right_category: movement
+    right_name: "Heat_Safe_Routing_Right"
+    right_description: "Every pedestrian has the right to heat-safe routing with maximum 30-minute continuous heat exposure during extreme heat conditions"
+    legal_basis: ["Phoenix Heat Relief Network Routing 2025", "Thermal Human Rights Framework"]
+    enforcement_level: fundamental
+    violation_severity: critical
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: true
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_continuous_exposure_min: 30
+        shade_route_coverage_min_pct: 50.0
+        cooling_station_spacing_m: 400.0
+        ambient_temp_trigger_c: 40.0
+        citation: "Phoenix heat hydration protocol"
+    }
+    
+    @enforcement {
+        automatic_action: "activate_heat_safe_route"
+        notification_targets: ["somaplex_engine", "heat_relief_network", "citizen_app"]
+        timeline_minutes: 5
+        citation: "Phoenix emergency heat routing protocol"
+    }
+}
+
+@rights_atom public_transit_access {
+    atom_id: "RA-000006-TRNS"
+    right_category: movement
+    right_name: "Public_Transit_Access_Right"
+    right_description: "Every citizen has the right to accessible public transit within 400 meters of residence"
+    legal_basis: ["Federal Transit Administration Guidelines", "Phoenix Transit Master Plan 2025"]
+    enforcement_level: protected
+    violation_severity: high
+    remediation_required: true
+    stake_multisig_override: false
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_distance_to_stop_m: 400.0
+        min_service_frequency_min: 30
+        accessibility_compliance_pct: 100.0
+        citation: "Phoenix Valley Metro accessibility standards"
+    }
+    
+    @enforcement {
+        automatic_action: "transit_route_optimization"
+        notification_targets: ["valley_metro", "city_planning"]
+        timeline_days: 30
+        citation: "Phoenix Transit Master Plan implementation"
+    }
+}
+
+// ============================================================================
+// SECTION 4: NOISE RIGHTS ATOMS (Wildlife & Human Health)
+// ============================================================================
+
+@rights_atom nocturnal_quiet {
+    atom_id: "RA-000007-NOCT"
+    right_category: noise
+    right_name: "Nocturnal_Quiet_Right"
+    right_description: "Every citizen and nocturnal species has the right to quiet hours (20:00-07:00) with maximum 40 dB ambient noise"
+    legal_basis: ["Phoenix Noise Ordinance 2025", "Sonoran Desert Network Conservation Plan", "Wildlife Disturbance Thresholds"]
+    enforcement_level: protected
+    violation_severity: medium
+    remediation_required: true
+    stake_multisig_override: false
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        quiet_hours_start: "20:00"
+        quiet_hours_end: "07:00"
+        max_noise_db: 40.0
+        wildlife_disturbance_index_max: 0.3
+        citation: "Phoenix Noise Ordinance Chapter 23"
+    }
+    
+    @enforcement {
+        automatic_action: "noise_source_identification_and_abatement"
+        notification_targets: ["noise_control_authority", "synthexis_engine"]
+        timeline_hours: 4
+        citation: "Phoenix noise complaint response protocol"
+    }
+}
+
+@rights_atom wildlife_corridor_quiet {
+    atom_id: "RA-000008-WILD"
+    right_category: noise
+    right_name: "Wildlife_Corridor_Quiet_Right"
+    right_description: "Every wildlife corridor has the right to maximum 55 dB ambient noise and 10 peak noise events per hour"
+    legal_basis: ["Arizona Wildlife Conservation Review 2025", "Sonoran Desert Network Conservation Plan"]
+    enforcement_level: fundamental
+    violation_severity: high
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: true
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_ambient_db: 55.0
+        max_peak_events_per_hour: 10
+        breeding_season_reduction_db: 10.0
+        citation: "Wildlife disturbance threshold studies"
+    }
+    
+    @enforcement {
+        automatic_action: "activate_noise_barriers"
+        notification_targets: ["synthexis_engine", "arizona_game_fish", "transportation_department"]
+        timeline_hours: 2
+        citation: "Arizona wildlife corridor protection"
+    }
+}
+
+@rights_atom sensory_overload_protection {
+    atom_id: "RA-000009-SENS"
+    right_category: noise
+    right_name: "Sensory_Overload_Protection_Right"
+    right_description: "Every citizen with sensory processing sensitivities has the right to low-sensory zones with controlled noise and lighting"
+    legal_basis: ["ADA Reasonable Accommodation", "Neurodiversity Rights Framework 2025"]
+    enforcement_level: protected
+    violation_severity: medium
+    remediation_required: true
+    stake_multisig_override: false
+    fpic_required: true
+    neurorights_envelope: true
+    evp_record_required: true
+    
+    @threshold {
+        max_noise_db: 50.0
+        max_lighting_lux: 200.0
+        min_quiet_zone_count_per_km2: 5
+        citation: "Neurodiversity accommodation standards"
+    }
+    
+    @enforcement {
+        automatic_action: "designate_low_sensory_zone"
+        notification_targets: ["accessibility_office", "citizen_app"]
+        timeline_days: 14
+        citation: "Phoenix neurodiversity inclusion program"
+    }
+}
+
+// ============================================================================
+// SECTION 5: HYDRATION RIGHTS ATOMS (Phoenix Water Security)
+// ============================================================================
+
+@rights_atom water_fountain_access {
+    atom_id: "RA-000010-HYDR"
+    right_category: hydration
+    right_name: "Water_Fountain_Access_Right"
+    right_description: "Every pedestrian has the right to accessible water fountains every 400 meters along public corridors"
+    legal_basis: ["Phoenix Hydration Protocol Standards", "Public Health Accessibility Guidelines"]
+    enforcement_level: fundamental
+    violation_severity: critical
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_distance_between_fountains_m: 400.0
+        min_operational_fountains_pct: 95.0
+        water_quality_standard: "EPA_drinking_water"
+        citation: "Phoenix hydration protocol standards"
+    }
+    
+    @enforcement {
+        automatic_action: "deploy_temporary_hydration_stations"
+        notification_targets: ["public_works", "public_health", "citizen_app"]
+        timeline_hours: 6
+        citation: "Phoenix emergency hydration protocol"
+    }
+}
+
+@rights_atom atmospheric_water_harvesting {
+    atom_id: "RA-000011-AWHV"
+    right_category: hydration
+    right_name: "Atmospheric_Water_Harvesting_Right"
+    right_description: "Every district has the right to atmospheric water harvesting systems during monsoon season (0.7-1.3 L/kg-MOF/day)"
+    legal_basis: ["Phoenix Water Services 2025", "UNLV Atmospheric Water Harvesting Research"]
+    enforcement_level: protected
+    violation_severity: medium
+    remediation_required: false
+    stake_multisig_override: false
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        monsoon_months: [7, 8, 9]
+        min_harvesting_capacity_l_day: 500.0
+        mof_efficiency_min: 0.7
+        citation: "MOF-based atmospheric water harvesting 0.7-1.3 L/kg-MOF/day"
+    }
+    
+    @enforcement {
+        automatic_action: "activate_awg_systems"
+        notification_targets: ["water_services", "sustainability_office"]
+        timeline_days: 30
+        citation: "Phoenix atmospheric water program"
+    }
+}
+
+@rights_atom advanced_purified_water {
+    atom_id: "RA-000012-APWR"
+    right_category: hydration
+    right_name: "Advanced_Purified_Water_Right"
+    right_description: "Every citizen has the right to 97-99% water reclamation efficiency through Pure Water Phoenix program"
+    legal_basis: ["Pure Water Phoenix Program 2025-2026", "EPA Surface Water Treatment Rule"]
+    enforcement_level: fundamental
+    violation_severity: critical
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        reclamation_efficiency_min_pct: 97.0
+        turbidity_max_ntu: 0.3
+        ph_range: [6.5, 8.5]
+        citation: "Pure Water Phoenix 97-99% efficiency target"
+    }
+    
+    @enforcement {
+        automatic_action: "activate_backup_purification_systems"
+        notification_targets: ["water_services", "epa_regional_office", "citizen_alert"]
+        timeline_hours: 1
+        citation: "Phoenix water emergency protocol"
+    }
+}
+
+// ============================================================================
+// SECTION 6: THERMAL RIGHTS ATOMS (Heat Resilience)
+// ============================================================================
+
+@rights_atom cooling_center_access {
+    atom_id: "RA-000013-COOL"
+    right_category: thermal
+    right_name: "Cooling_Center_Access_Right"
+    right_description: "Every citizen has the right to access cooling centers within 800 meters during extreme heat warnings"
+    legal_basis: ["Phoenix Heat Relief Network 2025", "Emergency Management Ordinance"]
+    enforcement_level: fundamental
+    violation_severity: critical
+    remediation_required: true
+    stake_multisig_override: true
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_distance_to_center_m: 800.0
+        operating_hours: "24/7_during_heat_warning"
+        min_capacity_per_1000_residents: 50
+        citation: "Phoenix Heat Relief Network standards"
+    }
+    
+    @enforcement {
+        automatic_action: "activate_emergency_cooling_centers"
+        notification_targets: ["emergency_management", "parks_recreation", "citizen_alert_system"]
+        timeline_hours: 2
+        citation: "Phoenix emergency heat response"
+    }
+}
+
+@rights_atom misting_station_access {
+    atom_id: "RA-000014-MIST"
+    right_category: thermal
+    right_name: "Misting_Station_Access_Right"
+    right_description: "Every pedestrian corridor has the right to misting stations every 200 meters in high-heat zones"
+    legal_basis: ["Phoenix Heat Mitigation Strategy 2025", "Urban Heat Island Reduction Protocol"]
+    enforcement_level: protected
+    violation_severity: medium
+    remediation_required: true
+    stake_multisig_override: false
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        max_distance_between_stations_m: 200.0
+        activation_temp_c: 38.0
+        water_efficiency_l_per_hour: 5.0
+        citation: "Phoenix misting station deployment standards"
+    }
+    
+    @enforcement {
+        automatic_action: "deploy_mobile_misting_units"
+        notification_targets: ["parks_recreation", "fire_department"]
+        timeline_hours: 4
+        citation: "Phoenix heat mitigation deployment"
+    }
+}
+
+@rights_atom reflective_surface_requirement {
+    atom_id: "RA-000015-RFLC"
+    right_category: thermal
+    right_name: "Reflective_Surface_Right"
+    right_description: "Every building has the right to reflective roof and surface requirements (albedo >= 0.65) for urban heat reduction"
+    legal_basis: ["Phoenix Building Code 2025", "Cool Roof Ordinance"]
+    enforcement_level: protected
+    violation_severity: medium
+    remediation_required: true
+    stake_multisig_override: false
+    fpic_required: false
+    neurorights_envelope: false
+    evp_record_required: true
+    
+    @threshold {
+        min_roof_albedo: 0.65
+        min_wall_albedo: 0.50
+        compliance_timeline_years: 5
+        citation: "Phoenix Cool Roof Ordinance 2025"
+    }
+    
+    @enforcement {
+        automatic_action: "schedule_reflective_coating_application"
+        notification_targets: ["building_safety", "sustainability_office"]
+        timeline_days: 365
+        citation: "Phoenix building code enforcement"
+    }
+}
+
+// ============================================================================
+// SECTION 7: MICROTREATY COMPILATION RULES
+// ============================================================================
+
+@microtreaty_compilation {
+    name: "Aletheion_MicroTreaty_Compiler_Rules"
+    version: "002"
+    
+    @rule atom_to_treaty_mapping {
+        description: "Each RightsAtom compiles into executable MicroTreaty constraints"
+        input: "RightsAtom[]"
+        output: "MicroTreaty[]"
+        transformation: "atom_constraints -> treaty_enforcement_rules"
+        citation: "LexEthos RightsGrammar compiler specification"
+    }
+    
+    @rule cross_domain_coupling {
+        description: "RightsAtoms from different domains couple into composite treaties"
+        coupling_pairs: [
+            [shade, thermal],
+            [movement, somatic],
+            [noise, biotic],
+            [hydration, water],
+            [thermal, somatic]
+        ]
+        citation: "Cross-domain rights integration protocol"
+    }
+    
+    @rule enforcement_priority {
+        description: "Fundamental rights take priority over protected/conditional rights"
+        priority_order: [fundamental, protected, conditional, advisory]
+        conflict_resolution: "higher_priority_prevails"
+        citation: "Rights hierarchy enforcement standard"
+    }
+    
+    @rule stake_multisig_requirement {
+        description: "Stake multisig required for fundamental rights modifications"
+        condition: "enforcement_level == fundamental"
+        requirement: "stake_multisig_verified == true"
+        citation: "Googolswarm/ALN blockchain governance"
+    }
+    
+    @rule evp_record_requirement {
+        description: "All treaty changes require EvolutionProposalRecord"
+        condition: "treaty_modified == true"
+        requirement: "evp_record_present == true"
+        citation: "Aletheion forward-compatibility rule"
+    }
+    
+    @rule neurorights_envelope_enforcement {
+        description: "Neurorights envelope mandatory for neurobiome category rights"
+        condition: "right_category == neurobiome"
+        requirement: "neurorights_envelope == true"
+        citation: "EU AI Act Article 5, Neuro-Rights Framework"
+    }
+}
+
+// ============================================================================
+// SECTION 8: VIOLATION DETECTION & REMEDIATION WORKFLOWS
+// ============================================================================
+
+@violation_detection {
+    name: "Aletheion_Rights_Violation_Detection"
+    version: "002"
+    
+    @detection_method automated_sensor_network {
+        sensors: ["temperature", "noise", "light", "air_quality", "pedestrian_count"]
+        sampling_frequency_seconds: 60
+        alert_threshold_violations: 3
+        citation: "Phoenix sensor network infrastructure"
+    }
+    
+    @detection_method citizen_reporting {
+        channels: ["mobile_app", "web_portal", "311_phone", "kiosk"]
+        verification_required: true
+        false_report_penalty: "warning_after_3_false_reports"
+        citation: "Phoenix 311 system integration"
+    }
+    
+    @detection_method ai_anomaly_detection {
+        model_type: "unsupervised_anomaly_detection"
+        training_data: "historical_compliance_data"
+        false_positive_rate_target: 0.05
+        citation: "Aletheion AI governance standards"
+    }
+    
+    @remediation_workflow automatic {
+        trigger: "violation_severity == critical"
+        actions: ["immediate_notification", "resource_allocation", "citizen_alert"]
+        timeline_hours: 2
+        citation: "Phoenix emergency response protocol"
+    }
+    
+    @remediation_workflow scheduled {
+        trigger: "violation_severity in [high, medium]"
+        actions: ["work_order_generation", "contractor_assignment", "progress_tracking"]
+        timeline_days: 30
+        citation: "Phoenix Public Works workflow"
+    }
+    
+    @remediation_workflow advisory {
+        trigger: "violation_severity == low"
+        actions: ["notification", "recommendation", "voluntary_compliance"]
+        timeline_days: 90
+        citation: "Phoenix advisory compliance program"
+    }
+}
+
+// ============================================================================
+// SECTION 9: CROSS-ENGINE INTEGRATION REQUIREMENTS
+// ============================================================================
+
+@engine_integration {
+    name: "Aletheion_RightsAtom_Engine_Integration"
+    version: "002"
+    
+    @engine synthexis {
+        rights_categories: [biotic, noise]
+        integration_points: ["habitat_continuity_validation", "lnp_envelope_enforcement"]
+        treaty_enforcement: "BioticTreaty_compiled_from_RightsAtoms"
+        citation: "ALE-SYNTHEXIS-IFC-KERNEL-001.rs"
+    }
+    
+    @engine thermaphora {
+        rights_categories: [shade, thermal, hydration]
+        integration_points: ["heat_budget_simulation", "cooling_station_allocation"]
+        treaty_enforcement: "HeatBudget_enforced_via_RightsAtoms"
+        citation: "ALE-THERM-HEATBUDGET-SIMULATOR-CORE-002.rs"
+    }
+    
+    @engine somaplex {
+        rights_categories: [movement, somatic, hydration]
+        integration_points: ["route_planning", "fall_risk_validation", "accessibility_compliance"]
+        treaty_enforcement: "SomaticRoute_enforced_via_RightsAtoms"
+        citation: "ALE-SOMAPLEX-SOMATIC-ROUTE-ENGINE-CORE-002.rs"
+    }
+    
+    @engine lexethos {
+        rights_categories: [all]
+        integration_points: ["microtreaty_compilation", "rights_verification", "compliance_auditing"]
+        treaty_enforcement: "RightsGrammar_compiler_output"
+        citation: "ALE-LEX-MICROTREATY-COMPILER-CORE-002.rs"
+    }
+    
+    @invariant integration_invariant_001 {
+        description: "No engine may bypass RightsAtom enforcement"
+        condition: all_engines => rights_atom_validation == true
+        enforcement: hard_block
+    }
+    
+    @invariant integration_invariant_002 {
+        description: "All engines must reference compiled MicroTreaties"
+        condition: engine_operation => microtreaty_reference_present == true
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 10: VERSIONING & EVOLUTION TRACKING
+// ============================================================================
+
+@evolution_track {
+    version: "002"
+    effective_date: "2026-03-08T00:00:00Z"
+    superseded_versions: ["001"]
+    next_review_date: "2026-06-08T00:00:00Z"
+    review_frequency_days: 90
+    change_approval_required: ["stake_multisig", "citizen_feedback_review", "legal_compliance_audit"]
+    evp_record_location: ".evolve.jsonl"
+}
+
+@audit_log {
+    enabled: true
+    retention_days: 2555
+    encryption: "XChaCha20-Poly1305"
+    access_control: "stake_multisig_verified"
+    export_format: "JSONL"
+    citation: "7-year audit retention for rights enforcement compliance"
+}
+
+@compliance_verification {
+    enabled: true
+    verification_tools: ["ALE-LEX-MICROTREATY-COMPILER-CORE-002.rs", "ALE-COMPLIANCE-IFC-NEURORIGHTS-001.rs"]
+    ci_integration: true
+    preflight_required: true
+    citation: "Compliance preflight per Aletheion CI/CD standards"
+}
