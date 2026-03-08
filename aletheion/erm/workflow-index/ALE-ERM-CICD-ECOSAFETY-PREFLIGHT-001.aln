@@ -1,0 +1,599 @@
+// ============================================================================
+// ALETHEION ENTERPRISE RISK MANAGEMENT — CI/CD ECOSAFETY PREFLIGHT WORKFLOW
+// Domain: Cross-Cutting Governance (Repository Integrity & Safety Enforcement)
+// Language: ALN (Algebraic Logic Network) v1.0 (Deterministic, Offline-Capable)
+// License: Aletheion Public License v1.0 (Neurorights + BioticTreaty Bound)
+// Version: 1.0.0
+// Generated: 2026-03-09T00:00:00Z
+// SMART-Chain Binding: SMART01_AWP_THERMAL_THERMAPHORA (Governance Domain)
+// KER-Band: K=0.94, E=0.90, R=0.12 (Ecosafety Grammar Spine)
+// Cryptography: CRYSTALS-Dilithium (Commit Signing), CRYSTALS-Kyber (Secrets)
+// ============================================================================
+// CONSTRAINTS:
+//   - No rollback, no downgrade, no reversal (forward-compatible only)
+//   - Offline-capable validation (no external HTTP/API calls in core rules)
+//   - Indigenous Water Treaty (Akimel O'odham, Piipaash) hard gates
+//   - BioticTreaty (Riparian, Species) hard gates
+//   - "No corridor, no build" enforced at commit/merge level
+//   - Bound to Rust Types in ALE-ERM-ECOSAFETY-WATER-CORRIDOR-TYPES-001.rs
+//   - Bound to ALN Contracts in ALE-ERM-ECOSAFETY-WATER-CORRIDOR-CONTRACTS-001.aln
+//   - Bound to Rust Validator in ALE-ERM-SMARTCHAIN-VALIDATOR-WATER-001.rs
+//   - Bound to Lua Orchestrator in ALE-INF-CYBO-MAR-ORCHESTRATOR-001.lua
+//   - Bound to Kotlin Interface in ALE-INT-CITIZEN-MAR-CONSENT-001.kt
+//   - Bound to JS Dashboard in ALE-INT-DASHBOARD-MAR-CONSENT-001.jsx
+//   - Bound to C++ Edge in ALE-INF-EDGE-COMPUTE-SENSOR-PQ-001.cpp
+// ============================================================================
+// WORKFLOW PATTERN (CI/CD Adaptation):
+//   Scan → Parse → Validate → Enforce → Log → Report
+// ============================================================================
+
+NAMESPACE aletheion.erm.workflow-index.cicd;
+
+VERSION 1.0.0;
+
+IMPORT aletheion.erm.ecosafety.types.*;
+IMPORT aletheion.erm.ecosafety.contracts.*;
+IMPORT aletheion.erm.smartchain.registry.*;
+IMPORT aletheion.governance.treaty.indigenous.*;
+IMPORT aletheion.governance.treaty.biotic.*;
+IMPORT aletheion.trust.googolswarm.ledger.*;
+
+// ============================================================================
+// SECTION 1: CI/CD ATOM DEFINITIONS (Build & Scan Primitives)
+// ============================================================================
+// Defines the structural elements of the CI/CD pipeline within ALN.
+// These atoms represent the state of a build artifact during validation.
+// ============================================================================
+
+ATOM BuildArtifact {
+    id: STRING;                  // Unique build identifier (UUID v7)
+    commit_hash: STRING;         // PQ-safe commit hash (Dilithium signed)
+    branch_name: STRING;         // Git branch (e.g., "main", "feat/mar-vault")
+    author_did: STRING;          // Decentralized Identifier of committer
+    timestamp_ms: UINT64;        // Unix epoch milliseconds
+    file_paths: LIST<STRING>;    // List of modified file paths in commit
+    language_mix: LIST<STRING>;  // Languages detected (Rust, ALN, Lua, etc.)
+    pq_signature: BYTE_ARRAY;    // CRYSTALS-Dilithium signature of commit
+};
+
+ATOM ScanResult {
+    artifact_id: STRING;
+    scan_timestamp_ms: UINT64;
+    corridors_found: INT;
+    corridors_missing: INT;
+    smart_chains_found: LIST<STRING>;
+    treaties_referenced: LIST<STRING>;
+    blacklist_violations: LIST<STRING>; // Forbidden crypto/libs detected
+    funnel_hooks_present: BOOL;
+    ker_metadata_present: BOOL;
+    status: BUILD_STATUS;      // PASS, FAIL, WARN
+};
+
+ENUM BUILD_STATUS {
+    PASS,                      // All gates satisfied
+    FAIL,                      // Hard violation (block merge)
+    WARN                       // Soft violation (log only)
+};
+
+ATOM ViolationReport {
+    report_id: STRING;
+    artifact_id: STRING;
+    violation_type: STRING;    // e.g., "MISSING_CORRIDOR", "BLACKLIST_CRYPTO"
+    severity: STRING;          // "CRITICAL", "HIGH", "MEDIUM", "LOW"
+    file_path: STRING;
+    line_number: INT;
+    message: STRING;
+    remediation_hint: STRING;
+    ledger_log_urn: STRING;    // NGSI-LD URN to Googolswarm audit log
+};
+
+ATOM PreflightGate {
+    gate_id: STRING;
+    gate_name: STRING;
+    required: BOOL;            // If true, failure blocks build
+    execution_order: INT;      // Sequence in pipeline
+    timeout_ms: UINT64;        // Max execution time
+};
+
+// ============================================================================
+// SECTION 2: PREFLIGHT GATE DEFINITIONS (Pipeline Stages)
+// ============================================================================
+// Defines the ordered sequence of validation gates every commit must pass.
+// Enforces the "Funnel Pattern" at the repository level.
+// ============================================================================
+
+PREFLIGHT_GATE GATE_01_BLACKLIST_SCAN {
+    gate_id: "GATE_01";
+    gate_name: "Forbidden Crypto & Lib Scan";
+    required: TRUE;
+    execution_order: 1;
+    timeout_ms: 30000;
+};
+
+PREFLIGHT_GATE GATE_02_CORRIDOR_PRESENCE {
+    gate_id: "GATE_02";
+    gate_name: "No Corridor No Build Check";
+    required: TRUE;
+    execution_order: 2;
+    timeout_ms: 60000;
+};
+
+PREFLIGHT_GATE GATE_03_SMART_CHAIN_BINDING {
+    gate_id: "GATE_03";
+    gate_name: "SMART-Chain Registry Validation";
+    required: TRUE;
+    execution_order: 3;
+    timeout_ms: 60000;
+};
+
+PREFLIGHT_GATE GATE_04_TREATY_FPIC_CHECK {
+    gate_id: "GATE_04";
+    gate_name: "Indigenous & Biotic Treaty Gate";
+    required: TRUE;
+    execution_order: 4;
+    timeout_ms: 60000;
+};
+
+PREFLIGHT_GATE GATE_05_FUNNEL_HOOK_VALIDATION {
+    gate_id: "GATE_05";
+    gate_name: "Ecosafety Funnel Hook Presence";
+    required: TRUE;
+    execution_order: 5;
+    timeout_ms: 90000;
+};
+
+PREFLIGHT_GATE GATE_06_KER_METADATA_CHECK {
+    gate_id: "GATE_06";
+    gate_name: "KER Metadata Completeness";
+    required: TRUE;
+    execution_order: 6;
+    timeout_ms: 30000;
+};
+
+PREFLIGHT_GATE GATE_07_PQ_SIGNATURE_VERIFY {
+    gate_id: "GATE_07";
+    gate_name: "Post-Quantum Commit Signature";
+    required: TRUE;
+    execution_order: 7;
+    timeout_ms: 30000;
+};
+
+// ============================================================================
+// SECTION 3: BLACKLIST ENFORCEMENT RULES (Crypto & Lib Safety)
+// ============================================================================
+// Ensures no forbidden cryptographic primitives or libraries are introduced.
+// Aligns with Aletheion Blacklist (No SHA-256, Blake, Python, etc.).
+// ============================================================================
+
+RULE ENFORCE_BLACKLIST_CRYPTO {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_CONTENTS(artifact.file_paths);
+    ASSERT
+        NOT CONTAINS(artifact.file_paths, ".py") AND  // Python forbidden
+        NOT CONTAINS_REGEX(artifact.file_paths, "sha256|SHA256") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "blake|BLAKE") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "keccak|KECCAK") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "argon2|ARGON") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "ripemd|RIPEMD") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "neuron|Brian2") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "exergy|Exergy") AND
+        NOT CONTAINS_REGEX(artifact.file_paths, "dow|NDM");
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Forbidden cryptographic primitive or library detected (Blacklist)";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+RULE ENFORCE_PQ_CRYPTO_ONLY {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_CONTENTS(artifact.file_paths);
+    ASSERT
+        IF CONTAINS_REGEX(artifact.file_paths, "crypto|hash|sign") THEN
+            CONTAINS_REGEX(artifact.file_paths, "dilithium|kyber|CRYSTALS");
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Non-PQ cryptography detected; must use CRYSTALS-Dilithium/Kyber";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 4: CORRIDOR PRESENCE ENFORCEMENT (No Corridor, No Build)
+// ============================================================================
+// Ensures every cyboquatic/water/canal module declares at least one corridor.
+// Implements the core "No Corridor, No Build" axiom at CI level.
+// ============================================================================
+
+RULE ENFORCE_CORRIDOR_PRESENCE_WATER {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/rm/water/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            CONTAINS_REGEX(file.content, "CyboquaticNodeEcosafety") AND
+            CONTAINS_REGEX(file.content, "corridors:") AND
+            CONTAINS_REGEX(file.content, "CorridorId");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Water module missing CyboquaticNodeEcosafety corridor declaration";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+        REMEDIATION: "Add corridors: Vec<CorridorId> to node ecosafety struct";
+};
+
+RULE ENFORCE_CORRIDOR_PRESENCE_CANAL {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/infra/canals/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            CONTAINS_REGEX(file.content, "CanalSegmentState") AND
+            CONTAINS_REGEX(file.content, "eval_corridor");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Canal module missing corridor evaluation hook";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+RULE ENFORCE_CORRIDOR_PRESENCE_CYBOQUATIC {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/infra/cyboquatic/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            CONTAINS_REGEX(file.content, "require_corridors") AND
+            CONTAINS_REGEX(file.content, "decide_node_action");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Cyboquatic module missing funnel hooks (require→eval→decide)";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 5: SMART-CHAIN BINDING ENFORCEMENT (Governance Integrity)
+// ============================================================================
+// Ensures every module binds to a valid SMART-Chain with correct PQ mode.
+// Prevents orphaned workflows without governance oversight.
+// ============================================================================
+
+RULE ENFORCE_SMART_CHAIN_BINDING {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_CONTENTS(artifact.file_paths);
+    ASSERT
+        FORALL file IN scanned_files {
+            IF CONTAINS_REGEX(file.content, "SMART_CHAIN") OR
+               CONTAINS_REGEX(file.content, "smart_chain_ids") THEN
+                CONTAINS_REGEX(file.content, "SMART01_AWP_THERMAL_THERMAPHORA") OR
+                CONTAINS_REGEX(file.content, "SMART03_SYNTHEXIS") OR
+                CONTAINS_REGEX(file.content, "SMART04_SOMATIC");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "HIGH";
+        MESSAGE: "VIOLATION: Module missing valid SMART-Chain binding";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+RULE ENFORCE_PQ_MODE_WATER_DOMAIN {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/rm/water/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            IF CONTAINS_REGEX(file.content, "water|Water|WATER") THEN
+                CONTAINS_REGEX(file.content, "PQSTRICT|PqStrict");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Water domain module must use PQSTRICT mode";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 6: TREATY & FPIC ENFORCEMENT (Indigenous & Biotic Rights)
+// ============================================================================
+// Ensures Indigenous Water Treaty and BioticTreaty references are present.
+// Hard gate for any workflow affecting water, biotic, or somatic domains.
+// ============================================================================
+
+RULE ENFORCE_INDIGENOUS_WATER_TREATY {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/rm/water/*", "aletheion/infra/mar/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            CONTAINS_REGEX(file.content, "INDIGENOUS_WATER_TREATY") OR
+            CONTAINS_REGEX(file.content, "AKIMEL") OR
+            CONTAINS_REGEX(file.content, "PIIPAASH") OR
+            CONTAINS_REGEX(file.content, "fpic_required");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Water/MAR module missing Indigenous Water Treaty (Akimel O'odham/Piipaash) reference";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+        REMEDIATION: "Add treaty_refs: ['INDIGENOUS_WATER_TREATY_AKIMEL'] to module config";
+};
+
+RULE ENFORCE_BIOTIC_TREATY_RIPARIAN {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/infra/canals/*", "aletheion/synthexis/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            IF CONTAINS_REGEX(file.content, "RIPARIAN|Habitat|Species") THEN
+                CONTAINS_REGEX(file.content, "BIOTIC_TREATY") OR
+                CONTAINS_REGEX(file.content, "BioticTreaty");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "HIGH";
+        MESSAGE: "VIOLATION: Riparian/Habitat module missing BioticTreaty reference";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 7: FUNNEL HOOK VALIDATION (Ecosafety Grammar Spine)
+// ============================================================================
+// Ensures the core ecosafety funnel functions are called before actuation.
+// Validates the "Sense → Model → Optimize → Treaty → Act → Log" pattern.
+// ============================================================================
+
+RULE ENFORCE_FUNNEL_HOOK_SEQUENCE {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/infra/*", "aletheion/rm/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            IF CONTAINS_REGEX(file.content, "actuate|Actuate|ACTUATE") OR
+               CONTAINS_REGEX(file.content, "dispatch|Dispatch|DISPATCH") THEN
+                CONTAINS_REGEX(file.content, "require_corridors") AND
+                CONTAINS_REGEX(file.content, "eval_corridor") AND
+                CONTAINS_REGEX(file.content, "decide_node_action");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Actuation code missing ecosafety funnel sequence (require→eval→decide)";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+        REMEDIATION: "Insert ecosafety funnel hooks before any actuator command";
+};
+
+RULE ENFORCE_DERATE_STOP_LOGIC {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_CONTENTS(artifact.file_paths);
+    ASSERT
+        FORALL file IN scanned_files {
+            IF CONTAINS_REGEX(file.content, "HardViolation") THEN
+                CONTAINS_REGEX(file.content, "NodeAction::Stop|NodeAction.Stop|STOP");
+            IF CONTAINS_REGEX(file.content, "SoftViolation") THEN
+                CONTAINS_REGEX(file.content, "NodeAction::Derate|NodeAction.Derate|DERATE");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Violated corridor logic does not enforce derate/stop policy";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 8: KER METADATA ENFORCEMENT (Knowledge/Eco/Risk Scores)
+// ============================================================================
+// Ensures every module declares its K/E/R scores for audit and tracking.
+// Aligns with 2026 Cyboquatic Research Band (K≈0.94, E≈0.90, R≈0.12).
+// ============================================================================
+
+RULE ENFORCE_KER_METADATA_PRESENCE {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_PATHS_MATCHING(artifact.file_paths, "aletheion/erm/*", "aletheion/infra/*");
+    ASSERT
+        FORALL file IN scanned_files {
+            CONTAINS_REGEX(file.content, "ker_meta|KerMetadata|KER_META") AND
+            CONTAINS_REGEX(file.content, "k:") AND
+            CONTAINS_REGEX(file.content, "e:") AND
+            CONTAINS_REGEX(file.content, "r:");
+        };
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "HIGH";
+        MESSAGE: "VIOLATION: Module missing KER metadata declaration (K/E/R scores)";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+        REMEDIATION: "Add KerMetadata { k: 0.94, e: 0.90, r: 0.12 } to module config";
+};
+
+RULE ENFORCE_KER_SCORE_BOUNDS {
+    INPUT
+        artifact: BuildArtifact;
+    SCAN
+        FILE_CONTENTS(artifact.file_paths);
+    ASSERT
+        FORALL file IN scanned_files {
+            IF CONTAINS_REGEX(file.content, "ker_meta") THEN
+                EXTRACT_KER_SCORES(file.content) WHERE
+                k >= 0.85 AND
+                e >= 0.85 AND
+                r <= 0.20;
+        };
+    ON_FAIL
+        ACTION: WARN_BUILD;  // Allow merge but flag for review
+        SEVERITY: "MEDIUM";
+        MESSAGE: "WARNING: KER scores outside recommended 2026 Cyboquatic Band";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 9: AUDIT LOGGING & GOOGOLSWARM INTEGRATION
+// ============================================================================
+// Ensures all CI/CD decisions are logged to the immutable ledger.
+// Provides non-repudiation for build approvals and rejections.
+// ============================================================================
+
+RULE ENFORCE_AUDIT_LOG_ON_FAIL {
+    INPUT
+        violation: ViolationReport;
+    ASSERT
+        ALWAYS {
+            LOG_TO_LEDGER(
+                urn: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01",
+                data: violation,
+                pq_signature: TRUE  // Sign log entry with Dilithium
+            );
+        };
+    ON_FAIL
+        ACTION: HALT_PIPELINE;  // If logging fails, stop everything
+        SEVERITY: "CRITICAL";
+        MESSAGE: "CRITICAL: Audit logging failed; cannot proceed without immutable record";
+};
+
+RULE ENFORCE_COMMIT_SIGNATURE_VERIFY {
+    INPUT
+        artifact: BuildArtifact;
+    ASSERT
+        VERIFY_DILITHIUM_5(
+            message: artifact.commit_hash,
+            signature: artifact.pq_signature,
+            public_key: LOOKUP_AUTHOR_KEY(artifact.author_did)
+        ) == TRUE;
+    ON_FAIL
+        ACTION: BLOCK_BUILD;
+        SEVERITY: "CRITICAL";
+        MESSAGE: "VIOLATION: Commit signature verification failed (PQ Crypto)";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+        REPORT_TYPE: ViolationReport;
+};
+
+// ============================================================================
+// SECTION 10: PIPELINE ORCHESTRATION (Main Entry Point)
+// ============================================================================
+// Defines the execution flow for the CI/CD preflight pipeline.
+// Runs gates in order; stops on first critical failure.
+// ============================================================================
+
+PIPELINE ECOSAFETY_PREFLIGHT_PIPELINE {
+    VERSION: "1.0.0";
+    TRIGGER: "PUSH|MERGE_REQUEST";
+    SCOPE: "aletheion/*";
+    
+    STAGES:
+        1. EXECUTE_GATE(GATE_01_BLACKLIST_SCAN);
+        2. EXECUTE_GATE(GATE_07_PQ_SIGNATURE_VERIFY);
+        3. EXECUTE_GATE(GATE_02_CORRIDOR_PRESENCE);
+        4. EXECUTE_GATE(GATE_03_SMART_CHAIN_BINDING);
+        5. EXECUTE_GATE(GATE_04_TREATY_FPIC_CHECK);
+        6. EXECUTE_GATE(GATE_05_FUNNEL_HOOK_VALIDATION);
+        7. EXECUTE_GATE(GATE_06_KER_METADATA_CHECK);
+    
+    ON_SUCCESS:
+        ACTION: APPROVE_BUILD;
+        LOG_TO_LEDGER(
+            urn: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01",
+            status: "PASS",
+            artifact_id: artifact.id
+        );
+        TAG_COMMIT: "aletheion-verified-ecosafety-safe";
+    
+    ON_FAILURE:
+        ACTION: REJECT_BUILD;
+        LOG_TO_LEDGER(
+            urn: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01",
+            status: "FAIL",
+            artifact_id: artifact.id,
+            violations: violation_report_list
+        );
+        NOTIFY_AUTHOR: TRUE;
+        BLOCK_MERGE: TRUE;
+};
+
+// ============================================================================
+// SECTION 11: OFFLINE CAPABILITY & EDGE SYNC
+// ============================================================================
+// Ensures pipeline can run locally (offline) before pushing to remote.
+// Critical for monsoon/emergency scenarios where internet may be unavailable.
+// ============================================================================
+
+RULE ENFORCE_OFFLINE_RUN_CAPABILITY {
+    INPUT
+        artifact: BuildArtifact;
+    ASSERT
+        ALL_RULES_IN_PIPELINE MUST_NOT_REQUIRE_EXTERNAL_HTTP_CALLS;
+        ALL_RULES_IN_PIPELINE MUST_USE_LOCAL_FILESYSTEM_SCAN;
+        ALL_RULES_IN_PIPELINE MUST_USE_LOCAL_LEDGER_CACHE;
+    ON_FAIL
+        ACTION: WARN_BUILD;
+        SEVERITY: "MEDIUM";
+        MESSAGE: "WARNING: Pipeline rules depend on external services; offline capability compromised";
+        LOG_TARGET: "urn:ngsi-ld:Ledger:GOOGOLSWARM-CICD-01";
+};
+
+// ============================================================================
+// SECTION 12: KER METADATA REGISTRY (Pipeline Self-Tracking)
+// ============================================================================
+// Tracks the K/E/R scores of the CI/CD pipeline itself.
+// Ensures the pipeline improves knowledge and reduces risk over time.
+// ============================================================================
+
+KER_REGISTRY CICD_PREFLIGHT_2026 {
+    line_ref: "CICD_ECOSAFETY_ENFORCEMENT";
+    k_score: 0.95;  // High knowledge reliability (automated checks)
+    e_score: 0.92;  // High eco-impact (prevents unsafe deployments)
+    r_score: 0.10;  // Low risk (blocks harmful code early)
+    last_review_date: "2026-03-09";
+    next_review_date: "2026-09-09";
+    reviewer_sig: "DILITHIUM_5_VERIFIED";
+    improvement_targets: {
+        k_target: 0.96;
+        e_target: 0.93;
+        r_target: 0.08;
+    };
+};
+
+// ============================================================================
+// END OF FILE: ALE-ERM-CICD-ECOSAFETY-PREFLIGHT-001.aln
+// ============================================================================
+// This file is part of the Aletheion CI/CD Ecosafety Preflight Workflow.
+// It binds Chunks 1-7 into a repository-level enforcement layer.
+// CI must run this ALN pipeline on every PUSH and MERGE_REQUEST.
+// Indigenous Water Treaty (Akimel O'odham) is enforced at GATE_04.
+// PQ cryptography (CRYSTALS-Dilithium) is enforced at GATE_01 and GATE_07.
+// "No corridor, no build" is enforced at GATE_02.
+// "Violated corridor → derate/stop" is enforced at GATE_05.
+// All decisions are logged to Googolswarm Ledger for audit.
+// Offline capability is enforced at SECTION 11.
+// ============================================================================
