@@ -1,0 +1,54 @@
+schema_id: ALE-TOOLS-FILE-REQUEST-SCHEMA-001
+schema_version: 1
+kind: FileRequestSpec
+
+workflow_id:
+  raw: WF-06
+  name: AWP plant telemetry ingestion workflow
+
+erm_footprint:
+  edge_sensing: true          # corridor-level telemetry hooks
+  state_modeling: true        # feeds Neighborhood/Canal state
+  blockchain_trust: false
+  optimization_engine: false
+  citizen_interface: false
+
+git_path:
+  repo_relative_path: "aletheion/erm/water/corridor/ALE-ERM-WATER-INGESTION-METROCENTER-002.rs"
+  language: Rust
+  is_new_id: true
+  predecessor_id: "ALE-RM-WATER-INGESTION-001"
+
+capital_focus:
+  water: true
+  thermal: true               # cooling corridors, HeatBudget links
+  waste: false
+  biotic: true                # canal habitat, BioticTreaties
+  somatic: false
+  neurobiome: false
+  treaty: true                # FPIC / downstream water treaties
+
+corridors:
+  ecosafety_corridor_ids:
+    - "ECOSAFETY-WATER-PFAS-V1"
+    - "ECOSAFETY-WATER-TEMP-V1"
+  highway_corridor_ids:
+    - "CANAL-METROCENTER-PARKWAY-001"
+    - "NEIGHBORHOOD-METROCENTER-WATER-001"
+  smart_chain_ids:
+    - "SMART01-AWP-THERMAL-THERMAPHORA"
+    - "SMART03-WATER-TREATY"
+    - "SMART05-SOMAPLEX-ROUTING"
+
+compliance:
+  requires_compliance_preflight: true
+  requires_ecosafety_preflight: true
+  requires_neurorights_guard: false
+  requires_fpic_validation: true
+
+description: >
+  Corridor-scoped water ingestion module for Metrocenter, extending the
+  citywide AWP and MAR telemetry engine (ALE-RM-WATER-INGESTION-001.rs)
+  to populate NeighborhoodWaterSystem and CanalSegmentState for the
+  CANAL-METROCENTER-PARKWAY and NEIGHBORHOOD-METROCENTER-WATER corridors
+  under SMART01/SMART03 chains and ecosafety water corridors.
