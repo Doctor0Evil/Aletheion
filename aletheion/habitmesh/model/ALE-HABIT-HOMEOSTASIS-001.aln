@@ -1,0 +1,72 @@
+// HabitChannels + HomeostasisIndex for daily-life mesh (non-fictional, ERM-aligned).
+
+namespace HabitMesh.Homeostasis
+
+type HabitChannelId = string
+type CitizenId      = string
+type NeighborhoodId = string
+type TimestampIso   = string
+
+enum HabitChannelKind {
+  SleepCycle
+  CommutePattern
+  MealLoop
+  ScreenLoop
+  SocialLoop
+  CareLoop
+}
+
+record HabitChannelMetrics {
+  stability_score   : float   // 0.0–1.0; higher = more regular, restorative.
+  friction_score    : float   // 0.0–1.0; higher = more effort, disruption, or stress.
+  regenerative_score: float   // 0.0–1.0; higher = more restorative, biofabric-positive.
+  last_updated      : TimestampIso
+}
+
+record HabitChannel {
+  id          : HabitChannelId
+  citizen     : CitizenId
+  neighborhood: NeighborhoodId
+  kind        : HabitChannelKind
+  metrics     : HabitChannelMetrics
+}
+
+record HomeostasisIndex {
+  citizen          : CitizenId
+  neighborhood     : NeighborhoodId
+  sleep_band_score : float  // synthesized from SleepCycle channels.
+  stress_band_score: float  // synthesized from ScreenLoop, CommutePattern, Work patterns.
+  hydration_band_score : float
+  social_band_score    : float
+  composite_index      : float  // 0.0–1.0; higher = closer to safe, resilient band.
+  computed_at          : TimestampIso
+}
+
+contract HabitProgramDiff {
+  // Compare two habit-channel states with respect to predicted impact.
+  function diff_metrics(old_channel : HabitChannel, new_channel : HabitChannel)
+    -> (delta_stability    : float,
+        delta_friction     : float,
+        delta_regenerative : float)
+
+  // Predict qualitative impact band on health + ecology from a planned change.
+  function classify_change_impact(delta_stability    : float,
+                                  delta_friction     : float,
+                                  delta_regenerative : float)
+    -> (impact_band : string) // "improves", "neutral", "degrades"
+}
+
+contract HomeostasisController {
+  // Compute citizen-level HomeostasisIndex from current channels.
+  function compute_index(channels : list<HabitChannel>,
+                         citizen  : CitizenId,
+                         neighborhood : NeighborhoodId,
+                         now      : TimestampIso)
+    -> HomeostasisIndex
+
+  // Propose non-coercive adjustments (routing, timing, notifications) to restore safe bands.
+  function propose_adjustments(index        : HomeostasisIndex,
+                               channels     : list<HabitChannel>)
+    -> (recommended_changes : list<string>) // Free-text directives bound later to concrete apps.
+}
+end
