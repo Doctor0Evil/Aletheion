@@ -1,0 +1,62 @@
+name: Aletheion Governance Schema Preflight
+
+on:
+  pull_request:
+    paths:
+      - "aletheiontrust/**.aln"
+      - "aletheiongovernance/**.aln"
+      - "aletheionerm/**.aln"
+      - "aletheioninfra/**.aln"
+      - ".github/workflows/aletheion-governance-schema-preflight.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "aletheiontrust/**.aln"
+      - "aletheiongovernance/**.aln"
+      - "aletheionerm/**.aln"
+      - "aletheioninfra/**.aln"
+
+jobs:
+  governance-schema-preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Rust toolchain for ALN tooling
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build ALN metaschema tools
+        run: |
+          cargo build --release -p aln-metaschema-checker
+          cargo build --release -p aln-governance-linter
+
+      - name: Validate ALN files against metaschema
+        run: |
+          ./target/release/aln-metaschema-checker \
+            --root . \
+            --include "aletheiontrust/**/*.aln" \
+            --include "aletheiongovernance/**/*.aln" \
+            --include "aletheionerm/**/*.aln" \
+            --include "aletheioninfra/**/*.aln"
+
+      - name: Enforce governed-decision envelope usage in trust Tx schemas
+        run: |
+          ./target/release/aln-governance-linter \
+            --root aletheiontrust \
+            --envelope-schema "aletheiontrust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln" \
+            --tx-glob "aletheiontrust/schemas/**/*Tx*.aln" \
+            --require-field "birthSignId" \
+            --require-list-field "applied-aln-norms"
+
+      - name: Block ad-hoc treaty/right shapes outside canonical grammar
+        run: |
+          ./target/release/aln-governance-linter \
+            --root . \
+            --canonical-rights-schema "aletheiongovernance/aln/ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln" \
+            --forbid-local-rights-types \
+            --include "aletheiontrust/**/*.aln" \
+            --include "aletheionerm/**/*.aln" \
+            --include "aletheioninfra/**/*.aln"
