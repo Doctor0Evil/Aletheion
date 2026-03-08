@@ -1,0 +1,157 @@
+schema_id: ALE-TOOLS-FILE-REQUEST-SPEC-SCHEMA-001
+schema_version: 1
+kind: FileRequestSpecSchema
+
+workflow_id:
+  type: object
+  required: true
+  fields:
+    raw:
+      type: string          # e.g., "WF-06"
+      required: true
+    name:
+      type: string          # short human label, must match WORKFLOW-INDEX-0001
+      required: true
+
+erm_footprint:
+  type: object
+  required: true
+  fields:
+    edge_sensing:
+      type: bool
+      required: true
+    state_modeling:
+      type: bool
+      required: true
+    blockchain_trust:
+      type: bool
+      required: true
+    optimization_engine:
+      type: bool
+      required: true
+    citizen_interface:
+      type: bool
+      required: true
+
+git_path:
+  type: object
+  required: true
+  fields:
+    repo_relative_path:
+      type: string          # e.g., "aletheionrmwater/ALE-RM-WATER-INGESTION-002.rs"
+      required: true
+      constraints:
+        must_be_unique: true
+        must_be_deeper_than_predecessor: true
+    language:
+      type: enum
+      required: true
+      values:
+        - Rust
+        - C++
+        - Lua
+        - Javascript
+        - Kotlin
+        - ALN
+        - YAML
+    is_new_id:
+      type: bool
+      required: true
+      constraints:
+        must_be_true_for_generation: true
+    predecessor_id:
+      type: string
+      required: false        # e.g., "ALE-RM-WATER-INGESTION-001"
+
+capital_focus:
+  type: object
+  required: true
+  fields:
+    water:
+      type: bool
+      required: true
+    thermal:
+      type: bool
+      required: true
+    waste:
+      type: bool
+      required: true
+    biotic:
+      type: bool
+      required: true
+    somatic:
+      type: bool
+      required: true
+    neurobiome:
+      type: bool
+      required: true
+    treaty:
+      type: bool
+      required: true
+
+corridors:
+  type: object
+  required: true
+  fields:
+    ecosafety_corridor_ids:
+      type: list
+      required: false
+      items:
+        type: string        # IDs from ALE-ERM-ECOSAFETY-GRAMMAR-001
+    highway_corridor_ids:
+      type: list
+      required: false
+      items:
+        type: string        # e.g., "CANAL-METROCENTER-PARKWAY-001"
+    smart_chain_ids:
+      type: list
+      required: false
+      items:
+        type: string        # e.g., "SMART01-AWP-THERMAL-THERMAPHORA"
+
+compliance:
+  type: object
+  required: true
+  fields:
+    requires_compliance_preflight:
+      type: bool
+      required: true
+    requires_ecosafety_preflight:
+      type: bool
+      required: true
+    requires_neurorights_guard:
+      type: bool
+      required: true
+    requires_fpic_validation:
+      type: bool
+      required: true
+
+description:
+  type: string
+  required: true
+  constraints:
+    max_lines: 3
+    max_chars: 512
+
+validation_rules:
+  - id: match_workflow_index
+    description: |
+      workflow_id.raw and workflow_id.name must exist in
+      aletheion/docs/workflows/WORKFLOW-INDEX-0001.md.
+  - id: erm_footprint_consistency
+    description: |
+      erm_footprint booleans must match the ERM layer usage
+      declared in WORKFLOW-INDEX-0001 for this workflow_id.
+  - id: capital_corridor_consistency
+    description: |
+      If any of water, biotic, somatic, neurobiome, treaty are true,
+      corridors.smart_chain_ids must include the corresponding SMART chains.
+  - id: path_uniqueness_and_depth
+    description: |
+      git_path.repo_relative_path must not exist in the repo yet,
+      and must be a deeper variant than any predecessor_id path
+      for the same workflow family.
+  - id: compliance_required_for_sensitive_domains
+    description: |
+      If treaty or neurobiome are true, requires_fpic_validation
+      and requires_neurorights_guard must both be true.
