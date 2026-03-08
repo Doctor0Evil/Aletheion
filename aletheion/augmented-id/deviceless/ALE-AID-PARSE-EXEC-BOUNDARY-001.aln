@@ -1,0 +1,14 @@
+enum ParseLayerId {
+  L1_SOMATIC_SENSING,
+  L1_THERMAL_SENSING,
+  L2_PATTERN_CLUSTERING,
+  L2_BIOPHYSICAL_MODEL_BIND,
+  L3_GOV_CHAIN_BIND,
+}
+
+schema ParseLayerRecord {
+  trace_id: TraceId
+  parse_layer: ParseLayerId
+  visible_fields: FieldMask       // which fields are exposed at this layer
+  exec_handle: ExecHandleRef      // opaque handle used by execution only
+}
