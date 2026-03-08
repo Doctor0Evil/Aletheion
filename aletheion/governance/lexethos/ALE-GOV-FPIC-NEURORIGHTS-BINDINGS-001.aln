@@ -1,0 +1,21 @@
+schema FPICContextRef {
+  fpic_id: FPICId
+  indigenous_scope: IndigenousScopeId   // Akimel O’odham, Piipaash, etc.
+  consent_status: FPICStatus            // PENDING, GRANTED, REVOKED
+  micro_treaty_ids: [MicroTreatyId]
+}
+
+schema NeurorightsGuardRef {
+  guard_id: NeurorightsGuardId
+  envelopes: [CryptoSomaticEnvelopeRef]
+  allowed_domains: [DomainId]           // somatic, neurobiome, movement
+}
+
+schema CorridorMicroTreatyBinding {
+  corridor_id: CorridorId
+  species_ref: SpeciesPatternRef?
+  biophysical_ref: BiophysicalIdentityRef?
+  fpic_context: FPICContextRef?
+  lexethos_treaties: [MicroTreatyId]
+  smart_chain_id: SMARTChainId
+}
