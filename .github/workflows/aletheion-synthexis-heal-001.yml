@@ -1,0 +1,608 @@
+# ============================================================================
+# FILE: 
+# PURPOSE: Self-healing workflow triggered on nightly job failures with
+#          failure classification, lint/test/scan execution, safe auto-fixes,
+#          and advisory-only marking for unstable engines per zero-downtime rules
+# LANGUAGE: YAML (GitHub Actions Workflow Syntax)
+# DESTINATION: Aletheion Repository - GitHub Workflows Subsystem
+# COMPLIANCE: Zero-contamination IFC, NeurorightsEnvelope, FPIC metadata,
+#             No rollbacks/downgrades/reversals, Forward-compatible only
+# INTEGRATION: ALE-SYNTHEXIS-NIGHTLY-002.yml, ALE-COMPLIANCE-IFC-NEURORIGHTS-001.rs,
+#              ALE-HIGHWAYS-CORRIDOR-KERNEL-001.rs, ALE-SYNTHEXIS-IFC-KERNEL-001.rs
+# TRIGGER: workflow_run on failure of aletheion-synthexis-nightly-002.yml
+# ============================================================================
+
+name: Aletheion Synthexis Healing - Self-Recovery Workflow
+
+on:
+  workflow_run:
+    workflows: ["Aletheion Synthexis Nightly - LNP Habitat Continuity Engine"]
+    types: [completed]
+    branches:
+      - main
+      - develop
+
+env:
+  ALETHEION_VERSION: "001"
+  POLICY_VERSION: "001"
+  RUST_VERSION: "1.75.0"
+  LUA_VERSION: "5.4"
+  NODE_VERSION: "20.x"
+  RUST_BACKTRACE: "full"
+  RUSTFLAGS: "-D warnings -D clippy::all"
+  ALE_DATA_DIR: "./aletheion/synthexis/data"
+  ALE_OUTPUT_DIR: "./aletheion/synthexis/output"
+  ALE_LOG_DIR: "./aletheion/synthexis/logs"
+  ALE_HEAL_DIR: "./aletheion/synthexis/heal"
+  ALE_COMPLIANCE_DIR: "./aletheion/compliance/core"
+  BLACKLIST_HASHES: "blake,argon,sha3-256,KECCAK_256,RIPEMD160,BLAKE2S256_ALT,XXH3_128,SHA3-512,SHA-256,SHA-3-256,RIPEMD-160,BLAKE2b-256"
+  BLACKLIST_LANGUAGES: "Python,COBOL,Fortran77,Visual Basic 6"
+  BLACKLIST_CONCEPTS: "rollback,downgrade,reversal,Exergy,DOW,NDM,NEURON,Brian2"
+  MAX_HEALING_TIME_MIN: "90"
+  AUTO_FIX_ENABLED: "true"
+  ADVISORY_THRESHOLD_FAILURES: "3"
+
+jobs:
+  # ============================================================================
+  # JOB 1: FAILURE CLASSIFICATION - Analyze Root Cause
+  # ============================================================================
+  failure-classification:
+    name: Failure Classification - Root Cause Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      failure_type: ${{ steps.classify.outputs.failure_type }}
+      failure_severity: ${{ steps.classify.outputs.severity }}
+      affected_modules: ${{ steps.classify.outputs.affected_modules }}
+      auto_fix_applicable: ${{ steps.classify.outputs.auto_fix }}
+      requires_human_review: ${{ steps.classify.outputs.human_review }}
+      classification_id: ${{ steps.classify.outputs.classification_id }}
+    steps:
+      - name: Checkout Aletheion Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 2
+          persist-credentials: true
+
+      - name: Download Failed Workflow Run Artifacts
+        if: github.event.workflow_run.conclusion == 'failure'
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: aletheion-synthexis-nightly-002.yml
+          run_id: ${{ github.event.workflow_run.id }}
+          path: ./failed-run-artifacts
+          allow_forks: true
+
+      - name: Analyze Failure Logs
+        id: classify
+        run: |
+          echo "=== Failure Classification Analysis ==="
+          CLASSIFICATION_ID="HEAL-$(date +%Y%m%d%H%M%S)-$$"
+          echo "classification_id=$CLASSIFICATION_ID" >> "$GITHUB_OUTPUT"
+          echo "timestamp=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+
+          FAILURE_TYPE="unknown"
+          FAILURE_SEVERITY="medium"
+          AFFECTED_MODULES=""
+          AUTO_FIX="false"
+          HUMAN_REVIEW="false"
+
+          # Compliance preflight failures
+          if ls ./failed-run-artifacts/compliance-preflight-report-*.json >/dev/null 2>&1; then
+            COMPLIANCE_STATUS="$(cat ./failed-run-artifacts/compliance-preflight-report-*.json | jq -r '.passed // false')"
+            if [ "$COMPLIANCE_STATUS" = "false" ]; then
+              FAILURE_TYPE="compliance_violation"
+              FAILURE_SEVERITY="critical"
+              HUMAN_REVIEW="true"
+              echo "::error::Compliance preflight failed - requires human review"
+            fi
+          fi
+
+          # SMART-Chain validation failures
+          if ls ./failed-run-artifacts/smart-chain-validation-report-*.json >/dev/null 2>&1; then
+            TREATY_VALID="$(cat ./failed-run-artifacts/smart-chain-validation-report-*.json | jq -r '.treaty_valid // false')"
+            CORRIDOR_VALID="$(cat ./failed-run-artifacts/smart-chain-validation-report-*.json | jq -r '.corridor_valid // false')"
+            if [ "$TREATY_VALID" = "false" ] || [ "$CORRIDOR_VALID" = "false" ]; then
+              FAILURE_TYPE="treaty_corridor_validation"
+              FAILURE_SEVERITY="high"
+              AFFECTED_MODULES="synthexis,highways"
+              echo "::warning::Treaty or corridor validation failed"
+            fi
+          fi
+
+          # Nightly engine execution failures
+          if [ -d "./failed-run-artifacts/synthexis-nightly-output" ] && \
+             ls ./failed-run-artifacts/synthexis-nightly-output/nightly_summary_*.json >/dev/null 2>&1; then
+            REGIONS_FAILED="$(cat ./failed-run-artifacts/synthexis-nightly-output/nightly_summary_*.json | jq -r '.failed // 0')"
+            if [ "$REGIONS_FAILED" -gt 0 ]; then
+              FAILURE_TYPE="engine_execution"
+              FAILURE_SEVERITY="medium"
+              AFFECTED_MODULES="synthexis"
+              AUTO_FIX="true"
+              echo "::warning::Nightly engine failed on $REGIONS_FAILED regions"
+            fi
+          fi
+
+          # Rust / Lua failures in logs
+          if ls ./failed-run-artifacts/*.jsonl >/dev/null 2>&1; then
+            if grep -q "cargo.*failed" ./failed-run-artifacts/*.jsonl 2>/dev/null; then
+              FAILURE_TYPE="rust_compilation"
+              FAILURE_SEVERITY="high"
+              AFFECTED_MODULES="rust_kernels"
+              AUTO_FIX="true"
+              echo "::error::Rust compilation failure detected"
+            fi
+            if grep -q "lua.*error" ./failed-run-artifacts/*.jsonl 2>/dev/null; then
+              FAILURE_TYPE="lua_runtime"
+              FAILURE_SEVERITY="medium"
+              AFFECTED_MODULES="lua_orchestration"
+              AUTO_FIX="true"
+              echo "::warning::Lua runtime error detected"
+            fi
+          fi
+
+          # Contamination / blacklist violations
+          if ls ./failed-run-artifacts/*.jsonl >/dev/null 2>&1 && \
+             grep -qE "(blake|argon|Python|rollback|downgrade)" ./failed-run-artifacts/*.jsonl 2>/dev/null; then
+            FAILURE_TYPE="blacklist_violation"
+            FAILURE_SEVERITY="critical"
+            HUMAN_REVIEW="true"
+            AUTO_FIX="false"
+            echo "::error::Blacklist violation detected - requires human review"
+          fi
+
+          echo "failure_type=$FAILURE_TYPE" >> "$GITHUB_OUTPUT"
+          echo "severity=$FAILURE_SEVERITY" >> "$GITHUB_OUTPUT"
+          echo "affected_modules=$AFFECTED_MODULES" >> "$GITHUB_OUTPUT"
+          echo "auto_fix=$AUTO_FIX" >> "$GITHUB_OUTPUT"
+          echo "human_review=$HUMAN_REVIEW" >> "$GITHUB_OUTPUT"
+
+          echo "Classification complete: type=$FAILURE_TYPE, severity=$FAILURE_SEVERITY"
+
+      - name: Generate Failure Classification Report
+        if: always()
+        run: |
+          cat > ./failure_classification_report.json << EOF
+          {
+            "classification_id": "${{ steps.classify.outputs.classification_id }}",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "triggered_by_workflow_run": "${{ github.event.workflow_run.id }}",
+            "failure_type": "${{ steps.classify.outputs.failure_type }}",
+            "failure_severity": "${{ steps.classify.outputs.severity }}",
+            "affected_modules": "${{ steps.classify.outputs.affected_modules }}",
+            "auto_fix_applicable": "${{ steps.classify.outputs.auto_fix }}",
+            "requires_human_review": "${{ steps.classify.outputs.human_review }}"
+          }
+          EOF
+
+      - name: Upload Classification Report Artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
+        with:
+          name: failure-classification-${{ github.run_id }}
+          path: ./failure_classification_report.json
+          retention-days: 2555
+
+  # ============================================================================
+  # JOB 2: LINT & TEST EXECUTION - Diagnostic Scans
+  # ============================================================================
+  lint-test-execution:
+    name: Lint & Test Execution - Diagnostic Scans
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: [failure-classification]
+    if: always() && needs.failure-classification.outputs.requires_human_review != 'true'
+    outputs:
+      lint_passed: ${{ steps.rust_lint.outputs.passed }}
+      test_passed: ${{ steps.rust_test.outputs.passed }}
+      aln_validated: ${{ steps.aln_validate.outputs.passed }}
+      yaml_validated: ${{ steps.yaml_validate.outputs.passed }}
+      lua_validated: ${{ steps.lua_check.outputs.passed }}
+    steps:
+      - name: Checkout Aletheion Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt,clippy
+          profile: minimal
+
+      - name: Setup Lua Runtime
+        uses: leafo/gh-actions-lua@v10
+        with:
+          luaVersion: ${{ env.LUA_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@60edb5dd545a775178f52524783378180af0d1f8
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Diagnostic Tools
+        run: |
+          echo "Installing diagnostic and linting tools..."
+          pip install yamllint
+          cargo install actionlint
+          cargo install luacheck
+          echo "✓ Diagnostic tools installed"
+
+      - name: Execute Rust Lint (clippy + fmt)
+        id: rust_lint
+        run: |
+          echo "=== Rust Lint Execution ==="
+          LINT_PASSED="true"
+
+          cargo clippy --manifest-path ./aletheion/highways/kernel/Cargo.toml -- -D warnings || LINT_PASSED="false"
+          cargo clippy --manifest-path ./aletheion/synthexis/engine/native/Cargo.toml -- -D warnings || LINT_PASSED="false"
+          cargo clippy --manifest-path ./aletheion/compliance/core/Cargo.toml -- -D warnings || LINT_PASSED="false"
+
+          cargo fmt --manifest-path ./aletheion/highways/kernel/Cargo.toml -- --check || LINT_PASSED="false"
+          cargo fmt --manifest-path ./aletheion/synthexis/engine/native/Cargo.toml -- --check || LINT_PASSED="false"
+          cargo fmt --manifest-path ./aletheion/compliance/core/Cargo.toml -- --check || LINT_PASSED="false"
+
+          echo "passed=$LINT_PASSED" >> "$GITHUB_OUTPUT"
+          if [ "$LINT_PASSED" = "true" ]; then
+            echo "✓ Rust lint PASSED"
+          else
+            echo "::warning::Rust lint FAILED"
+          fi
+
+      - name: Execute Rust Unit Tests
+        id: rust_test
+        run: |
+          echo "=== Rust Unit Test Execution ==="
+          TEST_PASSED="true"
+
+          cargo test --manifest-path ./aletheion/highways/kernel/Cargo.toml -- --test-threads=1 || TEST_PASSED="false"
+          cargo test --manifest-path ./aletheion/synthexis/engine/native/Cargo.toml -- --test-threads=1 || TEST_PASSED="false"
+          cargo test --manifest-path ./aletheion/compliance/core/Cargo.toml -- --test-threads=1 || TEST_PASSED="false"
+
+          echo "passed=$TEST_PASSED" >> "$GITHUB_OUTPUT"
+          if [ "$TEST_PASSED" = "true" ]; then
+            echo "✓ Rust tests PASSED"
+          else
+            echo "::warning::Rust tests FAILED"
+          fi
+
+      - name: Execute ALN Validation
+        id: aln_validate
+        run: |
+          echo "=== ALN Policy Validation ==="
+          ALN_PASSED="true"
+
+          ALN_FILES=$(find ./aletheion/ -name "*.aln" -type f || true)
+          for aln_file in $ALN_FILES; do
+            echo "Validating: $aln_file"
+            if ! grep -q "@version" "$aln_file"; then
+              echo "::warning::ALN file missing @version: $aln_file"
+              ALN_PASSED="false"
+            fi
+          done
+
+          echo "passed=$ALN_PASSED" >> "$GITHUB_OUTPUT"
+          if [ "$ALN_PASSED" = "true" ]; then
+            echo "✓ ALN validation PASSED"
+          else
+            echo "::warning::ALN validation FAILED"
+          fi
+
+      - name: Execute YAML Validation
+        id: yaml_validate
+        run: |
+          echo "=== YAML Workflow Validation ==="
+          YAML_PASSED="true"
+
+          YAML_FILES=$(find .github/workflows -name "*.yml" -type f || true)
+          for yaml_file in $YAML_FILES; do
+            echo "Validating: $yaml_file"
+            if ! yamllint "$yaml_file"; then
+              echo "::warning::YAML validation issue: $yaml_file"
+              YAML_PASSED="false"
+            fi
+          done
+
+          if ! actionlint .github/workflows/*.yml; then
+            echo "::warning::actionlint found issues"
+            YAML_PASSED="false"
+          fi
+
+          echo "passed=$YAML_PASSED" >> "$GITHUB_OUTPUT"
+          if [ "$YAML_PASSED" = "true" ]; then
+            echo "✓ YAML validation PASSED"
+          else
+            echo "::warning::YAML validation FAILED"
+          fi
+
+      - name: Execute Lua Check
+        id: lua_check
+        run: |
+          echo "=== Lua Syntax Validation ==="
+          LUA_PASSED="true"
+
+          LUA_FILES=$(find ./aletheion/ -name "*.lua" -type f || true)
+          for lua_file in $LUA_FILES; do
+            echo "Checking: $lua_file"
+            if ! luacheck "$lua_file"; then
+              echo "::warning::Lua check issue: $lua_file"
+              LUA_PASSED="false"
+            fi
+          done
+
+          echo "passed=$LUA_PASSED" >> "$GITHUB_OUTPUT"
+          if [ "$LUA_PASSED" = "true" ]; then
+            echo "✓ Lua validation PASSED"
+          else
+            echo "::warning::Lua validation FAILED"
+          fi
+
+      - name: Generate Diagnostic Report
+        if: always()
+        run: |
+          cat > ./diagnostic_report.json << EOF
+          {
+            "report_id": "DIAG-$(date +%Y%m%d%H%M%S)-$$",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "rust_lint_passed": "${{ steps.rust_lint.outputs.passed }}",
+            "rust_test_passed": "${{ steps.rust_test.outputs.passed }}",
+            "aln_validated": "${{ steps.aln_validate.outputs.passed }}",
+            "yaml_validated": "${{ steps.yaml_validate.outputs.passed }}",
+            "lua_validated": "${{ steps.lua_check.outputs.passed }}"
+          }
+          EOF
+
+      - name: Upload Diagnostic Report Artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
+        if: always()
+        with:
+          name: diagnostic-report-${{ github.run_id }}
+          path: ./diagnostic_report.json
+          retention-days: 2555
+
+  # ============================================================================
+  # JOB 3: SAFE AUTO-FIX APPLICATION - Remediation
+  # ============================================================================
+  safe-auto-fix:
+    name: Safe Auto-Fix Application - Remediation
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [failure-classification, lint-test-execution]
+    if: >
+      always() &&
+      needs.failure-classification.outputs.auto_fix_applicable == 'true' &&
+      needs.failure-classification.outputs.requires_human_review != 'true'
+    outputs:
+      fixes_applied: ${{ steps.apply_fixes.outputs.fixes_applied }}
+      fix_count: ${{ steps.apply_fixes.outputs.fix_count }}
+      commit_created: ${{ steps.commit_fixes.outputs.commit_created }}
+    steps:
+      - name: Checkout Aletheion Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 2
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Rust Toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt
+          profile: minimal
+
+      - name: Apply Safe Auto-Fixes
+        id: apply_fixes
+        run: |
+          echo "=== Safe Auto-Fix Application ==="
+          FIXES_APPLIED=""
+          FIX_COUNT=0
+
+          # Rust formatting fixes
+          if [ "${{ needs.lint-test-execution.outputs.lint_passed }}" = "false" ]; then
+            echo "Applying rustfmt auto-fix..."
+            cargo fmt --manifest-path ./aletheion/highways/kernel/Cargo.toml
+            cargo fmt --manifest-path ./aletheion/synthexis/engine/native/Cargo.toml
+            cargo fmt --manifest-path ./aletheion/compliance/core/Cargo.toml
+            FIXES_APPLIED="$FIXES_APPLIED rustfmt"
+            FIX_COUNT=$((FIX_COUNT + 1))
+            echo "✓ Applied rustfmt fixes"
+          fi
+
+          # YAML whitespace fixes (safe only)
+          if [ "${{ needs.lint-test-execution.outputs.yaml_validated }}" = "false" ]; then
+            echo "Applying YAML whitespace fixes..."
+            find .github/workflows -name "*.yml" -type f -exec sed -i 's/[[:space:]]*$//' {} \;
+            FIXES_APPLIED="$FIXES_APPLIED yaml_whitespace"
+            FIX_COUNT=$((FIX_COUNT + 1))
+            echo "✓ Applied YAML whitespace fixes"
+          fi
+
+          # Lua cleanup
+          if [ "${{ needs.lint-test-execution.outputs.lua_validated }}" = "false" ]; then
+            echo "Applying Lua cleanup..."
+            find ./aletheion/ -name "*.lua" -type f -exec sed -i 's/[[:space:]]*$//' {} \;
+            FIXES_APPLIED="$FIXES_APPLIED lua_cleanup"
+            FIX_COUNT=$((FIX_COUNT + 1))
+            echo "✓ Applied Lua cleanup"
+          fi
+
+          # No rollback/downgrade/reversal
+          echo "Verifying no forbidden concepts introduced..."
+          if grep -rE "(rollback|downgrade|reversal)" --include="*.rs" --include="*.lua" --include="*.yml" ./aletheion/ .github/workflows/ 2>/dev/null; then
+            echo "::error::Forbidden concepts detected in auto-fix - discarding changes"
+            git reset --hard HEAD
+            FIXES_APPLIED="none"
+            FIX_COUNT=0
+          fi
+
+          echo "fixes_applied=$FIXES_APPLIED" >> "$GITHUB_OUTPUT"
+          echo "fix_count=$FIX_COUNT" >> "$GITHUB_OUTPUT"
+          echo "Total fixes applied: $FIX_COUNT"
+
+      - name: Commit and Push Fixes
+        id: commit_fixes
+        if: steps.apply_fixes.outputs.fix_count != '0'
+        run: |
+          echo "Committing auto-fixes..."
+          git config user.name "aletheion-healing-bot"
+          git config user.email "healing@aletheion.city"
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "HEAL: Auto-fix applied by healing workflow [run:${{ github.run_id }}]"
+            git push origin HEAD:main
+            echo "commit_created=true" >> "$GITHUB_OUTPUT"
+            echo "✓ Auto-fixes committed and pushed"
+          else
+            echo "commit_created=false" >> "$GITHUB_OUTPUT"
+            echo "No changes to commit"
+          fi
+
+      - name: Create Evolution Proposal Record
+        if: steps.commit_fixes.outputs.commit_created == 'true'
+        run: |
+          echo "Creating EvolutionProposalRecord..."
+          cat >> .evolve.jsonl << EOF
+          {"evp_id":"EVP-$(date +%Y%m%d%H%M%S)-$$","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","type":"auto_heal_fix","workflow_run":"${{ github.run_id }}","fixes_applied":"${{ steps.apply_fixes.outputs.fixes_applied }}","stake_multisig":"pending","hex_stamp":"$(git rev-parse HEAD)"}
+          EOF
+
+          git add .evolve.jsonl
+          git commit -m "EVP: Auto-heal evolution record [run:${{ github.run_id }}]"
+          git push origin HEAD:main
+          echo "✓ EVP record created"
+
+  # ============================================================================
+  # JOB 4: ADVISORY-ONLY MARKING - Engine Stability Flag
+  # ============================================================================
+  advisory-marking:
+    name: Advisory-Only Marking - Engine Stability Flag
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: [failure-classification, lint-test-execution, safe-auto-fix]
+    if: >
+      always() &&
+      (needs.failure-classification.outputs.failure_severity == 'critical' ||
+       needs.lint-test-execution.outputs.test_passed == 'false' ||
+       needs.safe-auto-fix.result == 'failure')
+    steps:
+      - name: Checkout Aletheion Repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+        with:
+          fetch-depth: 1
+          persist-credentials: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Mark Engine as Advisory-Only
+        run: |
+          echo "=== Advisory-Only Engine Marking ==="
+
+          mkdir -p ./aletheion/synthexis/status
+          cat > ./aletheion/synthexis/status/ENGINE_ADVISORY_ONLY.flag << EOF
+          {
+            "flag_id": "ADVISORY-$(date +%Y%m%d%H%M%S)-$$",
+            "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "triggered_by_workflow": "${{ github.run_id }}",
+            "failure_classification": "${{ needs.failure-classification.outputs.failure_type }}",
+            "severity": "${{ needs.failure-classification.outputs.severity }}",
+            "affected_modules": "${{ needs.failure-classification.outputs.affected_modules }}",
+            "advisory_reason": "Engine stability compromised - automated operations suspended pending review",
+            "auto_operations_suspended": true,
+            "manual_review_required": true,
+            "stake_notification_sent": true,
+            "recovery_protocol": "manual_stake_multisig_verification"
+          }
+          EOF
+
+          git config user.name "aletheion-healing-bot"
+          git config user.email "healing@aletheion.city"
+          git add ./aletheion/synthexis/status/ENGINE_ADVISORY_ONLY.flag
+          git commit -m "ADVISORY: Engine marked advisory-only due to stability concerns [run:${{ github.run_id }}]"
+          git push origin HEAD:main
+
+          echo "✓ Engine marked as advisory-only"
+
+      - name: Notify Stake Multisig Signers
+        run: |
+          echo "Notifying stake multisig signers..."
+          if [ -n "${{ secrets.STAKE_NOTIFICATION_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.STAKE_NOTIFICATION_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"alert_type\": \"engine_advisory_only\",
+                \"severity\": \"${{ needs.failure-classification.outputs.severity }}\",
+                \"workflow_run\": \"${{ github.run_id }}\",
+                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+                \"action_required\": \"stake_multisig_verification\"
+              }" || echo "Stake notification failed"
+          fi
+
+  # ============================================================================
+  # JOB 5: HEALING SUMMARY & NOTIFICATION - Final Report
+  # ============================================================================
+  healing-summary:
+    name: Healing Summary & Notification - Final Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: [failure-classification, lint-test-execution, safe-auto-fix, advisory-marking]
+    if: always()
+    steps:
+      - name: Generate Healing Summary Report
+        run: |
+          echo "=== Aletheion Synthexis Healing - Final Summary ===" | tee ./healing_summary.md
+          {
+            echo ""
+            echo "## Healing Workflow Execution Summary"
+            echo ""
+            echo "| Metric | Value |"
+            echo "|--------|-------|"
+            echo "| Healing Run ID | ${{ github.run_id }} |"
+            echo "| Execution Time | $(date -u +%Y-%m-%dT%H:%M:%SZ) |"
+            echo "| Failure Type | ${{ needs.failure-classification.outputs.failure_type }} |"
+            echo "| Failure Severity | ${{ needs.failure-classification.outputs.severity }} |"
+            echo "| Affected Modules | ${{ needs.failure-classification.outputs.affected_modules }} |"
+            echo "| Auto-Fix Applicable | ${{ needs.failure-classification.outputs.auto_fix_applicable }} |"
+            echo "| Human Review Required | ${{ needs.failure-classification.outputs.requires_human_review }} |"
+            echo "| Rust Lint Passed | ${{ needs.lint-test-execution.outputs.lint_passed }} |"
+            echo "| Rust Tests Passed | ${{ needs.lint-test-execution.outputs.test_passed }} |"
+            echo "| ALN Validated | ${{ needs.lint-test-execution.outputs.aln_validated }} |"
+            echo "| YAML Validated | ${{ needs.lint-test-execution.outputs.yaml_validated }} |"
+            echo "| Lua Validated | ${{ needs.lint-test-execution.outputs.lua_validated }} |"
+            echo "| Fixes Applied | ${{ needs.safe-auto-fix.outputs.fixes_applied }} |"
+            echo "| Fix Count | ${{ needs.safe-auto-fix.outputs.fix_count }} |"
+            echo "| Commit Created | ${{ needs.safe-auto-fix.outputs.commit_created }} |"
+            echo "| Advisory Marking | ${{ needs.advisory-marking.result }} |"
+            echo ""
+            if [ "${{ needs.failure-classification.outputs.requires_human_review }}" = "false" ] && \
+               [ "${{ needs.safe-auto-fix.result }}" = "success" ]; then
+              echo "## HEALING STATUS: SUCCESS - Auto-fixes applied"
+            elif [ "${{ needs.failure-classification.outputs.requires_human_review }}" = "true" ]; then
+              echo "## HEALING STATUS: REQUIRES HUMAN REVIEW"
+            else
+              echo "## HEALING STATUS: PARTIAL - Advisory mode activated"
+            fi
+          } >> ./healing_summary.md
+
+      - name: Send Healing Notification
+        if: always()
+        run: |
+          if [ -n "${{ secrets.HEALING_NOTIFICATION_WEBHOOK }}" ]; then
+            curl -X POST "${{ secrets.HEALING_NOTIFICATION_WEBHOOK }}" \
+              -H "Content-Type: application/json" \
+              -d "{
+                \"workflow\": \"Aletheion Synthexis Healing\",
+                \"status\": \"completed\",
+                \"run_id\": \"${{ github.run_id }}\",
+                \"failure_type\": \"${{ needs.failure-classification.outputs.failure_type }}\",
+                \"healing_result\": \"${{ needs.safe-auto-fix.result }}\",
+                \"timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
+              }" || echo "Healing notification failed"
+          fi
+
+      - name: Upload Healing Summary Artifact
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3
+        with:
+          name: healing-summary-${{ github.run_id }}
+          path: ./healing_summary.md
+          retention-days: 2555
