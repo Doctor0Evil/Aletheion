@@ -1,0 +1,1022 @@
+// ============================================================================
+// FILE: aletheion/highways/ifc/ALE-HIGHWAYS-IFC-TAINT-MODEL-001.aln
+// PURPOSE: Declarative information-flow control grammar with taint labels,
+//          sensitivity levels, domain boundaries, and cross-module flow policies
+//          for zero-contamination data circulation across Aletheion subsystems
+// LANGUAGE: ALN (Aletheion Logic Notation) - Version 001
+// DESTINATION: Aletheion Repository - Highways IFC Subsystem
+// COMPLIANCE: Zero-contamination IFC, NeurorightsEnvelope, FPIC metadata,
+//             Non-tradable data circulation, Immutable provenance trails
+// AUTHORITY: Single semantic source - Rust/Lua verifiers enforce uniformly
+// RELATED: ALE-HIGHWAYS-CORRIDOR-KERNEL-001.rs, ALE-HIGHWAYS-CORRIDOR-POLICIES-001.aln
+// ============================================================================
+
+@version "001"
+@domain "aletheion.highways.ifc"
+@policy_type "information_flow_control"
+@effective_date "2026-03-08T00:00:00Z"
+@jurisdiction "Phoenix, Arizona, USA"
+@indigenous_territory "Akimel O'odham and Piipaash ancestral lands"
+
+// ============================================================================
+// SECTION 1: SENSITIVITY LEVEL HIERARCHY (LATTICE STRUCTURE)
+// ============================================================================
+
+@sensitivity_lattice {
+    name: "Aletheion_Sensitivity_Lattice"
+    type: "bounded_lattice"
+    bottom: "public"
+    top: "sovereign"
+    
+    @level public {
+        ordinal: 0
+        description: "Publicly accessible data with no restrictions"
+        examples: ["weather_data", "public_transit_schedules", "cool_pavement_locations"]
+        encryption_required: false
+        audit_logging: "minimal"
+        retention_days: 365
+        export_allowed: true
+        citation: "Phoenix Open Data Portal standards"
+    }
+    
+    @level internal {
+        ordinal: 1
+        description: "Internal operational data for city systems"
+        examples: ["sensor_calibration", "maintenance_schedules", "resource_allocation"]
+        encryption_required: true
+        encryption_algorithm: "AES-256-GCM"
+        audit_logging: "standard"
+        retention_days: 730
+        export_allowed: false
+        access_control: "role_based"
+    }
+    
+    @level confidential {
+        ordinal: 2
+        description: "Sensitive citizen and infrastructure data"
+        examples: ["health_metrics", "mobility_patterns", "energy_consumption"]
+        encryption_required: true
+        encryption_algorithm: "XChaCha20-Poly1305"
+        audit_logging: "enhanced"
+        retention_days: 1095
+        export_allowed: false
+        access_control: "attribute_based"
+        fpic_required: true
+        citation: "EU AI Act Article 5, GDPR Article 9"
+    }
+    
+    @level sovereign {
+        ordinal: 3
+        description: "Neural data, consent states, and sovereignty-critical information"
+        examples: ["biosignals", "consent_records", "neural_data", "DID_credentials"]
+        encryption_required: true
+        encryption_algorithm: "XChaCha20-Poly1305"
+        audit_logging: "maximum"
+        retention_days: 2555
+        export_allowed: false
+        access_control: "cryptographic_capability"
+        fpic_required: true
+        neurorights_envelope: true
+        stake_multisig_required: true
+        citation: "Neuro-Rights Framework 2025, DID-Bound Brain Identity"
+    }
+    
+    @flow_rule lattice_flow_001 {
+        description: "Information may only flow upward or within same sensitivity level"
+        condition: source.ordinal <= target.ordinal
+        enforcement: hard_block
+        violation_response: reject_transfer_and_audit
+    }
+    
+    @flow_rule lattice_flow_002 {
+        description: "Downgrade requires stake multisig and EVP record"
+        condition: source.ordinal > target.ordinal => stake_multisig_verified == true && evp_record_present == true
+        enforcement: hard_block
+        citation: "No downgrades per Aletheion rules - forward-compatible only"
+    }
+}
+
+// ============================================================================
+// SECTION 2: DOMAIN CLASSIFICATION FOR DATA SEGREGATION
+// ============================================================================
+
+@domain_classification {
+    name: "Aletheion_Domain_Boundaries"
+    type: "partitioned_domains"
+    
+    @domain water {
+        id: "DOM-WATER-001"
+        description: "Water systems, reclamation, distribution, quality"
+        data_types: ["flow_rates", "pressure_readings", "quality_metrics", "reclamation_status"]
+        allowed_sensitivity: [public, internal, confidential]
+        cross_domain_flows: [thermal, waste, biotic]
+        isolation_level: "namespace"
+        citation: "Phoenix Water Services 2025"
+    }
+    
+    @domain thermal {
+        id: "DOM-THERMAL-001"
+        description: "Heat management, cooling systems, urban heat island"
+        data_types: ["temperature_readings", "heat_index", "cooling_capacity", "shade_coverage"]
+        allowed_sensitivity: [public, internal, confidential]
+        cross_domain_flows: [water, somatic, biotic]
+        isolation_level: "namespace"
+        citation: "Phoenix Heat Relief Network 2025"
+    }
+    
+    @domain biotic {
+        id: "DOM-BIOTIC-001"
+        description: "Ecological systems, wildlife corridors, species protection"
+        data_types: ["species_counts", "corridor_connectivity", "pesticide_levels", "habitat_quality"]
+        allowed_sensitivity: [public, internal, confidential]
+        cross_domain_flows: [water, thermal, waste]
+        isolation_level: "namespace"
+        citation: "Sonoran Desert Network Conservation Plan"
+    }
+    
+    @domain somatic {
+        id: "DOM-SOMATIC-001"
+        description: "Human mobility, accessibility, joint load, fall risk"
+        data_types: ["route_plans", "accessibility_scores", "fall_risk_indices", "hydration_requirements"]
+        allowed_sensitivity: [public, internal, confidential]
+        cross_domain_flows: [thermal, neurobiome, treaty]
+        isolation_level: "namespace"
+        citation: "Phoenix Accessibility First Design Guidelines 2025"
+    }
+    
+    @domain neurobiome {
+        id: "DOM-NEUROBIOME-001"
+        description: "Neural data, cognitive states, consent, neurorights"
+        data_types: ["biosignals", "cognitive_load", "consent_states", "neural_encryptions"]
+        allowed_sensitivity: [confidential, sovereign]
+        cross_domain_flows: [somatic, treaty]
+        isolation_level: "air_gapped"
+        neurorights_envelope: true
+        citation: "EU AI Act Article 5, Neuro-Rights Framework 2025"
+    }
+    
+    @domain treaty {
+        id: "DOM-TREATY-001"
+        description: "Governance, microtreaties, stake multisig, sovereignty"
+        data_types: ["treaty_definitions", "multisig_states", "evp_records", "sovereignty_scalars"]
+        allowed_sensitivity: [internal, confidential, sovereign]
+        cross_domain_flows: [all_domains]
+        isolation_level: "cryptographic"
+        stake_multisig_required: true
+        citation: "Googolswarm/ALN Blockchain Integration 2025"
+    }
+    
+    @domain waste {
+        id: "DOM-WASTE-001"
+        description: "Waste streams, material recovery, contamination tracking"
+        data_types: ["recovery_rates", "toxicity_levels", "disposal_routes", "circular_economy_scores"]
+        allowed_sensitivity: [public, internal, confidential]
+        cross_domain_flows: [water, biotic, thermal]
+        isolation_level: "namespace"
+        citation: "Phoenix Zero-Waste Circular Economy 2025"
+    }
+    
+    @flow_rule domain_flow_001 {
+        description: "Same-domain flows require matching sensitivity or higher"
+        condition: source.domain == target.domain => source.sensitivity_ordinal <= target.sensitivity_ordinal
+        enforcement: hard_block
+    }
+    
+    @flow_rule domain_flow_002 {
+        description: "Cross-domain flows require explicit contract declaration"
+        condition: source.domain != target.domain => cross_domain_contract_verified == true
+        enforcement: hard_block
+    }
+    
+    @flow_rule domain_flow_003 {
+        description: "Neurobiome domain requires air-gapped isolation except for treaty"
+        condition: source.domain == neurobiome && target.domain != treaty => flow_blocked == true
+        enforcement: hard_block
+        citation: "Neurorights firewall enforcement"
+    }
+}
+
+// ============================================================================
+// SECTION 3: PROVENANCE TYPE ENUMERATION
+// ============================================================================
+
+@provenance_types {
+    name: "Aletheion_Provenance_Types"
+    type: "enumerated"
+    
+    @type sensor {
+        id: "PROV-SENSOR-001"
+        description: "Data originating from physical sensors"
+        examples: ["temperature_sensors", "flow_meters", "air_quality_monitors", "vibration_sensors"]
+        trust_level: "high"
+        verification_required: "calibration_certificate"
+        tamper_detection: true
+        citation: "IoT sensor network standards"
+    }
+    
+    @type citizen {
+        id: "PROV-CITIZEN-001"
+        description: "Data provided directly by citizens"
+        examples: ["consent_grants", "feedback_reports", "mobility_preferences", "health_self_reports"]
+        trust_level: "medium"
+        verification_required: "DID_signature"
+        fpic_required: true
+        citation: "Self-sovereign identity framework"
+    }
+    
+    @type treaty {
+        id: "PROV-TREATY-001"
+        description: "Data derived from governance treaties and contracts"
+        examples: ["microtreaty_definitions", "policy_constraints", "sovereignty_bounds"]
+        trust_level: "maximum"
+        verification_required: "stake_multisig"
+        immutable: true
+        citation: "Googolswarm/ALN blockchain"
+    }
+    
+    @type inference {
+        id: "PROV-INFERENCE-001"
+        description: "Data derived from computational inference or ML models"
+        examples: ["heat_predictions", "traffic_forecasts", "risk_assessments", "optimization_outputs"]
+        trust_level: "medium"
+        verification_required: "model_card_and_validation"
+        confidence_threshold: 0.85
+        citation: "Aletheion ML governance standards"
+    }
+    
+    @type synthetic {
+        id: "PROV-SYNTHETIC-001"
+        description: "Synthetically generated data for testing or simulation"
+        examples: ["test_data", "simulation_outputs", "synthetic_personas"]
+        trust_level: "low"
+        verification_required: "synthetic_flag"
+        production_use_allowed: false
+        citation: "Testing and simulation protocols"
+    }
+    
+    @type derived {
+        id: "PROV-DERIVED-001"
+        description: "Data derived from aggregation or transformation of other data"
+        examples: ["aggregated_statistics", "transformed_metrics", "computed_indices"]
+        trust_level: "inherited"
+        verification_required: "lineage_trace"
+        lineage_required: true
+        citation: "Data provenance tracking standards"
+    }
+    
+    @flow_rule provenance_flow_001 {
+        description: "Synthetic data cannot flow to production systems"
+        condition: source.provenance == synthetic => target.environment != production
+        enforcement: hard_block
+    }
+    
+    @flow_rule provenance_flow_002 {
+        description: "Derived data must carry full lineage trace"
+        condition: target.provenance == derived => source.lineage_trace_present == true
+        enforcement: hard_block
+    }
+    
+    @flow_rule provenance_flow_003 {
+        description: "Treaty provenance data is immutable and maximum trust"
+        condition: source.provenance == treaty => target.immutability_enforced == true
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 4: IFC LABEL STRUCTURE DEFINITION
+// ============================================================================
+
+@ifc_label_schema {
+    name: "Aletheion_IFC_Label"
+    version: "001"
+    
+    @field label_id {
+        type: "string"
+        pattern: "^IFC-[0-9]{8}-[A-Z]{4}-[0-9]{4}$"
+        required: true
+        immutable: true
+        description: "Unique identifier for this IFC label"
+    }
+    
+    @field sensitivity {
+        type: "enum"
+        allowed_values: [public, internal, confidential, sovereign]
+        required: true
+        mutable: false
+        description: "Sensitivity level from lattice"
+    }
+    
+    @field domain {
+        type: "enum"
+        allowed_values: [water, thermal, biotic, somatic, neurobiome, treaty, waste]
+        required: true
+        mutable: false
+        description: "Domain classification"
+    }
+    
+    @field provenance {
+        type: "enum"
+        allowed_values: [sensor, citizen, treaty, inference, synthetic, derived]
+        required: true
+        mutable: false
+        description: "Provenance type"
+    }
+    
+    @field origin_hash {
+        type: "string"
+        pattern: "^[a-f0-9]{64}$"
+        required: true
+        immutable: true
+        description: "Cryptographic hash of data origin (non-blacklisted algorithm)"
+        citation: "Must use non-blacklisted hash function"
+    }
+    
+    @field timestamp {
+        type: "unix_timestamp"
+        required: true
+        mutable: false
+        description: "Creation timestamp in Unix epoch seconds"
+    }
+    
+    @field fpic_verified {
+        type: "boolean"
+        required: true
+        mutable: false
+        description: "Free, Prior, and Informed Consent verification status"
+    }
+    
+    @field neurorights_compliant {
+        type: "boolean"
+        required: false
+        mutable: false
+        description: "Neurorights envelope compliance flag"
+        default: false
+    }
+    
+    @field lineage_trace {
+        type: "array"
+        item_type: "label_id"
+        required: false
+        mutable: false
+        description: "Chain of parent label IDs for derived data"
+    }
+    
+    @field purpose_binding {
+        type: "string"
+        required: true
+        mutable: false
+        description: "Specific purpose for which data may be used"
+    }
+    
+    @field expiration_timestamp {
+        type: "unix_timestamp"
+        required: false
+        mutable: false
+        description: "Optional expiration time for time-bound data"
+    }
+    
+    @field stake_multisig_hash {
+        type: "string"
+        pattern: "^[a-f0-9]{64}$"
+        required: false
+        mutable: false
+        description: "Stake multisig verification hash for sovereign data"
+    }
+    
+    @invariant label_invariant_001 {
+        description: "All sovereign labels require FPIC verification"
+        condition: sensitivity == sovereign => fpic_verified == true
+        enforcement: hard_block
+    }
+    
+    @invariant label_invariant_002 {
+        description: "Neurobiome domain labels require neurorights compliance"
+        condition: domain == neurobiome => neurorights_compliant == true
+        enforcement: hard_block
+    }
+    
+    @invariant label_invariant_003 {
+        description: "Derived data must have lineage trace"
+        condition: provenance == derived => lineage_trace.length > 0
+        enforcement: hard_block
+    }
+    
+    @invariant label_invariant_004 {
+        description: "Sovereign labels require stake multisig hash"
+        condition: sensitivity == sovereign => stake_multisig_hash != null
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 5: CROSS-MODULE FLOW POLICIES (Rust, Lua, JS, Kotlin, C++)
+// ============================================================================
+
+@module_flow_policies {
+    name: "Aletheion_Cross_Module_Flow"
+    version: "001"
+    
+    @module rust_kernel {
+        id: "MOD-RUST-001"
+        description: "Rust safety kernels and enforcement substrates"
+        allowed_sensitivity_in: [public, internal, confidential, sovereign]
+        allowed_sensitivity_out: [public, internal, confidential, sovereign]
+        allowed_domains: [all]
+        ifc_enforcement: "compile_time_and_runtime"
+        taint_tracking: "full"
+        citation: "ALE-HIGHWAYS-CORRIDOR-KERNEL-001.rs"
+        
+        @capability can_enforce {
+            description: "Can enforce IFC policies at runtime"
+            enabled: true
+        }
+        
+        @capability can_verify {
+            description: "Can verify IFC labels and provenance"
+            enabled: true
+        }
+        
+        @capability can_transform {
+            description: "Can transform data with new IFC labels"
+            enabled: true
+            requires: "lineage_trace_update"
+        }
+    }
+    
+    @module lua_orchestrator {
+        id: "MOD-LUA-001"
+        description: "Lua orchestration scripts for workflow automation"
+        allowed_sensitivity_in: [public, internal, confidential]
+        allowed_sensitivity_out: [public, internal, confidential]
+        allowed_domains: [water, thermal, biotic, somatic, waste]
+        excluded_domains: [neurobiome]
+        ifc_enforcement: "runtime_only"
+        taint_tracking: "full"
+        citation: "ALE-SYNTHEXIS-LNP-NIGHTLY-ENGINE-004.lua"
+        
+        @capability can_enforce {
+            description: "Can enforce IFC policies at runtime"
+            enabled: false
+            reason: "Orchestration only, enforcement delegated to Rust"
+        }
+        
+        @capability can_verify {
+            description: "Can verify IFC labels before passing to Rust"
+            enabled: true
+        }
+        
+        @capability can_transform {
+            description: "Can transform data with new IFC labels"
+            enabled: false
+            reason: "Policy changes require Rust kernel"
+        }
+    }
+    
+    @module javascript_interface {
+        id: "MOD-JS-001"
+        description: "JavaScript citizen interfaces and dashboards"
+        allowed_sensitivity_in: [public, internal]
+        allowed_sensitivity_out: [public]
+        allowed_domains: [water, thermal, biotic, somatic, waste]
+        excluded_domains: [neurobiome, treaty]
+        ifc_enforcement: "client_side_validation"
+        taint_tracking: "minimal"
+        citation: "Citizen dashboard interfaces"
+        
+        @capability can_enforce {
+            description: "Can enforce IFC policies"
+            enabled: false
+            reason: "Display only, no enforcement"
+        }
+        
+        @capability can_verify {
+            description: "Can verify IFC labels for display"
+            enabled: true
+        }
+        
+        @capability can_transform {
+            description: "Can transform data"
+            enabled: false
+            reason: "Read-only interface"
+        }
+        
+        @constraint js_constraint_001 {
+            description: "Cannot access sovereign data"
+            condition: sensitivity != sovereign
+            enforcement: hard_block
+        }
+    }
+    
+    @module kotlin_android {
+        id: "MOD-KOTLIN-001"
+        description: "Kotlin/Android mobile companion apps"
+        allowed_sensitivity_in: [public, internal, confidential]
+        allowed_sensitivity_out: [public, internal, confidential]
+        allowed_domains: [somatic, thermal, biotic]
+        excluded_domains: [neurobiome, treaty, waste]
+        ifc_enforcement: "device_side_encryption"
+        taint_tracking: "full"
+        citation: "Mobile companion apps for citizens"
+        
+        @capability can_enforce {
+            description: "Can enforce IFC policies on device"
+            enabled: true
+            requires: "local_encryption"
+        }
+        
+        @capability can_verify {
+            description: "Can verify IFC labels"
+            enabled: true
+        }
+        
+        @capability can_transform {
+            description: "Can transform data with user consent"
+            enabled: true
+            requires: "fpic_verified"
+        }
+        
+        @constraint kotlin_constraint_001 {
+            description: "All confidential data must be encrypted at rest"
+            condition: sensitivity == confidential => encryption_at_rest == true
+            enforcement: hard_block
+        }
+    }
+    
+    @module cpp_edge {
+        id: "MOD-CPP-001"
+        description: "C++ edge integrations and hardware coupling"
+        allowed_sensitivity_in: [public, internal, confidential]
+        allowed_sensitivity_out: [public, internal, confidential]
+        allowed_domains: [water, thermal, waste]
+        excluded_domains: [neurobiome, treaty]
+        ifc_enforcement: "firmware_level"
+        taint_tracking: "full"
+        citation: "Edge hardware integrations"
+        
+        @capability can_enforce {
+            description: "Can enforce IFC policies at firmware level"
+            enabled: true
+        }
+        
+        @capability can_verify {
+            description: "Can verify IFC labels"
+            enabled: true
+        }
+        
+        @capability can_transform {
+            description: "Can transform data from sensors"
+            enabled: true
+            requires: "sensor_calibration_valid"
+        }
+    }
+    
+    @flow_rule module_flow_001 {
+        description: "Lua cannot directly access neurobiome domain"
+        condition: module == lua_orchestrator && data.domain == neurobiome => flow_blocked == true
+        enforcement: hard_block
+        citation: "Neurorights isolation"
+    }
+    
+    @flow_rule module_flow_002 {
+        description: "JavaScript cannot output confidential or sovereign data"
+        condition: module == javascript_interface && data.sensitivity in [confidential, sovereign] => flow_blocked == true
+        enforcement: hard_block
+    }
+    
+    @flow_rule module_flow_003 {
+        description: "All modules must verify IFC labels before processing"
+        condition: all_modules => ifc_label_verified == true
+        enforcement: hard_block
+    }
+    
+    @flow_rule module_flow_004 {
+        description: "Rust kernel is the only module that can enforce sovereign operations"
+        condition: data.sensitivity == sovereign => module == rust_kernel
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 6: TAINT TRACKING AND PROPAGATION RULES
+// ============================================================================
+
+@taint_tracking {
+    name: "Aletheion_Taint_Propagation"
+    version: "001"
+    
+    @taint_source {
+        id: "TAINT-SRC-001"
+        description: "Definition of taint sources in the system"
+        
+        @source sensor_input {
+            type: "external_input"
+            domains: [water, thermal, biotic, waste]
+            sensitivity_default: internal
+            taint_label: "sensor_taint"
+            sanitization_required: true
+        }
+        
+        @source citizen_input {
+            type: "external_input"
+            domains: [somatic, neurobiome]
+            sensitivity_default: confidential
+            taint_label: "citizen_taint"
+            fpic_required: true
+            sanitization_required: true
+        }
+        
+        @source treaty_definition {
+            type: "internal_authoritative"
+            domains: [treaty]
+            sensitivity_default: sovereign
+            taint_label: "treaty_taint"
+            immutable: true
+            sanitization_required: false
+        }
+        
+        @source inference_output {
+            type: "computed"
+            domains: [all]
+            sensitivity_default: internal
+            taint_label: "inference_taint"
+            confidence_threshold: 0.85
+            sanitization_required: true
+        }
+    }
+    
+    @taint_sink {
+        id: "TAINT-SNK-001"
+        description: "Definition of taint sinks requiring validation"
+        
+        @sink database_write {
+            type: "persistent_storage"
+            validation_required: "schema_and_ifc"
+            encryption_required: true
+            audit_log: true
+        }
+        
+        @sink network_transmit {
+            type: "external_communication"
+            validation_required: "ifc_and_encryption"
+            encryption_required: true
+            audit_log: true
+            destination_whitelist: true
+        }
+        
+        @sink actuator_command {
+            type: "physical_actuation"
+            validation_required: "corridor_and_treaty"
+            corridor_validation: true
+            treaty_validation: true
+            audit_log: true
+        }
+        
+        @sink citizen_display {
+            type: "user_interface"
+            validation_required: "sensitivity_filter"
+            sensitivity_max: internal
+            audit_log: false
+        }
+    }
+    
+    @propagation_rule taint_prop_001 {
+        description: "Taint propagates through all transformations"
+        condition: output = transform(input) => output.taint_labels includes input.taint_labels
+        enforcement: hard_block
+    }
+    
+    @propagation_rule taint_prop_002 {
+        description: "Multiple taint sources merge with union of labels"
+        condition: output = combine(input1, input2) => output.taint_labels = input1.taint_labels union input2.taint_labels
+        enforcement: hard_block
+    }
+    
+    @propagation_rule taint_prop_003 {
+        description: "Sanitization removes taint only with verified process"
+        condition: output = sanitize(input) => output.taint_labels = empty IF sanitization_verified == true
+        enforcement: hard_block
+    }
+    
+    @propagation_rule taint_prop_004 {
+        description: "Sovereign taint cannot be sanitized without stake multisig"
+        condition: sovereign_taint in input.taint_labels => sanitization_requires_stake_multisig == true
+        enforcement: hard_block
+    }
+    
+    @invariant taint_invariant_001 {
+        description: "All data reaching sinks must have validated taint labels"
+        condition: sink_reception => taint_labels_validated == true
+        enforcement: hard_block
+    }
+    
+    @invariant taint_invariant_002 {
+        description: "Taint labels must include full lineage for derived data"
+        condition: provenance == derived => taint_labels.lineage_trace_complete == true
+        enforcement: hard_block
+    }
+}
+
+// ============================================================================
+// SECTION 7: ZERO-CONTAMINATION ENFORCEMENT POLICIES
+// ============================================================================
+
+@zero_contamination {
+    name: "Aletheion_Zero_Contamination_Policy"
+    version: "001"
+    
+    @contamination_type forbidden_hash {
+        id: "CONTAM-HASH-001"
+        description: "Blacklisted cryptographic hash algorithms"
+        blocked_algorithms: [
+            "blake", "argon", "sha3-256", "KECCAK_256", "RIPEMD160",
+            "BLAKE2S256_ALT", "XXH3_128", "SHA3-512", "SHA-256",
+            "SHA-3-256", "RIPEMD-160", "BLAKE2b-256"
+        ]
+        detection_method: "algorithm_signature_scan"
+        response: "reject_and_audit"
+        citation: "Aletheion Blacklist compliance"
+    }
+    
+    @contamination_type forbidden_language {
+        id: "CONTAM-LANG-001"
+        description: "Blacklisted programming languages"
+        blocked_languages: ["Python"]
+        detection_method: "file_extension_and_shebang_scan"
+        response: "reject_and_audit"
+        citation: "Aletheion Blacklist compliance"
+    }
+    
+    @contamination_type forbidden_concept {
+        id: "CONTAM-CONCEPT-001"
+        description: "Forbidden conceptual patterns"
+        blocked_patterns: [
+            "rollback", "downgrade", "reversal", "Exergy", "DOW", "NDM",
+            "NEURON", "Brian2"
+        ]
+        detection_method: "semantic_scan"
+        response: "reject_and_audit"
+        citation: "Aletheion Forward-Compatibility Rule"
+    }
+    
+    @contamination_type privacy_violation {
+        id: "CONTAM-PRIVACY-001"
+        description: "Privacy-violating data practices"
+        blocked_patterns: [
+            "facial_recognition_without_consent",
+            "behavioral_prediction_for_advertising",
+            "location_tracking_for_commercial_sale",
+            "subliminal_stimuli"
+        ]
+        detection_method: "policy_compliance_scan"
+        response: "reject_and_audit"
+        citation: "EU AI Act Article 5, Neuro-Rights Framework"
+    }
+    
+    @contamination_type neurorights_violation {
+        id: "CONTAM-NEURO-001"
+        description: "Neurorights envelope violations"
+        blocked_patterns: [
+            "coercive_channels",
+            "mental_state_reading_without_consent",
+            "identity_erosion",
+            "cognitive_scoring_for_enforcement"
+        ]
+        detection_method: "neurorights_envelope_validator"
+        response: "reject_and_audit"
+        citation: "Neuro-Rights Framework 2025"
+    }
+    
+    @enforcement_rule zero_contam_001 {
+        description: "All files must pass contamination scan before acceptance"
+        condition: file_acceptance => contamination_scan_passed == true
+        enforcement: hard_block
+    }
+    
+    @enforcement_rule zero_contam_002 {
+        description: "Contaminated data must be quarantined and audited"
+        condition: contamination_detected => quarantine_and_audit == true
+        enforcement: hard_block
+    }
+    
+    @enforcement_rule zero_contam_003 {
+        description: "No rollback or downgrade semantics allowed"
+        condition: all_operations => rollback_attempt == false
+        enforcement: hard_block
+        citation: "Aletheion Forward-Compatibility Rule"
+    }
+}
+
+// ============================================================================
+// SECTION 8: AUDIT AND COMPLIANCE LOGGING
+// ============================================================================
+
+@audit_logging {
+    name: "Aletheion_IFC_Audit_Log"
+    version: "001"
+    
+    @log_entry ifc_flow_event {
+        id: "LOG-IFC-001"
+        description: "IFC flow event logging schema"
+        
+        @field event_id {
+            type: "uuid"
+            required: true
+        }
+        
+        @field timestamp {
+            type: "unix_timestamp"
+            required: true
+        }
+        
+        @field source_label {
+            type: "ifc_label_schema"
+            required: true
+        }
+        
+        @field target_label {
+            type: "ifc_label_schema"
+            required: true
+        }
+        
+        @field module {
+            type: "enum"
+            allowed_values: [rust_kernel, lua_orchestrator, javascript_interface, kotlin_android, cpp_edge]
+            required: true
+        }
+        
+        @field flow_result {
+            type: "enum"
+            allowed_values: [allowed, blocked, quarantined]
+            required: true
+        }
+        
+        @field violation_reason {
+            type: "string"
+            required: false
+        }
+        
+        @field auditor_signature {
+            type: "cryptographic_signature"
+            required: true
+        }
+    }
+    
+    @retention_policy {
+        sensitivity_public: 365
+        sensitivity_internal: 730
+        sensitivity_confidential: 1095
+        sensitivity_sovereign: 2555
+        citation: "7-year retention for sovereign data per municipal compliance"
+    }
+    
+    @access_control {
+        public_logs: "public_read"
+        internal_logs: "role_based_read"
+        confidential_logs: "attribute_based_read"
+        sovereign_logs: "stake_multisig_read"
+    }
+    
+    @encryption {
+        algorithm: "AES-256-GCM"
+        key_rotation_days: 90
+        citation: "Non-blacklisted encryption standard"
+    }
+}
+
+// ============================================================================
+// SECTION 9: CROSS-DOMAIN CONTRACT DEFINITIONS
+// ============================================================================
+
+@cross_domain_contracts {
+    name: "Aletheion_Cross_Domain_Contracts"
+    version: "001"
+    
+    @contract water_thermal_contract {
+        id: "CONTRACT-WT-001"
+        domains: [water, thermal]
+        description: "Water-Thermal coupling for cooling systems"
+        
+        @allowed_flow {
+            from: water.flow_rates
+            to: thermal.cooling_capacity
+            sensitivity_max: confidential
+            fpic_required: false
+        }
+        
+        @allowed_flow {
+            from: thermal.heat_index
+            to: water.reclamation_status
+            sensitivity_max: internal
+            fpic_required: false
+        }
+        
+        @invariant contract_invariant_001 {
+            description: "Water reclamation affects cooling capacity"
+            condition: water.reclamation_pct >= 97.0 => thermal.cooling_capacity_kw >= 2000.0
+            enforcement: soft_warning
+        }
+    }
+    
+    @contract somatic_thermal_contract {
+        id: "CONTRACT-ST-001"
+        domains: [somatic, thermal]
+        description: "Heat-aware routing for pedestrian safety"
+        
+        @allowed_flow {
+            from: thermal.heat_index
+            to: somatic.route_plans
+            sensitivity_max: confidential
+            fpic_required: true
+        }
+        
+        @allowed_flow {
+            from: somatic.hydration_requirements
+            to: thermal.cooling_station_placement
+            sensitivity_max: internal
+            fpic_required: false
+        }
+        
+        @invariant contract_invariant_002 {
+            description: "High heat index reduces maximum heat exposure time"
+            condition: thermal.heat_index_c > 50.0 => somatic.heat_exposure_max_min <= 15.0
+            enforcement: hard_block
+        }
+    }
+    
+    @contract neurobiome_treaty_contract {
+        id: "CONTRACT-NT-001"
+        domains: [neurobiome, treaty]
+        description: "Neural data sovereignty and consent enforcement"
+        
+        @allowed_flow {
+            from: neurobiome.consent_states
+            to: treaty.stake_multisig
+            sensitivity_max: sovereign
+            fpic_required: true
+            neurorights_envelope: true
+        }
+        
+        @allowed_flow {
+            from: treaty.microtreaty_definitions
+            to: neurobiome.neurorights_compliance
+            sensitivity_max: sovereign
+            fpic_required: true
+            neurorights_envelope: true
+        }
+        
+        @invariant contract_invariant_003 {
+            description: "Consent required for all neural data operations"
+            condition: neurobiome.consent_state_active == true => treaty.stake_multisig_verified == true
+            enforcement: hard_block
+        }
+    }
+    
+    @contract biotic_waste_contract {
+        id: "CONTRACT-BW-001"
+        domains: [biotic, waste]
+        description: "Pesticide zero-tolerance and toxicity control"
+        
+        @allowed_flow {
+            from: biotic.pesticide_levels
+            to: waste.toxicity_tracking
+            sensitivity_max: confidential
+            fpic_required: false
+        }
+        
+        @allowed_flow {
+            from: waste.disposal_routes
+            to: biotic.habitat_quality
+            sensitivity_max: internal
+            fpic_required: false
+        }
+        
+        @invariant contract_invariant_004 {
+            description: "Pesticide zero-tolerance affects waste toxicity limits"
+            condition: biotic.pesticide_concentration_ppb == 0.0 => waste.toxicity_level_ppm <= 50.0
+            enforcement: hard_block
+        }
+    }
+}
+
+// ============================================================================
+// SECTION 10: VERSIONING AND EVOLUTION TRACKING
+// ============================================================================
+
+@evolution_track {
+    version: "001"
+    effective_date: "2026-03-08T00:00:00Z"
+    superseded_versions: []
+    next_review_date: "2026-06-08T00:00:00Z"
+    review_frequency_days: 90
+    change_approval_required: ["stake_multisig", "neurorights_audit"]
+    evp_record_location: ".evolve.jsonl"
+}
+
+@compliance_verification {
+    enabled: true
+    verification_tools: ["ALE-COMPLIANCE-IFC-NEURORIGHTS-001.rs"]
+    ci_integration: true
+    preflight_required: true
+    citation: "Compliance preflight per Aletheion CI/CD standards"
+}
