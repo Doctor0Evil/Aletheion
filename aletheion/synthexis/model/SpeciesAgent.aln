@@ -1,0 +1,94 @@
+// Aletheion Synthexis Core Model: SpeciesAgent
+// File: SpeciesAgent.aln
+// Path: aletheion/synthexis/model/SpeciesAgent.aln
+//
+// Role:
+//   - Represent one nonhuman interlocutor (species or guild) for Phoenix.
+//   - Grounded in Sonoran Desert bats, pollinators, and plants research.
+//   - Consumed by BioticTreaty, HabitatContinuityEngine, LightNoisePesticidePlanner.
+
+namespace aletheion.synthexis.model.v1
+
+type SpeciesId = string  // e.g. "myotisvelifer", "native_bee_guild_X", "carnegiea_gigantea"
+
+record Taxon {
+  kingdom:      string,
+  phylum:       string,
+  class:        string,
+  order:        string,
+  family:       string,
+  genus:        string,
+  species:      string,
+  common_name:  string,
+}
+
+record HabitatRequirements {
+  // Structural and spatial dependencies
+  canopy_height_min_m:    float,
+  canopy_height_max_m:    float,
+  cavity_nesting:         bool,
+  ground_nesting:         bool,
+  riparian_dependency:    float,  // 0–1, strength of riparian reliance
+
+  // Water access profile (aligned with Phoenix guidance: drips, birdbaths, canals, irrigation)
+  min_open_water_proximity_m: float,
+  allowed_water_sources:      [string],  // "drip", "birdbath", "riparian", "irrigation", "storm_basin"
+}
+
+record VegetationNeeds {
+  required_native_plants:   [string], // species IDs mapped to Phoenix pollinator plant guides
+  min_native_fraction:      float,    // 0–1 fraction of native plants in planting palette
+  nesting_support_structs:  [string], // "snags", "cavities", "rock_crevices", "dense_shrubs"
+}
+
+record LightTolerance {
+  light_averse:             bool,
+  max_alan_lux_corridor:    float,
+  max_alan_lux_foraging:    float,
+  avoid_spectral_low_nm:    float,  // e.g. 400.0 for 400–500 nm avoidance band
+  avoid_spectral_high_nm:   float,  // upper bound of sensitive band
+}
+
+record NoiseTolerance {
+  max_dba_night:            float,
+  impulsive_noise_penalty:  float,  // weight 0–1 for short, loud events (e.g., bangs, blasts)
+  continuous_noise_penalty: float,  // weight 0–1 for traffic, HVAC hum
+}
+
+record ChemicalTolerance {
+  pesticide_classes_prohibited: [string], // "neonicotinoid", "pyrethroid", etc.
+  drift_distance_threshold_m:   float,
+  particulate_sensitivity:      float,    // 0–1 sensitivity to dust/PM (e.g., high for pollinators, bats)
+}
+
+record SeasonalSensitivities {
+  active_seasons:              [string],  // "spring","summer","monsoon","winter"
+  breeding_windows:            [string],  // ISO date ranges "MM-DD..MM-DD"
+  migration_windows:           [string],
+  critical_dark_corridor_periods: [string], // time bands "HH:MM..HH:MM" for dark commuting needs
+}
+
+record PriorityWeights {
+  conservation_priority:  float, // 0–1
+  cultural_priority:      float, // 0–1
+  ecosystem_service:      float, // 0–1 (pollination, pest control, seed dispersal)
+}
+
+record SpeciesAgent {
+  species_id:        SpeciesId,
+  taxon:             Taxon,
+
+  habitat:           HabitatRequirements,
+  vegetation:        VegetationNeeds,
+  light_tolerance:   LightTolerance,
+  noise_tolerance:   NoiseTolerance,
+  chemical_tolerance: ChemicalTolerance,
+  seasonal:          SeasonalSensitivities,
+  priority:          PriorityWeights,
+
+  // Provenance and Phoenix anchoring
+  data_sources:      [string],  // citations or dataset IDs used to calibrate this profile
+  created_by:        string,    // DID or institutional identifier
+  created_at:        string,    // ISO-8601 timestamp
+  version:           string,    // "1.0.0", etc.
+}
