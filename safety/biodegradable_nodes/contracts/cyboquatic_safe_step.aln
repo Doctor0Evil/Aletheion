@@ -1,0 +1,302 @@
+// Aletheion :: Cyboquatic Safe-Step Treaty Contract
+
+contract CyboquaticSafeStepTreaty {
+
+  /// ==== 1. SCOPE & TAXONOMY ===============================================
+
+  jurisdiction PhoenixCanalBiome {
+    region_id      = "PHX-CANAL-SYSTEM-V1";
+    description    = "Phoenix urban canal, laterals, storm inlets, and adjacent riparian cells";
+    legal_basis    = ["Aletheion-ERM-V1", "BioticTreaty-Sonoran-V1"];
+    version        = "1.0.0";
+  }
+
+  enum NodeClass {
+    SENSOR_PASSIVE,          // sensing only, no actuation
+    SENSOR_ACTIVE,           // sensing + limited actuation (e.g., valves, fins)
+    REMEDIATION_LOW,         // low-intensity remediation (aeration, mild filtration)
+    REMEDIATION_MEDIUM       // medium remediation, requires explicit treaty-slot
+  }
+
+  enum BiomeBand {
+    MAIN_CANAL,
+    LATERAL,
+    STORM_FEEDER,
+    RIPARIAN_CELL,
+    SENSITIVE_HABITAT
+  }
+
+  enum FlowBand {
+    QUIET,          // < 0.1 m/s equivalent
+    MODERATE,       // 0.1 – 0.6 m/s
+    HIGH            // > 0.6 m/s, or turbulent flagged
+  }
+
+  enum DepthBand {
+    SHALLOW,        // 0 – 0.5 m
+    MID,            // 0.5 – 1.5 m
+    DEEP            // > 1.5 m
+  }
+
+  enum RiskBand {
+    LOW,
+    MEDIUM,
+    HIGH,
+    LOCKED          // no node presence permitted
+  }
+
+  enum SafeState {
+    POWERED_DOWN,
+    PASSIVE_SENSE_ONLY,
+    RETREAT_TO_SURFACE,
+    RETREAT_TO_HARBOUR,
+    HARD_REMOVE_REQUESTED
+  }
+
+  /// ==== 2. NODE IDENTITY & STATIC LIMITS ===================================
+
+  struct NodeProfile {
+    node_id:              String;
+    class:                NodeClass;
+    max_operating_days:   Int;        // absolute lifetime cap
+    max_energy_kj_total:  Float;      // cumulative energy budget
+    max_payload_grams:    Float;      // biodegradable material mass
+    manufacturer_ref:     String;
+    firmware_lineage:     String;     // supply-chain trace line
+    biodegradable_cert:   String;     // certificate reference
+  }
+
+  struct PlacementEnvelope {
+    allowed_biome_bands:  Set<BiomeBand>;
+    allowed_depth_bands:  Set<DepthBand>;
+    allowed_flow_bands:   Set<FlowBand>;
+    hard_exclusion_cells: Set<String>;   // cell_ids where node is forbidden
+    min_distance_m_from_spawning: Float; // to avoid fry/spawning nests
+    min_distance_m_from_inlets:   Float; // to avoid blockage risk
+  }
+
+  struct TreatyCaps {
+    max_nodes_per_biome_band: Map<BiomeBand, Int>;
+    max_nodes_per_cell:       Int;
+    max_nodes_per_100m:       Int;
+    max_remediation_medium_per_corridor: Int;
+    risk_ceiling:            RiskBand;   // maximum risk band this class may enter
+  }
+
+  /// ==== 3. DYNAMIC STATE & TELEMETRY =======================================
+
+  struct NodeRuntime {
+    node_id:              String;
+    biome_band:           BiomeBand;
+    depth_band:           DepthBand;
+    flow_band:            FlowBand;
+    cell_id:              String;
+    corridor_id:          String;
+    age_days:             Int;
+    energy_used_kj:       Float;
+    payload_released_g:   Float;
+    last_health_score:    Float;      // 0.0 – 1.0
+    last_biotic_score:    Float;      // 0.0 – 1.0 impact metric (1.0 = no harm observed)
+    last_contact_ts:      Timestamp;
+  }
+
+  struct EnvironmentSnapshot {
+    corridor_id:          String;
+    cell_id:              String;
+    biome_band:           BiomeBand;
+    depth_band:           DepthBand;
+    flow_band:            FlowBand;
+    dissolved_oxygen_mgL: Float;
+    temp_c:               Float;
+    ph:                   Float;
+    turbidity_ntu:        Float;
+    protected_species_nearby: Bool;
+    spawning_window_open: Bool;
+    recent_mortality_event: Bool;
+  }
+
+  /// ==== 4. RISK & SAFE-STEP POLICY ========================================
+
+  rule compute_risk_band (env: EnvironmentSnapshot, node: NodeRuntime) -> RiskBand {
+    if env.protected_species_nearby == true { return HIGH; }
+    if env.spawning_window_open == true { return HIGH; }
+    if env.recent_mortality_event == true { return HIGH; }
+
+    if env.dissolved_oxygen_mgL < 4.0 { return HIGH; }
+    if env.dissolved_oxygen_mgL < 5.0 { return MEDIUM; }
+
+    if env.temp_c > 32.0 { return MEDIUM; }
+    if env.temp_c > 36.0 { return HIGH; }
+
+    if node.last_biotic_score < 0.7 { return HIGH; }
+    if node.last_biotic_score < 0.85 { return MEDIUM; }
+
+    return LOW;
+  }
+
+  rule safe_step_required (risk: RiskBand, caps: TreatyCaps, node_profile: NodeProfile) -> Bool {
+    if risk == LOCKED { return true; }
+    if risk == HIGH { return true; }
+
+    if caps.risk_ceiling == LOW and (risk == MEDIUM or risk == HIGH) { return true; }
+    if caps.risk_ceiling == MEDIUM and risk == HIGH { return true; }
+
+    if node_profile.max_operating_days <= 0 { return true; }
+    return false;
+  }
+
+  rule choose_safe_state (risk: RiskBand, env: EnvironmentSnapshot, node: NodeRuntime) -> SafeState {
+    if risk == LOCKED { return HARD_REMOVE_REQUESTED; }
+
+    if risk == HIGH {
+      if env.flow_band == HIGH { return RETREAT_TO_HARBOUR; }
+      return RETREAT_TO_SURFACE;
+    }
+
+    if risk == MEDIUM {
+      if env.protected_species_nearby == true or env.spawning_window_open == true {
+        return PASSIVE_SENSE_ONLY;
+      }
+      return PASSIVE_SENSE_ONLY;
+    }
+
+    return POWERED_DOWN;
+  }
+
+  /// ==== 5. COUNTS & ENFORCEMENT ACROSS CELLS ===============================
+
+  struct CorridorPopulation {
+    corridor_id:                String;
+    biome_band_counts:          Map<BiomeBand, Int>;
+    cell_counts:                Map<String, Int>;
+    nodes_per_100m_segment:     Map<String, Int>; // segment_id -> count
+    remediation_medium_count:   Int;
+  }
+
+  rule population_violation (caps: TreatyCaps, pop: CorridorPopulation, env: EnvironmentSnapshot, node_profile: NodeProfile) -> Bool {
+    let band_count = pop.biome_band_counts[env.biome_band];
+    if band_count >= caps.max_nodes_per_biome_band[env.biome_band] { return true; }
+
+    let cell_count = pop.cell_counts[env.cell_id];
+    if cell_count >= caps.max_nodes_per_cell { return true; }
+
+    let seg_id = segment_for_cell(env.cell_id);
+    let seg_count = pop.nodes_per_100m_segment[seg_id];
+    if seg_count >= caps.max_nodes_per_100m { return true; }
+
+    if node_profile.class == REMEDIATION_MEDIUM and pop.remediation_medium_count >= caps.max_remediation_medium_per_corridor {
+      return true;
+    }
+
+    return false;
+  }
+
+  fn segment_for_cell (cell_id: String) -> String {
+    // deterministic, corridor-defined mapping; placeholder
+    return "SEG-" + hash_trunc(cell_id, 6);
+  }
+
+  /// ==== 6. LIFETIME & PAYLOAD LIMITS =======================================
+
+  rule lifetime_violation (profile: NodeProfile, runtime: NodeRuntime) -> Bool {
+    if runtime.age_days > profile.max_operating_days { return true; }
+    if runtime.energy_used_kj > profile.max_energy_kj_total { return true; }
+    if runtime.payload_released_g > profile.max_payload_grams { return true; }
+    return false;
+  }
+
+  /// ==== 7. GEOMETRIC & DISTANCE CONSTRAINTS ================================
+
+  rule placement_violation (env: EnvironmentSnapshot, profile: NodeProfile, env_pl: PlacementEnvelope) -> Bool {
+    if env.cell_id in env_pl.hard_exclusion_cells { return true; }
+
+    if env.biome_band notin env_pl.allowed_biome_bands { return true; }
+    if env.depth_band notin env_pl.allowed_depth_bands { return true; }
+    if env.flow_band notin env_pl.allowed_flow_bands { return true; }
+
+    if distance_to_nearest_spawning(env.cell_id) < env_pl.min_distance_m_from_spawning { return true; }
+    if distance_to_nearest_inlet(env.cell_id)   < env_pl.min_distance_m_from_inlets   { return true; }
+
+    return false;
+  }
+
+  fn distance_to_nearest_spawning (cell_id: String) -> Float {
+    // query from BioticTreaty spatial index; interface-only
+    external "biotic_treaty.distance_to_spawning_m"(cell_id);
+  }
+
+  fn distance_to_nearest_inlet (cell_id: String) -> Float {
+    // query from hydraulics/civil index; interface-only
+    external "hydraulic_index.distance_to_inlet_m"(cell_id);
+  }
+
+  /// ==== 8. SAFE-STEP DECISION ENTRYPOINT ===================================
+
+  struct SafeStepDecision {
+    node_id:        String;
+    must_safe_step: Bool;
+    chosen_state:   SafeState;
+    reasons:        Set<String>;
+  }
+
+  rule safe_step_decide (
+      profile:    NodeProfile,
+      env_pl:     PlacementEnvelope,
+      caps:       TreatyCaps,
+      runtime:    NodeRuntime,
+      env:        EnvironmentSnapshot,
+      pop:        CorridorPopulation
+  ) -> SafeStepDecision {
+
+    let risk = compute_risk_band(env, runtime);
+
+    let reasons_acc: Set<String> = {};
+
+    if lifetime_violation(profile, runtime) {
+      reasons_acc.add("lifetime_violation");
+    }
+
+    if placement_violation(env, profile, env_pl) {
+      reasons_acc.add("placement_violation");
+    }
+
+    if population_violation(caps, pop, env, profile) {
+      reasons_acc.add("population_violation");
+    }
+
+    if safe_step_required(risk, caps, profile) {
+      reasons_acc.add("risk_exceeds_ceiling");
+    }
+
+    let must_ss = (reasons_acc.size() > 0);
+
+    let state = if must_ss {
+      choose_safe_state(risk, env, runtime)
+    } else {
+      PASSIVE_SENSE_ONLY
+    };
+
+    return SafeStepDecision {
+      node_id:        runtime.node_id,
+      must_safe_step: must_ss,
+      chosen_state:   state,
+      reasons:        reasons_acc
+    };
+  }
+
+  /// ==== 9. CORRIDOR-GUARANTEE & AUDIT CLAUSES ==============================
+
+  clause corridor_must_enforce_safe_step {
+    description = "No cyboquatic node may remain in REMEDIATION or ACTIVE state in cells where this contract yields must_safe_step == true.";
+    enforceable_by = ["Aletheion-ERM-Orchestrator", "Phoenix-Water-Authority", "BioticTreaty-Guardian"];
+  }
+
+  clause log_and_attest_safe_step {
+    description = "Every safe-step decision is logged with full input state (profile, runtime, env, caps, pop) and attached as a cryptographic attestation to corridor audit streams.";
+    retention_days = 365;
+  }
+
+  clause no_human_override_of_lock {
+    description = "LOCKED risk-band states cannot be downgraded or overridden by human or augmented-citizen operators; only treaty updates that recompile this contract may alter LOCKED zoning.";
+  }
+}
