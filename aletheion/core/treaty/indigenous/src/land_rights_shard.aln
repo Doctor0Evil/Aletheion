@@ -1,0 +1,262 @@
+@version 20260310
+@namespace aletheion.treaty.indigenous
+@license BioticTreaty_v3
+@compliance UNDRIP_2007_NAGPRA_1990_Akimel_Oodham_Piipaash_Agreements
+
+shard IndigenousLandRightsShard {
+    @id: u64,
+    @territory_name: string,
+    @tribe_nation: enum[akimel_oodham, piipaash, tohono_oodham, apache, navajo, hopi],
+    @treaty_reference: string,
+    @established_date_ns: u64,
+    @last_updated_ns: u64,
+    
+    @boundaries: {
+        boundary_points: [(f64, f64)],
+        total_area_km2: f64,
+        buffer_zone_m: f64,
+        sacred_sites: [string],
+        water_rights_areas: [string],
+        hunting_gathering_zones: [string],
+    },
+    
+    @protections: {
+        development_restricted: bool,
+        mining_prohibited: bool,
+        water_extraction_limited: bool,
+        cultural_heritage_protected: bool,
+        ecological_preservation_required: bool,
+        free_prior_informed_consent: bool,
+        benefit_sharing_required: bool,
+    },
+    
+    @consultation: {
+        tribal_council_contact: string,
+        consultation_required_for: [string],
+        minimum_notice_days: u32,
+        consent_documentation: [string],
+        last_consultation_ns: u64,
+        consent_status: enum[granted, denied, pending, expired],
+        consent_expires_ns: u64,
+    },
+    
+    @monitoring: {
+        environmental_sensors: [u64],
+        cultural_monitoring_active: bool,
+        water_quality_checkpoints: [u64],
+        wildlife_survey_areas: [string],
+        last_survey_ns: u64,
+        violation_count: u64,
+    },
+    
+    @benefits: {
+        revenue_sharing_pct: f64,
+        employment_quotas_pct: f64,
+        training_programs: [string],
+        infrastructure_investments: [string],
+        cultural_preservation_funding: f64,
+        last_distribution_ns: u64,
+    },
+    
+    @invariants: {
+        invariant fpic_required: self.protections.free_prior_informed_consent == true,
+        invariant consultation_before_development: self.consultation.consent_status != "granted" => development_restricted == true,
+        invariant water_rights_protected: self.protections.water_extraction_limited == true,
+        invariant sacred_sites_undisturbed: self.boundaries.sacred_sites.length > 0,
+        invariant benefit_sharing_active: self.benefits.revenue_sharing_pct > 0.0,
+        invariant monitoring_continuous: self.monitoring.environmental_sensors.length > 0,
+    },
+    
+    @methods: {
+        fn validate_deployment(self, project_type: string) -> Result<bool, string> {
+            if self.protections.development_restricted && project_type == "industrial" {
+                return Err("DEVELOPMENT_RESTRICTED_IN_TERRITORY");
+            }
+            if self.protections.mining_prohibited && project_type == "mining" {
+                return Err("MINING_PROHIBITED_IN_TERRITORY");
+            }
+            if self.consultation.consent_status != "granted" {
+                return Err("FPIC_CONSENT_REQUIRED");
+            }
+            if self.consultation.consent_expires_ns < current_timestamp_ns() {
+                return Err("CONSENT_EXPIRED");
+            }
+            return Ok(true);
+        },
+        
+        fn record_consultation(self, meeting_date_ns: u64, participants: [string], outcome: string) -> Result<(), string> {
+            if meeting_date_ns > current_timestamp_ns() {
+                return Err("CONSULTATION_DATE_IN_FUTURE");
+            }
+            self.consultation.last_consultation_ns = meeting_date_ns;
+            if outcome == "consent_granted" {
+                self.consultation.consent_status = "granted";
+                self.consultation.consent_expires_ns = meeting_date_ns + 31536000000000000;
+            } else if outcome == "consent_denied" {
+                self.consultation.consent_status = "denied";
+                self.protections.development_restricted = true;
+            } else if outcome == "pending" {
+                self.consultation.consent_status = "pending";
+            }
+            self.append_audit_log("CONSULTATION_RECORDED", meeting_date_ns);
+            return Ok(());
+        },
+        
+        fn log_violation(self, violation_type: string, location: (f64, f64), timestamp_ns: u64) -> Result<(), string> {
+            self.monitoring.violation_count += 1;
+            self.append_audit_log("VIOLATION_LOGGED", timestamp_ns);
+            return Ok(());
+        },
+        
+        fn distribute_benefits(self, amount_usd: f64, distribution_date_ns: u64) -> Result<(), string> {
+            if amount_usd <= 0.0 {
+                return Err("INVALID_BENEFIT_AMOUNT");
+            }
+            self.benefits.last_distribution_ns = distribution_date_ns;
+            self.append_audit_log("BENEFIT_DISTRIBUTED", distribution_date_ns);
+            return Ok(());
+        },
+        
+        fn update_environmental_monitoring(self, sensor_data: [(u64, f64)], update_ns: u64) -> Result<(), string> {
+            self.monitoring.last_survey_ns = update_ns;
+            for (sensor_id, reading) in sensor_data {
+                if reading > self.get_threshold(sensor_id) {
+                    self.log_violation("ENVIRONMENTAL_THRESHOLD_EXCEEDED", (0.0, 0.0), update_ns);
+                }
+            }
+            return Ok(());
+        },
+        
+        fn compute_compliance_score(self, now_ns: u64) -> f64 {
+            let mut score = 1.0;
+            if self.consultation.consent_status != "granted" {
+                score -= 0.3;
+            }
+            if self.monitoring.violation_count > 0 {
+                score -= (self.monitoring.violation_count as f64 * 0.05).min(0.4);
+            }
+            if now_ns - self.monitoring.last_survey_ns > 7776000000000000 {
+                score -= 0.2;
+            }
+            if self.benefits.revenue_sharing_pct == 0.0 {
+                score -= 0.1;
+            }
+            return score.max(0.0);
+        },
+        
+        fn time_to_consultation_renewal_days(self, now_ns: u64) -> u32 {
+            if self.consultation.consent_expires_ns <= now_ns {
+                return 0;
+            }
+            let remaining_ns = self.consultation.consent_expires_ns - now_ns;
+            return (remaining_ns / 86400000000000) as u32;
+        },
+    },
+    
+    @events: {
+        event TerritoryEstablished { shard_id: u64, tribe: string, timestamp_ns: u64 },
+        event ConsultationScheduled { shard_id: u64, meeting_date_ns: u64, participants: [string] },
+        event ConsentGranted { shard_id: u64, expires_ns: u64, timestamp_ns: u64 },
+        event ConsentDenied { shard_id: u64, reason: string, timestamp_ns: u64 },
+        event ViolationDetected { shard_id: u64, violation_type: string, location: (f64, f64), timestamp_ns: u64 },
+        event BenefitDistributed { shard_id: u64, amount_usd: f64, timestamp_ns: u64 },
+        event ConsentExpiring { shard_id: u64, days_remaining: u32, timestamp_ns: u64 },
+        event MonitoringAlert { shard_id: u64, sensor_id: u64, threshold_exceeded: f64, timestamp_ns: u64 },
+    },
+    
+    @audit: {
+        audit_log: [u8; 8192],
+        audit_pointer: u32,
+        fn append_audit_log(self, entry_type: string, timestamp_ns: u64) {
+            let entry = format!("{}|{}", entry_type, timestamp_ns);
+            if self.audit_pointer + entry.length() <= 8192 {
+                self.audit_log[self.audit_pointer..self.audit_pointer + entry.length()].copy_from_slice(entry.as_bytes());
+                self.audit_pointer += entry.length();
+            }
+        },
+    },
+}
+
+export IndigenousLandRightsShard;
+
+shard TribalWaterRightsShard {
+    @id: u64,
+    @territory_shard_id: u64,
+    @water_source_type: enum[river, aquifer, spring, wash, reservoir],
+    @water_source_name: string,
+    @allocated_volume_m3_year: f64,
+    @current_usage_m3_year: f64,
+    @water_quality_standards: {
+        ph_min: f64,
+        ph_max: f64,
+        turbidity_max_ntu: f64,
+        tds_max_mgl: f64,
+        contaminants_max: [(string, f64)],
+    },
+    
+    @rights: {
+        priority_date_ns: u64,
+        seniority_rank: u32,
+        beneficial_use: [string],
+        transferable: bool,
+        lease_allowed: bool,
+        instream_flow_required: bool,
+        minimum_flow_m3s: f64,
+    },
+    
+    @monitoring: {
+        flow_meters: [u64],
+        quality_sensors: [u64],
+        last_measurement_ns: u64,
+        allocation_compliance_pct: f64,
+    },
+    
+    @invariants: {
+        invariant instream_flow_maintained: self.rights.instream_flow_required => current_flow >= minimum_flow,
+        invariant quality_standards_met: self.check_water_quality() == true,
+        invariant allocation_not_exceeded: self.current_usage_m3_year <= self.allocated_volume_m3_year,
+        invariant seniority_respected: self.rights.seniority_rank > 0,
+    },
+    
+    @methods: {
+        fn check_water_quality(self) -> bool {
+            return true;
+        },
+        
+        fn record_water_usage(self, volume_m3: f64, usage_date_ns: u64) -> Result<(), string> {
+            if volume_m3 <= 0.0 {
+                return Err("INVALID_USAGE_VOLUME");
+            }
+            self.current_usage_m3_year += volume_m3;
+            if self.current_usage_m3_year > self.allocated_volume_m3_year {
+                return Err("ALLOCATION_EXCEEDED");
+            }
+            self.monitoring.last_measurement_ns = usage_date_ns;
+            return Ok(());
+        },
+        
+        fn compute_allocation_compliance(self) -> f64 {
+            if self.allocated_volume_m3_year == 0.0 {
+                return 1.0;
+            }
+            return (self.current_usage_m3_year / self.allocated_volume_m3_year).min(1.0);
+        },
+        
+        fn verify_instream_flow(self, current_flow_m3s: f64) -> bool {
+            if !self.rights.instream_flow_required {
+                return true;
+            }
+            return current_flow_m3s >= self.rights.minimum_flow_m3s;
+        },
+    },
+    
+    @events: {
+        event WaterRightEstablished { shard_id: u64, source: string, volume_m3_year: f64, timestamp_ns: u64 },
+        event UsageRecorded { shard_id: u64, volume_m3: f64, cumulative_m3: f64, timestamp_ns: u64 },
+        event AllocationExceeded { shard_id: u64, allocated: f64, used: f64, timestamp_ns: u64 },
+        event InstreamFlowViolation { shard_id: u64, required: f64, actual: f64, timestamp_ns: u64 },
+        event QualityStandardExceeded { shard_id: u64, parameter: string, limit: f64, actual: f64, timestamp_ns: u64 },
+    },
+}
+
+export TribalWaterRightsShard;
