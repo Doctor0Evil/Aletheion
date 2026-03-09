@@ -1,0 +1,278 @@
+# Role: Mini-spec that drives WATER.OPTIMIZATION.RUST engines for AWP-centric allocation,
+#       grounded in Phoenix workflows 6–10 and the ALN policy/core water model.[file:5][file:2]
+
+spec_id: WATER-OPTIMIZATION-RUST-0001
+version: 0.1.0
+status: draft
+domain: WATER
+layer: L4_OPT
+language: RUST
+description: >
+  Phoenix AWP-centric water allocation optimization engine spec, binding L2 water
+  state models, ALN policy modules, and governance envelopes into a Rust solver
+  that respects BirthSigns, ALN constraints, and ecosafety corridors.[file:5][file:2]
+
+owners:
+  - team: aletheion-rm-water
+    contact: aletheionrmwater-core@aletheion.local
+
+upstreams:
+  # L2 water state model core (non-duplicative; uses -CORE-002).[file:5]
+  - id: WATER-MODEL-CORE-002
+    path: aletheion/rm/water/model/ALE-RM-WATER-MODEL-CORE-002.rs
+    role: state_model
+  # ALN objectives and constraints for allocation.[file:5]
+  - id: WATER-ALLOCATION-POLICY-CORE-002
+    path: aletheion/rm/water/policy/ALE-RM-WATER-ALLOCATION-POLICY-CORE-002.aln
+    role: policy_aln
+  # Ecosafety and BirthSign governance grammars.[file:2][file:1]
+  - id: ECOSAFETY-GRAMMAR-001
+    path: aletheion/erm/ecosafety/ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+    role: ecosafety_grammar
+  - id: BIRTH-SIGN-MODEL-001
+    path: aletheion/governance/birthsigns/ALE-GOV-BIRTH-SIGN-MODEL-001.rs
+    role: birthsign_model
+  - id: GOVERNED-DECISION-TX-001
+    path: aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln
+    role: trust_envelope
+
+downstreams:
+  # Optimization runners and orchestration workflows that call this engine.[file:5]
+  - id: WATER-ALLOCATION-RUNNER-001
+    path: aletheion/rm/water/ALE-RM-WATER-ALLOCATION-RUNNER-001.rs
+    role: runner
+  - id: WATER-THERMAL-COOPT-001
+    path: aletheion/rm/thermal/ALE-RM-WATER-THERMAL-COOPT-001.rs
+    role: cooptimizer
+  - id: DROUGHT-ALERT-ORCH-001
+    path: aletheion/rm/water/ALE-RM-DROUGHT-ALERT-001.lua
+    role: orchestration
+
+inputs:
+  state_model:
+    type: rust_struct
+    rust_type: aletheion::rm::water::model::WaterStateModel
+    source: WATER-MODEL-CORE-002
+    description: >
+      Operational mirror of Phoenix water portfolio (AWP plants, surface,
+      groundwater, imported portfolios) plus demand zones and latest allocations.[file:5]
+  birth_signs:
+    type: rust_struct
+    rust_type: aletheion::governance::birthsigns::BirthSignBindingSet
+    source: BIRTH-SIGN-MODEL-001
+    description: >
+      Mapping from assets and demand zones to BirthSignIds, providing territorial
+      governance context for every allocation decision.[file:2]
+  policy_aln:
+    type: aln_module
+    module: ALE.RM.WATER.ALLOCATION.POLICY.CORE.002
+    path: WATER-ALLOCATION-POLICY-CORE-002
+    description: >
+      ALN objectives and constraints (reuse fraction, groundwater caps, Colorado
+      exposure, heat-vulnerability and equity weights, ecological reserves). [file:5]
+  ecosafety_grammar:
+    type: aln_module
+    module: ALE.ERM.ECOSAFETY.GRAMMAR.001
+    path: ECOSAFETY-GRAMMAR-001
+    description: >
+      Shared ecosafety grammar for rx, Vt, and corridor enforcement, used when
+      allocation touches MAR, canals, or cyboquatic nodes.[file:1][file:2]
+  scenarios:
+    type: yaml_dir
+    path: aletheion/rm/water/scenarios
+    required: false
+    description: >
+      Scenario definitions for drought, outages, growth and policy shock tests,
+      referenced in nightly CI runs.[file:5]
+
+outputs:
+  decision_set:
+    type: rust_struct
+    rust_type: aletheion::rm::water::optimization::AllocationDecisionSet
+    description: >
+      Recommended allocations (source, zone, volume, timestamps) plus scalar
+      objective score and coverage metrics for dashboards.[file:5]
+  governance_envelopes:
+    type: rust_struct
+    rust_type: aletheion::governance::birthsigns::GovernedDecisionEnvelope
+    description: >
+      One envelope per governed decision, embedding BirthSignIds, ALN norms,
+      ecosafety outcomes, and DecisionOutcome for trust-layer append.[file:2]
+  trust_txs:
+    type: aln_records
+    schema: ALE.TRUST.GOVERNED.DECISION.TX.001
+    description: >
+      Serialized, ledger-ready transaction records for Googolswarm append,
+      emitted by runner modules.[file:2]
+
+engine:
+  crate_name: aletheion-rm-water-opt
+  root_module: aletheion::rm::water::optimization::engine
+  solver_family: NSGAII
+  objective_function:
+    source: policy_aln
+    entrypoint: objectivescore
+    description: >
+      Multi-criteria objective from ALN (demand coverage with vulnerability and
+      equity weights, AWP reuse fraction, Colorado exposure risk).[file:5]
+  constraints:
+    hard:
+      - name: constraint_source_balance
+        entrypoint: constraintsourcebalance
+        source: policy_aln
+        description: No source allocates more than its available storage.[file:5]
+      - name: constraint_groundwater_drawdown
+        entrypoint: constraintgroundwaterdrawdown
+        source: policy_aln
+        description: Limit daily groundwater drawdown to safe fraction.[file:5]
+      - name: ecosafety_corridor_required
+        entrypoint: ecosafetycorridorrequired
+        source: ecosafety_grammar
+        description: >
+          Any allocation involving MAR, canals, or cyboquatic assets must have
+          valid ecosafety corridors (no-corridor, no-build).[file:1]
+      - name: birthsign_required
+        entrypoint: ecosafetyrequiredforpqstrict
+        source: ecosafety_grammar
+        description: >
+          In PQSTRICT chains, every allocation must be bound to at least one
+          BirthSignId; violations block actuation.[file:2]
+    soft:
+      - name: constraint_ecological_reserve
+        entrypoint: constraintecologicalreserve
+        source: policy_aln
+        penalty_weight: 10.0
+        description: >
+          Maintain minimum ecological reserve fraction of total allocations,
+          penalizing but not immediately rejecting small shortfalls.[file:5]
+      - name: constraint_heat_vulnerability_priority
+        entrypoint: constraintheatvulnerabilitypriority
+        source: policy_aln
+        penalty_weight: 5.0
+        description: >
+          Ensure heat-vulnerable zones are not left unserved while less
+          vulnerable zones are fully satisfied.[file:5]
+
+governance:
+  smartchain:
+    domain: SMART01AWPTHERMALTHERMAPHORA
+    mode: PQSTRICT
+    ecosafety_required: true
+    birthsign_required: true
+    notes: >
+      All optimization runs that drive physical pumps, valves, or thermal
+      assets must pass ecosafety and BirthSign gates before actuation.[file:2][file:1]
+  trust_append:
+    enabled: true
+    schema: GOVERNED-DECISION-TX-001
+    append_client_crate: aletheion-trust-append-core
+    description: >
+      Runner modules wrap engine outputs into GovernedDecisionEnvelope objects
+      and append governed decision TXs to Googolswarm with multi-sig attestation.[file:2]
+  ecosafety:
+    corridors:
+      domains:
+        - WATER
+        - MAR
+        - WETLAND
+        - MATERIAL
+      policy: POLICYDEFAULT
+      vt_monotone_required: true
+      notes: >
+        When allocation affects biodegradable cyboquatic nodes or MAR vaults,
+        Vt must remain within corridor bands; HARDVIOLATION implies STOP.[file:1]
+
+placement:
+  # Energy-aware and governance-aware scheduling hints for orchestration layer.[file:2][file:5]
+  preferred_nodes:
+    hardware_classes:
+      - edge_server
+      - router
+    security_tiers:
+      - TeeBacked
+      - HardenedFirmwareOnly
+  birthsign_scoping:
+    required: true
+    rule: >
+      Optimization tasks that alter water courses or MAR behavior must run on
+      nodes whose BirthSign coverage matches the affected tiles.[file:2]
+  energy_constraints:
+    schedule_windows:
+      - name: solar_preferred
+        description: Prefer heavy optimization runs during solar peaks.[file:5]
+        start_local: "09:00"
+        end_local: "16:00"
+    max_cpu_pct: 60
+    notes: >
+      Heavy multi-scenario optimization is centralized; edge nodes only receive
+      deltas and actuation commands, not full solver workloads.[file:5]
+
+ffi_contracts:
+  # What ALETHEION-CODEGEN-PIPELINE-0001.ps1 must generate in Rust signatures.[file:2]
+  rust_api:
+    module: aletheion::rm::water::optimization::engine
+    functions:
+      - name: run_allocation_optimization
+        signature: >
+          fn run_allocation_optimization(
+            state: &WaterStateModel,
+            birthsigns: &BirthSignBindingSet,
+            policy: &WaterAllocationPolicyCore002,
+            ctx: &SmartChainContext
+          ) -> Result<(AllocationDecisionSet, Vec<GovernedDecisionEnvelope>), OptimizationError>;
+        description: >
+          Main entrypoint: loads state and governance context, runs NSGA-II
+          search with ALN objectives/constraints, returns decisions plus
+          governance envelopes.[file:5][file:2]
+      - name: score_candidate_solution
+        signature: >
+          fn score_candidate_solution(
+            state: &WaterStateModel,
+            candidate: &AllocationDecisionSet,
+            indicators: &PortfolioIndicators
+          ) -> f64;
+        description: >
+          Deterministic wrapper around ALN objectivescore for testing and CI
+          calibration.[file:5]
+  lua_call_sites:
+    modules:
+      - id: WATER-ALLOCATION-RUNNER-001
+        functions:
+          - name: water_allocation_cycle
+            behavior: >
+              Fetch state snapshot, construct SmartChainContext with PQSTRICT,
+              call run_allocation_optimization via FFI, push envelopes to trust
+              layer, and dispatch actuation plans to L6/L1 workflows.[file:5][file:2]
+
+ci:
+  workflows:
+    - name: water-optimization-nightly
+      path: .github/workflows/water-optimization-nightly.yml
+      description: >
+        Nightly NSGA-II regression using scenario files and recorded Phoenix-like
+        traces; asserts that hard constraints and ecosafety invariants always hold.[file:5][file:2]
+    - name: governance-schema-preflight
+      path: .github/workflows/aletheion-governance-schema-preflight.yml
+      description: >
+        Ensures this spec references canonical ALN grammars, BirthSigns, and
+        governed-decision TX schemas; rejects ad-hoc treaty structures.[file:2]
+    - name: ecosafety-grammar-preflight
+      path: .github/workflows/ecosafety-grammar-preflight.yml
+      description: >
+        Validates that any module tagged with WATER-OPTIMIZATION-RUST-0001
+        imports ecosafety grammars and passes corridor tests for MAR/cyboquatic
+        interactions.[file:1][file:2]
+
+extension_rules:
+  # How to extend this spec for other domains without breaking governance.
+  allow_new_domains:
+    - ENERGY
+    - MATERIALS
+    - MOBILITY
+  constraints:
+    - >
+      New domain specs must reuse the same ALN policy pattern
+      (objectivescore + constraint* functions) and governed decision envelopes.
+    - >
+      Any extension spec must declare its own *-OPTIMIZATION-RUST-**** ID and
+      deep path under aletheion/specs/<domain>/optimization.[file:5][file:2]
