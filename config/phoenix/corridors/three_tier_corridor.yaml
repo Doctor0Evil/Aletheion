@@ -1,0 +1,409 @@
+meta:
+  city: "Phoenix, Arizona"
+  project: "Aletheion-Phoenix"
+  description: >
+    Three-tier (State–Service–Governance) corridor manifest for highway-management
+    of water, thermal, sewer, and biotic operations across Phoenix, with explicit
+    safety corridors, workflow bindings, and treaty-aware constraints. [file:3]
+  version: 1
+  source_docs:
+    - "Orchestrating Aletheion's Phoenix: 3-Tier Corridor Framework"
+    - "Aletheion Phoenix GOD-City: 25 Workflow Blueprint"
+
+tiers:
+  state:
+    description: >
+      State functions maintain live, computable snapshots of neighborhoods,
+      canal segments, and corridors as single sources of truth. [file:3]
+    function_families:
+      - id: "neighborhood_water_system_state"
+        language: "Rust"
+        impl_path: "aletheion/erm/neighborhood/ALE-ERM-NEIGHBORHOOD-STATE-001.rs"
+        inputs:
+          - "NeighborhoodId"
+          - "AWPAllocationSnapshot"
+          - "GroundwaterSensors"
+          - "CanalFlowMeters"
+          - "MARVaultStatus"
+        outputs:
+          - "NeighborhoodWaterSystem"
+        capitals:
+          - "WaterCapital"
+          - "ThermalCapital"
+          - "SoilCapital"
+        corridors_consumed:
+          - "C_WATER_PORTFOLIO"
+          - "C_WATER_QUALITY"
+          - "C_THERMAL_NEIGHBORHOOD"
+        notes: >
+          Aggregates AWP allocations, groundwater, canal, and MAR vault data into
+          a typed NeighborhoodWaterSystem struct; used by Service tier schedulers. [file:3]
+      - id: "canal_segment_state"
+        language: "Rust"
+        impl_path: "aletheion/infra/canals/ALE-INF-CANAL-SEGMENT-STATE-001.rs"
+        inputs:
+          - "CorridorId"
+          - "SegmentId"
+          - "FlowMeters"
+          - "StormInflowSensors"
+          - "CyboquaticPumpStatus"
+        outputs:
+          - "CanalSegmentState"
+        capitals:
+          - "WaterCapital"
+          - "ThermalCapital"
+          - "BioticCapital"
+        corridors_consumed:
+          - "C_WATER_HYDRAULIC"
+          - "C_WATER_QUALITY"
+          - "C_THERMAL_CANAL"
+          - "C_BIOTIC_HABITAT"
+        notes: >
+          Tracks flow, water quality, storm inflow, and habitat corridors for each
+          canal segment; feeds cyboquatic and cooling planners. [file:3]
+
+  service:
+    description: >
+      Service functions allocate flows, routes, and schedules based on State
+      snapshots, bounded by safety corridors. [file:3]
+    function_families:
+      - id: "neighborhood_cyboquatic_node_schedule"
+        language: "Rust"
+        impl_path: "aletheion/erm/neighborhood/ALE-ERM-NEIGHBORHOOD-CYBOQUATIC-SCHEDULE-001.rs"
+        inputs:
+          - "NeighborhoodId"
+          - "NeighborhoodWaterSystem"
+        outputs:
+          - "CyboquaticNodeSchedule"
+        capitals:
+          - "WaterCapital"
+          - "ThermalCapital"
+          - "BioticCapital"
+        corridors_consumed:
+          - "C_WATER_QUALITY"
+          - "C_WATER_HYDRAULIC"
+          - "C_BIOTIC_HABITAT"
+        corridors_enforced:
+          - "C_WATER_MAR_INLET"
+          - "C_WATER_MAR_TEMPERATURE"
+        notes: >
+          Schedules pumps, MAR actuators, wetlands, and soft robots under PFAS,
+          nutrient, temperature, and habitat corridors; implements highway-management
+          for cyboquatic flows. [file:3][file:1]
+      - id: "canal_machinery_autopilot"
+        language: "Rust"
+        impl_path: "aletheion/infra/canals/ALE-INF-CANAL-MACHINERY-AUTOPILOT-001.rs"
+        inputs:
+          - "CorridorId"
+          - "SegmentId"
+          - "CanalSegmentState"
+        outputs:
+          - "CanalActuationPlan"
+        capitals:
+          - "WaterCapital"
+          - "ThermalCapital"
+          - "EnergyCapital"
+        corridors_consumed:
+          - "C_WATER_HYDRAULIC"
+          - "C_WATER_QUALITY"
+          - "C_THERMAL_CANAL"
+        corridors_enforced:
+          - "C_WATER_HYDRAULIC"
+          - "C_BIOTIC_HABITAT"
+        notes: >
+          Combines sewer pollutant monitoring and canal/stormwater logic to keep
+          canal segments within hydraulic, toxicity, and habitat envelopes. [file:3][file:5]
+      - id: "canal_heatcooling_profile"
+        language: "Rust"
+        impl_path: "aletheion/infra/canals/ALE-INF-CANAL-THERMAL-PROFILE-001.rs"
+        inputs:
+          - "CorridorId"
+          - "SegmentId"
+          - "CanalSegmentState"
+        outputs:
+          - "CanalThermalProfile"
+        capitals:
+          - "ThermalCapital"
+          - "WaterCapital"
+        corridors_consumed:
+          - "C_THERMAL_CANAL"
+          - "C_WATER_QUALITY"
+        corridors_enforced:
+          - "C_THERMAL_CANAL"
+        notes: >
+          Computes thermal benefits and allowable reclaimed water releases without
+          causing thermal shock or treaty violations downstream. [file:3]
+
+  governance:
+    description: >
+      Governance & Rights functions gate every Service-plan with treaties, rights,
+      and community norms before actuation, enforcing “no corridor, no build”. [file:3]
+    function_families:
+      - id: "neighborhood_microtreaty_gate"
+        language: "ALN"
+        impl_path: "aletheion/erm/neighborhood/ALE-ERM-NEIGHBORHOOD-MICROTREATY-GATE-001.aln"
+        inputs:
+          - "NeighborhoodId"
+          - "AnyNeighborhoodPlan"
+        outputs:
+          - "GovernanceResult"
+        required_rights:
+          - "FPIC"
+          - "BioticTreaty"
+          - "LexEthos"
+        corridors_consumed:
+          - "C_WATER_QUALITY"
+          - "C_BIOTIC_HABITAT"
+          - "C_SOMATIC_ENV"
+        notes: >
+          Checks each neighborhood-level plan against FPIC, BioticTreaties, and
+          local LexEthos grammars; rejects or recycles invalid actions. [file:3][file:5]
+      - id: "corridor_gate"
+        language: "ALN"
+        impl_path: "aletheion/infra/corridors/ALE-INF-CORRIDOR-GATE-001.aln"
+        inputs:
+          - "CorridorId"
+          - "SegmentId"
+          - "CorridorSchedule"
+        outputs:
+          - "GovernanceResult"
+        required_rights:
+          - "BioticTreaty"
+        corridors_consumed:
+          - "C_WATER_HYDRAULIC"
+          - "C_WATER_QUALITY"
+          - "C_BIOTIC_HABITAT"
+        notes: >
+          Enforces corridor limits and habitat protections on canal and sewer
+          schedules before actuators receive commands. [file:3]
+
+corridors:
+  # ------------------------
+  # Water portfolio corridor
+  # ------------------------
+  C_WATER_PORTFOLIO:
+    domain: "WaterCapital"
+    description: >
+      City-level water portfolio corridor tying AWP allocations, groundwater,
+      and Colorado River exposure into safe bounds for each neighborhood. [file:3][file:5]
+    units: "fractional and volumetric"
+    bounds:
+      reuse_fraction_min: 0.90
+      reuse_fraction_max: 0.99
+      groundwater_balance_min: 0.0
+    linked_workflows:
+      - "WF-001-AWP_WATER_ALLOCATION"
+      - "WF-002-WATER_THERMAL_COOPT"
+
+  # ----------------------
+  # Water quality corridors
+  # ----------------------
+  C_WATER_QUALITY:
+    domain: "WaterCapital"
+    description: >
+      Corridor for PFAS, pharmaceuticals, nutrients, temperature, and biofouling
+      indices used by MAR and cyboquatic schedulers. [file:3][file:1]
+    units: "normalized risk rx in [0,1]"
+    bounds:
+      r_pfas_max: 0.30
+      r_pharma_max: 0.30
+      r_nutrient_max: 0.40
+      r_temp_max: 0.35
+      r_biofouling_max: 0.50
+    linked_workflows:
+      - "WF-001-AWP_WATER_ALLOCATION"
+      - "WF-002-WATER_THERMAL_COOPT"
+      - "WF-003-SEWER_POLLUTANT_CONTROL"
+
+  C_WATER_MAR_INLET:
+    domain: "WaterCapital"
+    description: >
+      MAR inlet corridor specifying maximum contaminant and thermal loads allowed
+      into recharge vaults feeding aquifers. [file:3]
+    units: "normalized risk rx in [0,1]"
+    bounds:
+      r_pfas_max: 0.20
+      r_pharma_max: 0.20
+      r_nutrient_max: 0.25
+      r_temp_max: 0.25
+    linked_workflows:
+      - "WF-001-AWP_WATER_ALLOCATION"
+
+  C_WATER_MAR_TEMPERATURE:
+    domain: "WaterCapital"
+    description: >
+      Corridor for temperature differential between MAR inlet and aquifer
+      to prevent thermal stress. [file:3]
+    units: "degrees C"
+    bounds:
+      delta_temp_min: -2.0
+      delta_temp_max: 2.0
+    linked_workflows:
+      - "WF-001-AWP_WATER_ALLOCATION"
+
+  # ------------------------
+  # Hydraulic corridors
+  # ------------------------
+  C_WATER_HYDRAULIC:
+    domain: "WaterCapital"
+    description: >
+      Corridor for hydraulic loading in canals and sewers (surcharge, velocity,
+      cavitation risk) used by canal_machinery_autopilot and sewer workflows. [file:3][file:5]
+    units: "normalized risk rx in [0,1]"
+    bounds:
+      r_surcharge_max: 0.30
+      r_velocity_max: 0.40
+      r_cavitation_max: 0.25
+    linked_workflows:
+      - "WF-002-WATER_THERMAL_COOPT"
+      - "WF-003-SEWER_POLLUTANT_CONTROL"
+
+  # -------------------------
+  # Thermal corridors
+  # -------------------------
+  C_THERMAL_NEIGHBORHOOD:
+    domain: "ThermalCapital"
+    description: >
+      Neighborhood-scale corridor for UTCI/PET-based heat budgets, used by
+      Heat–Water–Tree and Somaplex/Thermaphora engines. [file:3][file:4]
+    units: "index in [0,1]"
+    bounds:
+      r_utci_max: 0.70
+      r_night_heat_max: 0.60
+    linked_workflows:
+      - "WF-002-WATER_THERMAL_COOPT"
+      - "WF-025-CITIZEN_GRIEVANCE"
+
+  C_THERMAL_CANAL:
+    domain: "ThermalCapital"
+    description: >
+      Canal reach thermal corridor limiting surface temperature and thermal
+      shock from releases, respecting Synthexis habitat constraints. [file:3]
+    units: "degrees C"
+    bounds:
+      temp_min: 8.0
+      temp_max: 32.0
+      delta_release_max: 2.0
+    linked_workflows:
+      - "WF-002-WATER_THERMAL_COOPT"
+
+  # ------------------------
+  # Biotic and somatic corridors
+  # ------------------------
+  C_BIOTIC_HABITAT:
+    domain: "BioticCapital"
+    description: >
+      Habitat corridor for riparian species, pollinators, and Urban Bird Treaty
+      zones along canals and neighborhoods. [file:3][file:4]
+    units: "normalized risk rx in [0,1]"
+    bounds:
+      r_light_pollution_max: 0.30
+      r_noise_max: 0.30
+      r_pesticide_max: 0.25
+      r_connectivity_min: 0.60
+    linked_workflows:
+      - "WF-002-WATER_THERMAL_COOPT"
+      - "WF-003-SEWER_POLLUTANT_CONTROL"
+      - "WF-025-CITIZEN_GRIEVANCE"
+
+  C_SOMATIC_ENV:
+    domain: "Somatic/Movement"
+    description: >
+      Somatic corridor for noise, vibration, and environmental loads relevant
+      to human bodies in neighborhoods and along corridors. [file:3]
+    units: "normalized risk rx in [0,1]"
+    bounds:
+      r_noise_max: 0.35
+      r_vibration_max: 0.30
+    linked_workflows:
+      - "WF-025-CITIZEN_GRIEVANCE"
+
+workflow_bindings:
+  WF-001-AWP_WATER_ALLOCATION:
+    description: "AWP Water Allocation & Resilience Monitoring" # [file:5]
+    tiers:
+      state:
+        functions:
+          - "neighborhood_water_system_state"
+      service:
+        functions: []
+      governance:
+        functions:
+          - "neighborhood_microtreaty_gate"
+    corridors:
+      consumed:
+        - "C_WATER_PORTFOLIO"
+        - "C_WATER_QUALITY"
+        - "C_WATER_MAR_INLET"
+        - "C_WATER_MAR_TEMPERATURE"
+      enforced:
+        - "C_WATER_PORTFOLIO"
+        - "C_WATER_MAR_INLET"
+        - "C_WATER_MAR_TEMPERATURE"
+
+  WF-002-WATER_THERMAL_COOPT:
+    description: "Integrated Water–Thermal Flow Monitoring" # [file:5]
+    tiers:
+      state:
+        functions:
+          - "neighborhood_water_system_state"
+          - "canal_segment_state"
+      service:
+        functions:
+          - "canal_machinery_autopilot"
+          - "canal_heatcooling_profile"
+      governance:
+        functions:
+          - "corridor_gate"
+          - "neighborhood_microtreaty_gate"
+    corridors:
+      consumed:
+        - "C_WATER_QUALITY"
+        - "C_WATER_HYDRAULIC"
+        - "C_THERMAL_NEIGHBORHOOD"
+        - "C_THERMAL_CANAL"
+        - "C_BIOTIC_HABITAT"
+      enforced:
+        - "C_WATER_HYDRAULIC"
+        - "C_THERMAL_CANAL"
+        - "C_BIOTIC_HABITAT"
+
+  WF-003-SEWER_POLLUTANT_CONTROL:
+    description: "Sewer & Industrial Pollutant Monitoring" # [file:5]
+    tiers:
+      state:
+        functions:
+          - "canal_segment_state"
+      service:
+        functions:
+          - "canal_machinery_autopilot"
+      governance:
+        functions:
+          - "corridor_gate"
+    corridors:
+      consumed:
+        - "C_WATER_QUALITY"
+        - "C_WATER_HYDRAULIC"
+        - "C_BIOTIC_HABITAT"
+      enforced:
+        - "C_WATER_QUALITY"
+        - "C_WATER_HYDRAULIC"
+
+  WF-025-CITIZEN_GRIEVANCE:
+    description: "Incident, Grievance, and Cooling-Resolution Orchestrator" # [file:5]
+    tiers:
+      state:
+        functions: []
+      service:
+        functions: []
+      governance:
+        functions:
+          - "neighborhood_microtreaty_gate"
+    corridors:
+      consumed:
+        - "C_THERMAL_NEIGHBORHOOD"
+        - "C_BIOTIC_HABITAT"
+        - "C_SOMATIC_ENV"
+      enforced:
+        - "C_THERMAL_NEIGHBORHOOD"
+        - "C_SOMATIC_ENV"
