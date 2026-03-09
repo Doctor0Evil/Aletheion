@@ -1,0 +1,179 @@
+@version 20260310
+@namespace aletheion.education.indigenous
+@license BioticTreaty_v3
+@compliance UNDRIP_2007_NAGPRA_1990_Akimel_Oodham_Piipaash_Education_Agreements_Arizona_Tribal_Laws_2026
+
+shard IndigenousKnowledgeEducationSystem {
+    @id: u64,
+    @program_name: string,
+    @tribe_nation: enum[akimel_oodham, piipaash, tohono_oodham, apache, navajo, hopi, yavapai],
+    @established_date_ns: u64,
+    @last_updated_ns: u64,
+    
+    @knowledge_domains: {
+        language_preservation: bool,
+        traditional_ecological: bool,
+        medicinal_plants: bool,
+        agricultural_practices: bool,
+        ceremonial_knowledge: bool,
+        oral_history: bool,
+        arts_crafts: bool,
+        astronomy_navigation: bool,
+        water_management: bool,
+        desert_survival: bool,
+    },
+    
+    @elders: {
+        elder_count: u32,
+        certified_knowledge_keepers: u32,
+        apprentice_count: u32,
+        transmission_sessions_held: u32,
+        last_gathering_ns: u64,
+        next_gathering_ns: u64,
+    },
+    
+    @curriculum: {
+        total_courses: u32,
+        language_courses: u32,
+        cultural_courses: u32,
+        land_based_courses: u32,
+        accessibility_compliant: bool,
+        multilingual_materials: bool,
+        indigenous_language_instruction: bool,
+        tribal_approval_obtained: bool,
+    },
+    
+    @students: {
+        enrolled_students: u32,
+        indigenous_students: u32,
+        non_indigenous_allies: u32,
+        completion_count: u32,
+        average_completion_rate: f64,
+        scholarship_recipients: u32,
+    },
+    
+    @protocols: {
+        free_prior_informed_consent: bool,
+        cultural_sensitivity_training: bool,
+        sacred_knowledge_restrictions: bool,
+        recording_permissions: bool,
+        commercial_use_prohibited: bool,
+        benefit_sharing_agreement: bool,
+        tribal_oversight: bool,
+    },
+    
+    @resources: {
+        language_archives: u32,
+        oral_history_recordings: u32,
+        video_documentations: u32,
+        written_materials: u32,
+        digital_repository_access: bool,
+        physical_library_access: bool,
+    },
+    
+    @invariants: {
+        invariant fpic_required: self.protocols.free_prior_informed_consent == true,
+        invariant tribal_oversight_mandatory: self.protocols.tribal_oversight == true,
+        invariant commercial_prohibition: self.protocols.commercial_use_prohibited == true,
+        invariant sacred_knowledge_protected: self.protocols.sacred_knowledge_restrictions == true,
+        invariant benefit_sharing_active: self.protocols.benefit_sharing_agreement == true,
+        invariant accessibility_mandatory: self.curriculum.accessibility_compliant == true,
+    },
+    
+    @methods: {
+        fn enroll_student(self, student_id: u64, indigenous_status: bool, now_ns: u64) -> Result<(), string> {
+            if !self.protocols.tribal_oversight {
+                return Err("TRIBAL_OVERSIGHT_REQUIRED");
+            }
+            if indigenous_status {
+                self.students.indigenous_students += 1;
+            } else {
+                self.students.non_indigenous_allies += 1;
+            }
+            self.students.enrolled_students += 1;
+            self.append_audit_log("STUDENT_ENROLLED", now_ns);
+            return Ok(());
+        },
+        
+        fn complete_course(self, student_id: u64, course_type: string, now_ns: u64) -> Result<(), string> {
+            self.students.completion_count += 1;
+            if self.students.enrolled_students > 0 {
+                self.students.average_completion_rate = self.students.completion_count as f64 / 
+                                                       self.students.enrolled_students as f64;
+            }
+            self.append_audit_log("COURSE_COMPLETED", now_ns);
+            return Ok(());
+        },
+        
+        fn record_knowledge_transmission(self, elder_id: u64, apprentice_id: u64, 
+                                        domain: string, now_ns: u64) -> Result<(), string> {
+            if !self.protocols.free_prior_informed_consent {
+                return Err("FPIC_CONSENT_REQUIRED");
+            }
+            self.elders.transmission_sessions_held += 1;
+            self.elders.apprentice_count += 1;
+            self.append_audit_log("KNOWLEDGE_TRANSMITTED", now_ns);
+            return Ok(());
+        },
+        
+        fn archive_language_material(self, material_type: string, language: string, 
+                                    now_ns: u64) -> Result<(), string> {
+            if language == "oodham" || language == "piipaash" {
+                self.resources.language_archives += 1;
+                self.append_audit_log("LANGUAGE_ARCHIVED", now_ns);
+                return Ok(());
+            }
+            return Err("INDIGENOUS_LANGUAGE_REQUIRED");
+        },
+        
+        fn verify_tribal_approval(self) -> bool {
+            return self.curriculum.tribal_approval_obtained && 
+                   self.protocols.tribal_oversight &&
+                   self.protocols.free_prior_informed_consent;
+        },
+        
+        fn compute_cultural_preservation_score(self, now_ns: u64) -> f64 {
+            let mut score = 1.0;
+            if !self.protocols.free_prior_informed_consent { score -= 0.2; }
+            if !self.protocols.tribal_oversight { score -= 0.2; }
+            if !self.curriculum.indigenous_language_instruction { score -= 0.15; }
+            if self.elders.certified_knowledge_keepers < 10 { score -= 0.15; }
+            if self.resources.language_archives < 100 { score -= 0.1; }
+            if now_ns - self.elders.last_gathering_ns > 77760000000000 { score -= 0.2; }
+            return score.max(0.0);
+        },
+        
+        fn time_to_next_gathering_days(self, now_ns: u64) -> u32 {
+            if self.elders.next_gathering_ns <= now_ns {
+                return 0;
+            }
+            let remaining_ns = self.elders.next_gathering_ns - now_ns;
+            return (remaining_ns / 86400000000000) as u32;
+        },
+    },
+    
+    @events: {
+        event ProgramEstablished { shard_id: u64, tribe: string, timestamp_ns: u64 },
+        event StudentEnrolled { shard_id: u64, student_id: u64, indigenous_status: bool, timestamp_ns: u64 },
+        event CourseCompleted { shard_id: u64, student_id: u64, course_type: string, timestamp_ns: u64 },
+        event KnowledgeTransmitted { shard_id: u64, elder_id: u64, apprentice_id: u64, domain: string, timestamp_ns: u64 },
+        event LanguageArchived { shard_id: u64, language: string, material_type: string, timestamp_ns: u64 },
+        event TribalApprovalObtained { shard_id: u64, tribe: string, timestamp_ns: u64 },
+        event CulturalPreservationScoreUpdated { shard_id: u64, score: f64, timestamp_ns: u64 },
+        event ElderGatheringScheduled { shard_id: u64, gathering_date_ns: u64, timestamp_ns: u64 },
+    },
+    
+    @audit: {
+        audit_log: [u8; 16384],
+        audit_pointer: u32,
+        fn append_audit_log(self, entry_type: string, timestamp_ns: u64) {
+            let entry = format!("{}|{}", entry_type, timestamp_ns);
+            if self.audit_pointer + entry.length() <= 16384 {
+                self.audit_log[self.audit_pointer..self.audit_pointer + entry.length()].copy_from_slice(entry.as_bytes());
+                self.audit_pointer += entry.length();
+            }
+        },
+    },
+}
+
+export IndigenousKnowledgeEducationSystem;
