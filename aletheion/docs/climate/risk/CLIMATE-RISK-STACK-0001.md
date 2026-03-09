@@ -327,6 +327,131 @@ New risk dimensions (e.g., wildfire smoke, new disease vectors) should extend th
 - New or modified SMART‑Chains if needed.  
 - Test scenarios and additional sensing requirements.
 
+
+
+
+
+## 7. Emergent Hazards v1 – SMART-Chain Aware Layer
+
+This layer captures risks that do not yet have stable baselines in Phoenix but are already visible in the Aletheion ERM, HeatWaterTree, and SMART-Chain research: compounding climate shocks, governance or cryptographic failures, and regime shifts that break previously safe heat–water–energy assumptions.[file:4][file:6] It does not replace existing hazards; it overlays cross-cutting metrics and tests that watch for “unknown-unknown” transitions across water, heat, energy, mobility, and treaty domains.[file:4][file:6]
+
+### 7.1 Core Emergent Metrics
+
+These metric names are designed to be wired directly into ERM state models and SMART-Chain registries (e.g., SMART01AWPTHERMALTHERMAPHORA, SMART05SOMAPLEXROUTING) without renaming.[file:4][file:6]
+
+- **EmergentHeatCascadeIndex_EHCI**  
+  - Definition: Aggregate measure of how close a district is to a cascading heat failure, combining HeatBudget overloads, cooling asset saturation, and hydration station depletion. Tied to Thermaphora and HeatWaterTree outputs.[file:4][file:6]  
+  - Components (per block or corridor):  
+    - HeatBudgetOverrunRate (fraction of citizens or cohorts exceeding safe HeatBudget per day).  
+    - CoolingAssetSaturation (fraction of cool pavements, shade assets, misting systems operating at or beyond planned duty cycle).  
+    - HydrationContinuityScore (1 – probability of hydration station dry-out under current usage and logistics).  
+  - Range: 0.0–1.0 (0 = fully buffered, 1 = imminent cascading failure).  
+  - Target: EHCI ≤ 0.3 for all heat-vulnerable zones in design conditions; EHCI ≤ 0.6 under 1-in-50-year heat waves.
+
+- **AWPPortfolioStressScore_APSS**  
+  - Definition: Composite stress indicator for Advanced Purified Water (AWP) and groundwater portfolios, combining supply shortfalls, plant outages, and portfolio over-concentration (e.g., excessive Colorado River dependence). Calibrated against existing water allocation and groundwater modules.[file:6]  
+  - Components:  
+    - AWPShortfallRatio (projected demand – available AWP) / projected demand.  
+    - GroundwaterDrawdownRisk (daily drawdown vs. safe draw fraction).  
+    - ColoradoExposureFraction (Colorado River share of delivered water vs. policy cap).  
+  - Range: 0.0–1.0.  
+  - Target: APSS ≤ 0.4 in normal operations; alerts when APSS ≥ 0.7.
+
+- **SMARTChainIntegrityScore_SCIS**  
+  - Definition: Health score for governance and safety chains (e.g., SMART01AWPTHERMALTHERMAPHORA, SMART03SYNTHEXISLNPENV, SMART05SOMAPLEXROUTING) based on validation coverage, PQSTRICT enforcement, and treaty attachment completeness.[file:4]  
+  - Components (per chain):  
+    - ValidationCoverage (fraction of workflows calling smartchainvalidator before actuation).  
+    - PQStrictCoverage (fraction of actions in water, biotic, somatic, neurobiome, equity domains signed with PQ-hybrid or PQSTRICT cryptography).[file:4]  
+    - TreatyBindingCompleteness (presence of Indigenous treaties, BioticTreaties, and LexEthos RightsGrammar for the chain’s domains).[file:4][file:5]  
+  - Aggregation: min(chain-level SCIS) across all chains touching water, heat, mobility, and biotic domains in the evaluated geography.  
+  - Range: 0.0–1.0.  
+  - Target: SCIS ≥ 0.9 for all production chains in PQSTRICT-required domains.
+
+- **TreatySafeFlowMargin_TSFM**  
+  - Definition: Safety margin between current/proposed water and lighting operations and the nearest violation of Indigenous water rights or BioticTreaties (e.g., downstream minimum flows, nocturnal light limits in bat corridors).[file:4][file:6]  
+  - Components:  
+    - DownstreamFlowMargin (actual or forecast flow – treaty minimum) / treaty minimum.  
+    - BioticEnvelopeMargin (species-specific light/noise/chemical thresholds – current exposure) / threshold.[file:6]  
+  - Aggregation: minimum margin across all applicable treaties and species agents.  
+  - Range: negative values allowed (already in violation), but risk scoring clamps at 0.0 for violations.  
+  - Target: TSFM ≥ 0.25 in all non-emergency scenarios; emergency workflows must log explicit, time-bounded treaty overrides via SMART-Chain.
+
+- **EmergentMonsoonRegimeShiftFlag_EMRSF**  
+  - Definition: Boolean/enum flag detecting when Phoenix transitions into or out of monsoon regime states in a way that invalidates fixed heat–water heuristics (e.g., misting effectiveness, stormwater capture assumptions).[file:4]  
+  - States: PRE_MONSOON, ACTIVE_MONSOON, POST_MONSOON, ANOMALOUS_MONSOON (e.g., out-of-season high-humidity heat waves, repeated haboobs).  
+  - Inputs: NOAA/region forecasts, humidity trends, storm track clustering, haboob detection workflows.[file:4]  
+  - Role: Gates which hazard scenarios and SMART-chains may run; e.g., certain cooling strategies become disabled or down-weighted in ACTIVE_MONSOON and ANOMALOUS_MONSOON.
+
+### 7.2 SMART-Chain Stubs (Governance Hooks)
+
+These are governance-side stubs, not full contracts, intended to be mirrored later in ALN and Rust SMART-Chain modules.[file:4][file:6] They define how emergent hazard metrics bind into policy and CICD.
+
+- **SMART07_EMERGENT_HEAT_PORTFOLIO**  
+  - Domains: Water, Thermal, Equity, Somatic.  
+  - Scope: Citywide, with initial focus on Downtown/Central pilot tiles and Shade Phoenix corridors.[file:4][file:6]  
+  - Hard requirements (policy-as-code):  
+    - Any workflow that increases net HeatBudget in a block with HVI/HEVI above a configured threshold must read EHCI and demonstrate EHCI_new ≤ EHCI_old + δ, with δ capped and logged.[file:4][file:6]  
+    - Any reconfiguration that reduces hydration capacity in a heat-vulnerable zone must prove HydrationContinuityScore remains above a configured minimum.  
+    - All actions under this chain must pass PQSTRICT or hybrid PQ validation and attach RightToShade and RightToSafeMovement grammars.[file:4]
+
+- **SMART08_EMERGENT_WATER_PORTFOLIO**  
+  - Domains: Water, Materials, Energy, Indigenous rights.  
+  - Scope: All AWP plants (Cave Creek, North Gateway, 91st Avenue), major recharge basins, and imported water portfolios described in ERM docs.[file:6]  
+  - Hard requirements:  
+    - No allocation workflow may execute if APSS ≥ APSS_max for the evaluated horizon; instead it must switch to drought-cutdown branches as specified in RM water policies.[file:6]  
+    - All flows that materially change downstream river or canal conditions must compute TSFM and fail closed if TSFM would go below configured treaty margins, unless an emergency treaty override procedure is executed and logged.[file:6]  
+    - All chain entries must attest to use of updated groundwater and Colorado exposure caps from the latest Phoenix water goals.[file:6]
+
+- **SMART09_EMERGENT_GOVERNANCE_INTEGRITY**  
+  - Domains: Governance, Compliance, Data Security, PQ Crypto.  
+  - Scope: All CICD workflows that touch water, biotic, somatic, neurobiome, equity, and emergency response code paths.[file:4][file:5]  
+  - Hard requirements:  
+    - smartchainvalidator (or equivalent) must run and compute SCIS before any deployment to production clusters; deployments must abort if SCIS < configured minimum.[file:4][file:5]  
+    - Compliance preflight must confirm no forbidden terminology, no neurorights violations, and no incomplete treaty bindings for the chain being updated.[file:5]  
+    - PQSTRICT enforcement for keys, signatures, and encapsulation on all SMART-Chain IDs designated as PQSTRICT in the registry.[file:4]
+
+### 7.3 Smoke / Vector Test Scenarios
+
+These are deliberately small, composable scenarios, written in the same style as the existing stack: one sentence of context, then precise expected behavior for metrics and SMART-chains.[file:4][file:6]
+
+1. **Scenario EH-01: Heatwave + Hydration Depletion in a Cool Corridor**
+
+   - Context: A three-day heatwave pushes HeatBudget near limits in a Downtown “Cool Corridor” zone while two key hydration stations approach depletion due to higher pedestrian loads than assumed in initial design.[file:4][file:6]  
+   - Inputs:  
+     - EHCI baseline = 0.35, HydrationContinuityScore baseline = 0.92.  
+     - Forecasted HeatBudgetOverrunRate rises from 0.1 to 0.4 for high-vulnerability cohorts.  
+     - Hydration station telemetry projects first dry-out in ≤ 6 hours without resupply.  
+   - Expected behavior:  
+     - EHCI is recomputed and projected ≥ 0.75, automatically pushing SMART07_EMERGENT_HEAT_PORTFOLIO into “constraint escalation” mode.  
+     - Any workflow proposing to increase surface albedo without adding shade or hydration (e.g., new cool-pavement-only segments) must either demonstrate net EHCI reduction or be rejected for this window.  
+     - Hydration resupply and temporary cooling assets (portable shade, misting carts) become priority actions, with execution gated on TSFM (no treaty conflicts) and SCIS ≥ threshold.
+
+2. **Scenario WM-02: AWP Plant Outage During Monsoon Regime Shift**
+
+   - Context: North Gateway AWP experiences an unplanned outage during an ANOMALOUS_MONSOON period with high humidity and localized flash-flood threats, forcing a reshuffle of potable reuse and recharge strategies.[file:4][file:6]  
+   - Inputs:  
+     - EMRSF transitions from PRE_MONSOON to ANOMALOUS_MONSOON based on forecast + observed humidity and storm tracks.  
+     - APSS rises from 0.42 to 0.78 due to loss of North Gateway capacity and increased reliance on groundwater and Colorado portfolios.[file:6]  
+     - DownstreamFlowMargin for a key Indigenous-controlled reach approaches minimum treaty thresholds.  
+   - Expected behavior:  
+     - SMART08_EMERGENT_WATER_PORTFOLIO forces all standard allocation workflows into drought/emergency branches; no “business as usual” allocations may run while APSS ≥ APSS_max.  
+     - Any proposal that would reduce DownstreamFlowMargin below configured treaty safety margins must be rejected outright unless the emergency override chain with Indigenous consent hooks is explicitly invoked and recorded.  
+     - Integrated water–thermal optimizers must switch away from evaporative-heavy strategies (e.g., open misters) and prioritize structural shade, cool pavements, and scheduling changes, with EHCI and TSFM logged before and after.
+
+3. **Scenario GI-03: Governance Chain Drift and PQSTRICT Regression**
+
+   - Context: A refactor of mobility and heat-mitigation code introduces a new routing workflow that forgets to call smartchainvalidator and uses non-PQ signatures in a PQSTRICT domain (water + somatic + equity).[file:4][file:5]  
+   - Inputs:  
+     - CI run modifies modules under SMART01AWPTHERMALTHERMAPHORA and SMART05SOMAPLEXROUTING.  
+     - Static analysis shows missing validator hooks and downgraded crypto primitives on new endpoints.  
+     - SCIS for the affected chains would fall from 0.96 to 0.71 if accepted.  
+   - Expected behavior:  
+     - SMART09_EMERGENT_GOVERNANCE_INTEGRITY forces CI to fail the build; SCIS threshold violation blocks merge and deployment.[file:4][file:5]  
+     - Aletheion’s centralized compliance utilities emit a structured incident record that links the regression to specific files, chains, and domains (water, somatic, equity).[file:5]  
+     - No operational change is allowed in ERM, Thermaphora, Somaplex, or Synthexis modules until SCIS is restored (validator restored, PQSTRICT crypto re-applied, treaty bindings verified).
+
+
+
 ***
 
 _This v1.0 Climate Risk Stack is a living specification. It becomes authoritative for Aletheion once linked from the ERM Architecture document and the Workflow Index as the canonical reference for any climate‑related change in Phoenix._
