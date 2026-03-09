@@ -1,0 +1,882 @@
+// ============================================================================
+// FILE: aletheion/erm/ecosafety/aln/contracts/ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+// VERSION: 1.0.0
+// LICENSE: Apache-2.0 WITH Aletheion-Ecosafety-Exception-1.0
+// STATUS: Production-Ready | Offline-Capable | Post-Quantum-Secure
+// ============================================================================
+// PURPOSE: Formal specification of ecosafety grammar contracts in ALN (Aletheion
+//          Language of Nature). This file defines the invariant rules, corridor
+//          validation logic, Lyapunov residual constraints, and SevenCapitalState
+//          enforcement that ALL Rust, Lua, JavaScript, Kotlin, and C++ implementations
+//          MUST satisfy. ALN serves as the canonical reference for formal verification.
+// ============================================================================
+// CONSTRAINTS:
+//   - No blacklisted cryptography (SHA-256, BLAKE, KECCAK, etc.)
+//   - All risk coordinates normalized to [0.0, 1.0]
+//   - Seven capitals mandatory for all Service functions
+//   - V_t must be non-increasing for safe transitions
+//   - FPIC and BioticTreaty enforcement required
+//   - Indigenous sovereignty protocols (Akimel O'odham, Piipaash territories)
+// ============================================================================
+// COMPATIBILITY: ALE-ERM-ECOSAFETY-TYPES-001.rs (Rust types binding)
+// ============================================================================
+
+@namespace Aletheion.ERM.Ecosafety.Grammar
+@version 1.0.0
+@timestamp 2026-03-09T00:00:00Z
+@binding rust:aletheion/erm/ecosafety/rust/types/src/lib.rs
+@binding lua:aletheion/erm/ecosafety/lua/validators/ecosafety_eval.lua
+@binding js:aletheion/erm/ecosafety/js/contracts/grammar.mjs
+@binding kotlin:aletheion/erm/ecosafety/kotlin/contracts/Grammar.kt
+@binding cpp:aletheion/erm/ecosafety/cpp/contracts/grammar.hpp
+
+// ============================================================================
+// SECTION 1: PRIMITIVE TYPE DECLARATIONS
+// ============================================================================
+
+primitive RiskCoord {
+    value: f32 [0.0, 1.5],
+    timestamp_us: u64,
+    source_did: bytes[32],
+    confidence: f32 [0.0, 1.0]
+}
+
+primitive CapitalState {
+    current: f32 [0.0, 1.0],
+    min_threshold: f32 [0.0, 1.0],
+    max_threshold: f32 [0.0, 1.0],
+    delta: f32,
+    risk_coords: array[RiskCoord],
+    fpic_verified: bool
+}
+
+primitive LyapunovResidual {
+    v_t: f32 [0.0, ∞],
+    v_t_previous: f32 [0.0, ∞],
+    v_t_derivative: f32,
+    capital_weights: array[f32][7],
+    timestamp_us: u64
+}
+
+primitive SevenCapitalState {
+    water: CapitalState,
+    thermal: CapitalState,
+    waste: CapitalState,
+    biotic: CapitalState,
+    somatic: CapitalState,
+    neurobiome: CapitalState,
+    treaty: CapitalState,
+    lyapunov_residual: LyapunovResidual,
+    timestamp_us: u64,
+    entity_did: bytes[32]
+}
+
+enum CorridorDecision : u8 {
+    PERMIT = 0,
+    DERATE = 1,
+    STOP = 2,
+    NO_BUILD = 3,
+    PENDING_FPIC = 4,
+    ERROR = 255
+}
+
+enum NodeAction : u8 {
+    DEPLOY = 0,
+    PARK = 1,
+    ACTUATE = 2,
+    RETIRE = 3,
+    EMERGENCY_STOP = 4,
+    DERATE = 5,
+    REQUEST_FPIC = 6,
+    LOG_VIOLATION = 7
+}
+
+enum EcosafetyError : u8 {
+    INVALID_RISK_VALUE = 0,
+    INVALID_CONFIDENCE = 1,
+    INVALID_CORRIDOR_THRESHOLDS = 2,
+    VT_DERIVATIVE_EXCEEDED = 3,
+    CORRIDOR_VIOLATION = 4,
+    MISSING_CORRIDOR = 5,
+    FPIC_FAILED = 6,
+    TREATY_VIOLATION = 7,
+    NEURORIGHTS_VIOLATION = 8,
+    DID_VERIFICATION_FAILED = 9,
+    SMART_CHAIN_VALIDATION_FAILED = 10,
+    BIRTH_SIGN_CHECK_FAILED = 11,
+    SYSTEM_ERROR = 255
+}
+
+// ============================================================================
+// SECTION 2: CORRIDOR VALIDATION INVARIANTS
+// ============================================================================
+
+invariant CorridorInvariants {
+    // INV-001: All risk coordinates must be within valid range
+    forall rc in RiskCoord {
+        rc.value >= 0.0 && rc.value <= 1.5
+        && rc.confidence >= 0.0 && rc.confidence <= 1.0
+    }
+
+    // INV-002: Corridor thresholds must be properly ordered
+    forall cs in CapitalState {
+        cs.min_threshold <= cs.max_threshold
+    }
+
+    // INV-003: Current capital state must be within thresholds (safe state)
+    forall cs in CapitalState {
+        cs.is_safe() == (cs.current >= cs.min_threshold 
+                        && cs.current <= cs.max_threshold
+                        && !exists rc in cs.risk_coords where rc.value > 1.0)
+    }
+
+    // INV-004: SevenCapitalState must have all seven capitals defined
+    forall scs in SevenCapitalState {
+        scs.water != null
+        && scs.thermal != null
+        && scs.waste != null
+        && scs.biotic != null
+        && scs.somatic != null
+        && scs.neurobiome != null
+        && scs.treaty != null
+    }
+
+    // INV-005: Capital weights must sum to 1.0
+    forall lr in LyapunovResidual {
+        sum(lr.capital_weights) == 1.0
+    }
+}
+
+// ============================================================================
+// SECTION 3: LYAPUNOV RESIDUAL (V_t) CONSTRAINTS
+// ============================================================================
+
+contract LyapunovStabilityContract {
+    // LSC-001: V_t computation formula
+    func compute_v_t(state: SevenCapitalState) -> f32 {
+        let weights = [0.12, 0.12, 0.12, 0.18, 0.12, 0.16, 0.18] // Sum = 1.0
+        let v_t = state.water.current * weights[0]
+                + state.thermal.current * weights[1]
+                + state.waste.current * weights[2]
+                + state.biotic.current * weights[3]
+                + state.somatic.current * weights[4]
+                + state.neurobiome.current * weights[5]
+                + state.treaty.current * weights[6]
+        return v_t
+    }
+
+    // LSC-002: V_t must be non-increasing for safe state transitions
+    invariant v_t_non_increasing {
+        forall (state_prev: SevenCapitalState, state_curr: SevenCapitalState) {
+            is_safe_transition(state_prev, state_curr) 
+            ==> state_curr.lyapunov_residual.v_t <= state_prev.lyapunov_residual.v_t
+        }
+    }
+
+    // LSC-003: V_t derivative must not exceed maximum rate
+    invariant v_t_derivative_bound {
+        forall lr in LyapunovResidual {
+            abs(lr.v_t_derivative) <= 0.05 // MAX_VT_DERIVATIVE
+        }
+    }
+
+    // LSC-004: V_t stability check function
+    func is_v_t_stable(current_v_t: f32, previous_v_t: f32) -> bool {
+        return current_v_t <= previous_v_t
+    }
+
+    // LSC-005: Derivative safety check
+    func is_derivative_safe(derivative: f32, max_derivative: f32) -> bool {
+        return abs(derivative) <= max_derivative
+    }
+}
+
+// ============================================================================
+// SECTION 4: CORRIDOR DECISION LOGIC
+// ============================================================================
+
+contract CorridorDecisionContract {
+    // CDC-001: No corridor, no build principle
+    func enforce_no_corridor_no_build(entity_did: bytes[32], 
+                                       corridors: map<string, RiskCoord>) 
+                                       -> CorridorDecision {
+        if corridors.is_empty() {
+            return CorridorDecision.NO_BUILD
+        }
+        if !corridors.contains_key("r_degrade") 
+           || !corridors.contains_key("r_tox") 
+           || !corridors.contains_key("r_microplastics") {
+            return CorridorDecision.NO_BUILD
+        }
+        return CorridorDecision.PERMIT // Proceed to violation check
+    }
+
+    // CDC-002: Violated corridor → derate/stop principle
+    func enforce_violated_corridor_action(corridors: map<string, RiskCoord>,
+                                           thresholds: map<string, f32>)
+                                           -> CorridorDecision {
+        let mut max_risk = 0.0
+        let mut violating_coord = null
+
+        for (coord_name, coord_value) in corridors {
+            let threshold = thresholds.get(coord_name)
+            if coord_value.value > threshold {
+                if coord_value.value > max_risk {
+                    max_risk = coord_value.value
+                    violating_coord = coord_name
+                }
+            }
+        }
+
+        if max_risk > 1.0 {
+            return CorridorDecision.STOP // Hard violation
+        } else if max_risk > 0.85 {
+            return CorridorDecision.DERATE // Approaching threshold
+        } else {
+            return CorridorDecision.PERMIT // All clear
+        }
+    }
+
+    // CDC-003: Combined corridor validation
+    func validate_all_corridors(state: SevenCapitalState,
+                                 required_corridors: array<string>)
+                                 -> CorridorDecision {
+        // Step 1: Check corridor presence
+        let presence_check = enforce_no_corridor_no_build(
+            state.entity_did, 
+            collect_risk_coords(state)
+        )
+        if presence_check != CorridorDecision.PERMIT {
+            return presence_check
+        }
+
+        // Step 2: Check corridor violations
+        let thresholds = load_corridor_thresholds()
+        let violation_check = enforce_violated_corridor_action(
+            collect_risk_coords(state),
+            thresholds
+        )
+
+        return violation_check
+    }
+
+    // CDC-004: Collect all risk coordinates from SevenCapitalState
+    func collect_risk_coords(state: SevenCapitalState) -> map<string, RiskCoord> {
+        let coords = map<string, RiskCoord>::new()
+        
+        // Water capital risk coords
+        for rc in state.water.risk_coords {
+            coords.insert("water_" + rc.type, rc)
+        }
+        // Thermal capital risk coords
+        for rc in state.thermal.risk_coords {
+            coords.insert("thermal_" + rc.type, rc)
+        }
+        // Biotic capital risk coords (critical for BioticTreaty)
+        for rc in state.biotic.risk_coords {
+            coords.insert("biotic_" + rc.type, rc)
+        }
+        // Treaty capital risk coords (critical for Indigenous sovereignty)
+        for rc in state.treaty.risk_coords {
+            coords.insert("treaty_" + rc.type, rc)
+        }
+        // ... (other capitals)
+
+        return coords
+    }
+}
+
+// ============================================================================
+// SECTION 5: SEVEN CAPITAL STATE VALIDATION
+// ============================================================================
+
+contract SevenCapitalStateContract {
+    // SCS-001: All capitals must be safe for overall state to be safe
+    func all_capitals_safe(state: SevenCapitalState) -> bool {
+        return state.water.is_safe()
+            && state.thermal.is_safe()
+            && state.waste.is_safe()
+            && state.biotic.is_safe()
+            && state.somatic.is_safe()
+            && state.neurobiome.is_safe()
+            && state.treaty.is_safe()
+    }
+
+    // SCS-002: FPIC verification for treaty-related actions
+    func verify_fpic(state: SevenCapitalState, action: NodeAction) -> bool {
+        if action == NodeAction.DEPLOY || action == NodeAction.ACTUATE {
+            return state.treaty.fpic_verified
+        }
+        return true // FPIC not required for all actions
+    }
+
+    // SCS-003: Neurorights enforcement for neurobiome capital
+    func enforce_neurorights(state: SevenCapitalState) -> bool {
+        // Neurorights: No coercive channels, no subliminal stimuli
+        // No downgrades of cognitive liberty
+        // No forced consent mechanisms
+        return state.neurobiome.current >= state.neurobiome.min_threshold
+            && !exists rc in state.neurobiome.risk_coords 
+               where rc.type == "coercive_channel" && rc.value > 0.0
+    }
+
+    // SCS-004: BioticTreaty enforcement for biotic capital
+    func enforce_biotic_treaty(state: SevenCapitalState) -> bool {
+        // BioticTreaty: Species sovereignty, habitat integrity
+        // Bee corridors (Pbee), Tree corridors (Ptree), Marine corridors (Pmarine)
+        return state.biotic.current >= state.biotic.min_threshold
+            && state.biotic.fpic_verified // Biotic FPIC
+    }
+
+    // SCS-005: Indigenous sovereignty enforcement for treaty capital
+    func enforce_indigenous_sovereignty(state: SevenCapitalState) -> bool {
+        // Akimel O'odham and Piipaash territorial rights
+        // Free, Prior, Informed Consent (FPIC) mandatory
+        // No development without treaty verification
+        return state.treaty.current >= state.treaty.min_threshold
+            && state.treaty.fpic_verified
+    }
+
+    // SCS-006: Complete state validation before actuation
+    func validate_state_for_actuation(state: SevenCapitalState, 
+                                       action: NodeAction)
+                                       -> Result<CorridorDecision, EcosafetyError> {
+        // Check 1: All capitals safe
+        if !all_capitals_safe(state) {
+            return Err(EcosafetyError.CORRIDOR_VIOLATION)
+        }
+
+        // Check 2: V_t stability
+        if !LyapunovStabilityContract.is_v_t_stable(
+            state.lyapunov_residual.v_t,
+            state.lyapunov_residual.v_t_previous
+        ) {
+            return Err(EcosafetyError.VT_DERIVATIVE_EXCEEDED)
+        }
+
+        // Check 3: FPIC verification
+        if !verify_fpic(state, action) {
+            return Err(EcosafetyError.FPIC_FAILED)
+        }
+
+        // Check 4: Neurorights enforcement
+        if !enforce_neurorights(state) {
+            return Err(EcosafetyError.NEURORIGHTS_VIOLATION)
+        }
+
+        // Check 5: BioticTreaty enforcement
+        if !enforce_biotic_treaty(state) {
+            return Err(EcosafetyError.TREATY_VIOLATION)
+        }
+
+        // Check 6: Indigenous sovereignty
+        if !enforce_indigenous_sovereignty(state) {
+            return Err(EcosafetyError.TREATY_VIOLATION)
+        }
+
+        return Ok(CorridorDecision.PERMIT)
+    }
+}
+
+// ============================================================================
+// SECTION 6: SAFE_STEP FUNCTION (Runtime Enforcement)
+// ============================================================================
+
+contract SafeStepContract {
+    // SSC-001: The safe_step function is the runtime gatekeeper
+    // Every actuation path MUST call safe_step before execution
+    func safe_step(state_prev: SevenCapitalState,
+                   state_proposed: SevenCapitalState,
+                   action: NodeAction)
+                   -> Result<NodeAction, EcosafetyError> {
+        
+        // Step 1: Validate proposed state
+        let validation = SevenCapitalStateContract.validate_state_for_actuation(
+            state_proposed,
+            action
+        )
+        if validation.is_err() {
+            // Log violation shard instead of executing
+            log_violation_shard(state_prev, state_proposed, action, validation.err())
+            return Err(validation.err())
+        }
+
+        // Step 2: Check V_t stability (non-increasing)
+        if state_proposed.lyapunov_residual.v_t > state_prev.lyapunov_residual.v_t {
+            let err = EcosafetyError.VT_DERIVATIVE_EXCEEDED
+            log_violation_shard(state_prev, state_proposed, action, err)
+            return Err(err)
+        }
+
+        // Step 3: Check V_t derivative bound
+        let v_t_delta = state_proposed.lyapunov_residual.v_t 
+                      - state_prev.lyapunov_residual.v_t
+        if abs(v_t_delta) > 0.05 { // MAX_VT_DERIVATIVE
+            let err = EcosafetyError.VT_DERIVATIVE_EXCEEDED
+            log_violation_shard(state_prev, state_proposed, action, err)
+            return Err(err)
+        }
+
+        // Step 4: Corridor validation
+        let corridor_decision = CorridorDecisionContract.validate_all_corridors(
+            state_proposed,
+            get_required_corridors_for_action(action)
+        )
+        if corridor_decision == CorridorDecision.STOP 
+           || corridor_decision == CorridorDecision.NO_BUILD {
+            let err = EcosafetyError.CORRIDOR_VIOLATION
+            log_violation_shard(state_prev, state_proposed, action, err)
+            return Err(err)
+        }
+
+        // Step 5: Derate if approaching threshold
+        if corridor_decision == CorridorDecision.DERATE {
+            // Return DERATE action instead of original action
+            return Ok(NodeAction.DERATE)
+        }
+
+        // All checks passed - action permitted
+        return Ok(action)
+    }
+
+    // SSC-002: Log violation shard for audit trail
+    func log_violation_shard(state_prev: SevenCapitalState,
+                              state_proposed: SevenCapitalState,
+                              action: NodeAction,
+                              error: EcosafetyError) {
+        // Emit DID-signed QpuDataShard with violation details
+        // This creates an auditable, non-repudiable record
+        let shard = QpuDataShard {
+            shard_id: generate_shard_id(),
+            entity_did: state_prev.entity_did,
+            timestamp_us: current_timestamp_us(),
+            state: state_proposed,
+            action: action,
+            corridor_decision: CorridorDecision.STOP,
+            v_t: state_proposed.lyapunov_residual.v_t,
+            ker_metrics: compute_ker_metrics(state_proposed),
+            violation: Some(ViolationRecord {
+                violation_type: error,
+                triggering_coord: find_triggering_coord(state_proposed),
+                severity: compute_severity(error),
+                remediation: NodeAction.EMERGENCY_STOP,
+                timestamp_us: current_timestamp_us()
+            }),
+            fpic_status: determine_fpic_status(state_proposed),
+            smart_chain_hash: compute_smart_chain_hash(state_proposed),
+            birth_sign_verified: verify_birth_sign(state_proposed.entity_did)
+        }
+        emit_shard(shard)
+    }
+}
+
+// ============================================================================
+// SECTION 7: QPUDATASHARD EMISSION CONTRACT
+// ============================================================================
+
+contract QpuDataShardContract {
+    // QSC-001: Every state transition MUST emit a shard
+    invariant every_transition_emits_shard {
+        forall (state_prev: SevenCapitalState, state_curr: SevenCapitalState, action: NodeAction) {
+            transition(state_prev, state_curr, action)
+            ==> exists shard: QpuDataShard where 
+                shard.entity_did == state_curr.entity_did
+                && shard.timestamp_us == state_curr.timestamp_us
+                && shard.state == state_curr
+                && shard.action == action
+        }
+    }
+
+    // QSC-002: Shard must contain K/E/R metrics
+    invariant shard_contains_ker_metrics {
+        forall shard: QpuDataShard {
+            shard.ker_metrics.k >= 0.0 && shard.ker_metrics.k <= 1.0
+            && shard.ker_metrics.e >= 0.0 && shard.ker_metrics.e <= 1.0
+            && shard.ker_metrics.r >= 0.0
+        }
+    }
+
+    // QSC-003: Shard must be DID-signed and post-quantum secure
+    invariant shard_cryptographically_secure {
+        forall shard: QpuDataShard {
+            shard.smart_chain_hash.length == 64 // Post-quantum secure hash
+            && shard.birth_sign_verified == true
+        }
+    }
+
+    // QSC-004: Violation shards must be emitted for blocked actions
+    invariant violation_shards_emitted {
+        forall (action: NodeAction, error: EcosafetyError) {
+            safe_step_returns_err(action, error)
+            ==> exists shard: QpuDataShard where 
+                shard.violation != null
+                && shard.violation.violation_type == error
+        }
+    }
+}
+
+// ============================================================================
+// SECTION 8: SMART-CHAIN VALIDATION
+// ============================================================================
+
+contract SmartChainValidationContract {
+    // SVC-001: All shards must pass SMART-chain validation
+    func validate_smart_chain(shard: QpuDataShard) -> bool {
+        // SMART-chain: State, Model, Act, Record, Treaty, Trust, Interface
+        return validate_state(shard.state)
+            && validate_model(shard.state.lyapunov_residual)
+            && validate_act(shard.action)
+            && validate_record(shard)
+            && validate_treaty(shard.state)
+            && validate_trust(shard.smart_chain_hash)
+            && validate_interface(shard)
+    }
+
+    // SVC-002: Birth-Sign verification
+    func verify_birth_sign(entity_did: bytes[32]) -> bool {
+        // Birth-Sign: Initial state signature at entity creation
+        // Must match across all subsequent shards
+        return lookup_birth_sign(entity_did).is_valid()
+    }
+
+    // SVC-003: SMART-chain hash computation (post-quantum secure)
+    func compute_smart_chain_hash(shard: QpuDataShard) -> bytes[64] {
+        // Use post-quantum secure hash function (NOT blacklisted)
+        // Recommended: CRYSTALS-Kyber, CRYSTALS-Dilithium, or SPHINCS+
+        let data = serialize_shard(shard)
+        return pq_secure_hash(data) // 64-byte output
+    }
+}
+
+// ============================================================================
+// SECTION 9: K/E/R METRICS COMPUTATION
+// ============================================================================
+
+contract KERMetricsContract {
+    // KMC-001: Knowledge factor (K) computation
+    func compute_knowledge_factor(state: SevenCapitalState) -> f32 {
+        // K increases with:
+        // - Data completeness (all corridors present)
+        // - Model accuracy (low V_t derivative)
+        // - Historical consistency (birth-sign matches)
+        let corridor_completeness = count_present_corridors(state) / count_required_corridors()
+        let model_accuracy = 1.0 - abs(state.lyapunov_residual.v_t_derivative) / 0.05
+        let historical_consistency = verify_birth_sign(state.entity_did) ? 1.0 : 0.5
+        
+        let k = (corridor_completeness * 0.4 
+               + model_accuracy * 0.3 
+               + historical_consistency * 0.3)
+        return clamp(k, 0.0, 1.0)
+    }
+
+    // KMC-002: Eco-impact value (E) computation
+    func compute_eco_impact_value(state: SevenCapitalState) -> f32 {
+        // E increases with:
+        // - Low biotic risk
+        // - Low treaty risk
+        // - Low waste risk
+        // - High water/thermal efficiency
+        let biotic_score = 1.0 - state.biotic.current
+        let treaty_score = 1.0 - state.treaty.current
+        let waste_score = 1.0 - state.waste.current
+        let efficiency_score = (state.water.current + state.thermal.current) / 2.0
+        
+        let e = (biotic_score * 0.3 
+               + treaty_score * 0.25 
+               + waste_score * 0.2 
+               + efficiency_score * 0.25)
+        return clamp(e, 0.0, 1.0)
+    }
+
+    // KMC-003: Risk of harm (R) computation
+    func compute_risk_of_harm(state: SevenCapitalState) -> f32 {
+        // R increases with:
+        // - High risk coordinates
+        // - V_t instability
+        // - Corridor violations
+        // - FPIC failures
+        let risk_coord_avg = average_risk_coord_value(state)
+        let v_t_instability = max(0.0, state.lyapunov_residual.v_t 
+                                        - state.lyapunov_residual.v_t_previous)
+        let corridor_violations = count_corridor_violations(state)
+        let fpic_risk = state.treaty.fpic_verified ? 0.0 : 0.5
+        
+        let r = (risk_coord_avg * 0.4 
+               + v_t_instability * 0.25 
+               + corridor_violations * 0.2 
+               + fpic_risk * 0.15)
+        return r // Can exceed 1.0 for severe violations
+    }
+
+    // KMC-004: Combined K/E/R metrics computation
+    func compute_ker_metrics(state: SevenCapitalState) -> KERMetrics {
+        return KERMetrics {
+            k: compute_knowledge_factor(state),
+            e: compute_eco_impact_value(state),
+            r: compute_risk_of_harm(state)
+        }
+    }
+
+    // KMC-005: Target K/E/R bands for biodegradable nodes
+    const TARGET_K_BIODEGRADABLE: f32 = 0.91
+    const TARGET_E_BIODEGRADABLE: f32 = 0.90
+    const TARGET_R_BIODEGRADABLE: f32 = 0.15
+
+    // KMC-006: Target K/E/R bands for MAR cyboquatic modules
+    const TARGET_K_MAR: f32 = 0.93
+    const TARGET_E_MAR: f32 = 0.92
+    const TARGET_R_MAR: f32 = 0.14
+
+    // KMC-007: Target K/E/R bands for ecosafety grammar spine
+    const TARGET_K_GRAMMAR: f32 = 0.94
+    const TARGET_E_GRAMMAR: f32 = 0.90
+    const TARGET_R_GRAMMAR: f32 = 0.12
+}
+
+// ============================================================================
+// SECTION 10: BIODEGRADABLE NODE SPECIALIZATION
+// ============================================================================
+
+contract BiodegradableNodeContract {
+    // BNC-001: Biodegradable-specific risk coordinates
+    func get_biodegradable_required_corridors() -> array<string> {
+        return [
+            "r_degrade",        // Degradation rate risk
+            "r_residual_mass",  // Residual mass risk
+            "r_microplastics",  // Microplastic release risk
+            "r_tox_acute",      // Acute toxicity risk
+            "r_tox_chronic",    // Chronic toxicity risk
+            "r_out_of_band"     // Out-of-band operation risk
+        ]
+    }
+
+    // BNC-002: Biodegradable node deployment validation
+    func validate_biodegradable_deployment(state: SevenCapitalState,
+                                            location: GeoLocation,
+                                            material_recipe: MaterialRecipe)
+                                            -> Result<CorridorDecision, EcosafetyError> {
+        // Check 1: Material recipe must have LCMS toxicity data
+        if !material_recipe.has_lcms_data() {
+            return Err(EcosafetyError.MISSING_CORRIDOR)
+        }
+
+        // Check 2: Degradation kinetics must be calibrated
+        if !material_recipe.has_degradation_model() {
+            return Err(EcosafetyError.MISSING_CORRIDOR)
+        }
+
+        // Check 3: Location must have suitable habitat corridors
+        if !location.has_biotic_corridor() {
+            return Err(EcosafetyError.CORRIDOR_VIOLATION)
+        }
+
+        // Check 4: FPIC for Indigenous territory
+        if location.is_indigenous_territory() && !state.treaty.fpic_verified {
+            return Err(EcosafetyError.FPIC_FAILED)
+        }
+
+        // Check 5: All biodegradable-specific corridors present
+        let required = get_biodegradable_required_corridors()
+        for corridor in required {
+            if !state.has_corridor(corridor) {
+                return Err(EcosafetyError.MISSING_CORRIDOR)
+            }
+        }
+
+        return Ok(CorridorDecision.PERMIT)
+    }
+
+    // BNC-003: Biodegradable node retirement validation
+    func validate_biodegradable_retirement(state: SevenCapitalState)
+                                            -> Result<CorridorDecision, EcosafetyError> {
+        // Check: Residual mass must be below threshold before retirement
+        if state.waste.current > 0.15 { // 15% residual mass threshold
+            return Err(EcosafetyError.CORRIDOR_VIOLATION)
+        }
+
+        // Check: Microplastic risk must be minimal
+        let micro_coord = state.waste.risk_coords.find("r_microplastics")
+        if micro_coord.value > 0.10 {
+            return Err(EcosafetyError.CORRIDOR_VIOLATION)
+        }
+
+        return Ok(CorridorDecision.PERMIT)
+    }
+}
+
+// ============================================================================
+// SECTION 11: FOG WORKLOAD ROUTING INTEGRATION
+// ============================================================================
+
+contract FOGWorkloadRoutingContract {
+    // FWRC-001: FOG router must query ecosafety corridors
+    func fog_router_filter_candidates(candidates: array<NodeCandidate],
+                                       workload: Workload)
+                                       -> array<NodeCandidate> {
+        let filtered = array<NodeCandidate>::new()
+        
+        for candidate in candidates {
+            // Check 1: Energy surplus
+            if candidate.energy_surplus < workload.energy_requirement {
+                continue
+            }
+
+            // Check 2: Hydraulic safety
+            if !candidate.hydraulic_corridor_safe() {
+                continue
+            }
+
+            // Check 3: Biodegradable corridors (if applicable)
+            if candidate.is_biodegradable() 
+               && !candidate.biodegradable_corridors_complete() {
+                continue
+            }
+
+            // Check 4: V_t non-increasing
+            if candidate.v_t_trend_increasing() {
+                continue
+            }
+
+            // Check 5: FPIC verified
+            if !candidate.fpic_verified() {
+                continue
+            }
+
+            filtered.push(candidate)
+        }
+
+        return filtered
+    }
+
+    // FWRC-002: FOG routing decision with ecosafety priority
+    func fog_route_decision(filtered_candidates: array<NodeCandidate>,
+                             workload: Workload)
+                             -> Result<NodeCandidate, EcosafetyError> {
+        if filtered_candidates.is_empty() {
+            return Err(EcosafetyError.NO_BUILD)
+        }
+
+        // Select candidate with lowest R (risk of harm)
+        let best = filtered_candidates.min_by(|c| c.ker_metrics.r)
+        return Ok(best)
+    }
+}
+
+// ============================================================================
+// SECTION 12: COMPLIANCE PREFLIGHT CHECKS
+// ============================================================================
+
+contract CompliancePreflightContract {
+    // CPC-001: PR preflight check for ecosafety compliance
+    func preflight_check_pr(pr_diff: PullRequestDiff) -> Result<bool, string> {
+        // Check 1: Any new cyboquatic node must have ecosafety corridors
+        if pr_diff.contains_new_cyboquatic_node() {
+            if !pr_diff.has_ecosafety_corridors() {
+                return Err("New cyboquatic node missing ecosafety corridors")
+            }
+        }
+
+        // Check 2: No bypass of SMART-chain/Birth-Sign governance
+        if pr_diff.bypasses_smart_chain() {
+            return Err("SMART-chain governance bypass detected")
+        }
+
+        // Check 3: No corridor/rights logic outside ALN/Rust grammars
+        if pr_diff.implements_corridor_logic_outside_grammar() {
+            return Err("Corridor logic implemented outside approved grammars")
+        }
+
+        // Check 4: All SevenCapitalState validations present
+        if pr_diff.modifies_service_functions() 
+           && !pr_diff.has_seven_capital_validation() {
+            return Err("Service functions missing SevenCapitalState validation")
+        }
+
+        return Ok(true)
+    }
+}
+
+// ============================================================================
+// SECTION 13: FEATURE FLAGS AND CONFIGURATION
+// ============================================================================
+
+config EcosafetyFeatureFlags {
+    offline_mode: bool = false,
+    pq_crypto_enabled: bool = true,
+    neurorights_enforcement: bool = true,
+    biotic_treaty_mode: bool = true,
+    indigenous_sovereignty: bool = true
+}
+
+config EcosafetyConstants {
+    MAX_VT_DERIVATIVE: f32 = 0.05,
+    DEFAULT_CORRIDOR_THRESHOLD: f32 = 1.0,
+    DERATE_THRESHOLD: f32 = 0.85,
+    MIN_CONFIDENCE_THRESHOLD: f32 = 0.70,
+    TARGET_K_BIODEGRADABLE: f32 = 0.91,
+    TARGET_E_BIODEGRADABLE: f32 = 0.90,
+    TARGET_R_BIODEGRADABLE: f32 = 0.15
+}
+
+// ============================================================================
+// SECTION 14: CROSS-LANGUAGE BINDING SPECIFICATIONS
+// ============================================================================
+
+binding rust {
+    module: aletheion/erm/ecosafety/rust/contracts/src/lib.rs
+    function_mapping: {
+        "safe_step" -> "safe_step",
+        "validate_all_corridors" -> "validate_corridors",
+        "compute_v_t" -> "compute_lyapunov_residual",
+        "compute_ker_metrics" -> "compute_ker_metrics"
+    }
+    type_mapping: {
+        "SevenCapitalState" -> "SevenCapitalState",
+        "CorridorDecision" -> "CorridorDecision",
+        "EcosafetyError" -> "EcosafetyError"
+    }
+}
+
+binding lua {
+    module: aletheion/erm/ecosafety/lua/validators/ecosafety_eval.lua
+    function_mapping: {
+        "safe_step" -> "ecosafety_safe_step",
+        "validate_all_corridors" -> "ecosafety_validate",
+        "compute_ker_metrics" -> "ecosafety_ker"
+    }
+    ffi_surface: "ecosafety_eval(plan_json) -> decision_json"
+}
+
+binding js {
+    module: aletheion/erm/ecosafety/js/contracts/grammar.mjs
+    function_mapping: {
+        "safe_step" -> "safeStep",
+        "validate_all_corridors" -> "validateCorridors",
+        "compute_ker_metrics" -> "computeKER"
+    }
+    export_type: "ESM"
+}
+
+binding kotlin {
+    module: aletheion/erm/ecosafety/kotlin/contracts/Grammar.kt
+    function_mapping: {
+        "safe_step" -> "safeStep",
+        "validate_all_corridors" -> "validateCorridors",
+        "compute_ker_metrics" -> "computeKER"
+    }
+    jvm_target: "17"
+}
+
+binding cpp {
+    module: aletheion/erm/ecosafety/cpp/contracts/grammar.hpp
+    function_mapping: {
+        "safe_step" -> "safe_step",
+        "validate_all_corridors" -> "validate_corridors",
+        "compute_ker_metrics" -> "compute_ker_metrics"
+    }
+    standard: "C++20"
+}
+
+// ============================================================================
+// END OF FILE: ALE-ERM-ECOSAFETY-GRAMMAR-001.aln
+// ============================================================================
