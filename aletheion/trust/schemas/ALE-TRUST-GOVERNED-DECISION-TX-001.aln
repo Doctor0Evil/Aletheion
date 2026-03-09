@@ -1,247 +1,192 @@
-aln_schema ALE-TRUST-GOVERNED-DECISION-TX-001
-version 1
+// Role: Canonical Googolswarm provenance schema for governed decisions in Aletheion.[file:2][file:5]
+// ERM layers: L3 Blockchain Trust, L4 Optimization, L5 Citizen Interface.[file:2]
+// This schema is imported by any workflow that appends governed decisions to the trust layer.
 
-// Canonical Googolswarm provenance envelope for governed decisions.
-// Mirrors Rust types in ALE-GOV-BIRTH-SIGN-MODEL-001.rs and prepares
-// a stable, machine-enforceable record for audit, FPIC, and treaty checks. [file:7]
+namespace ALE.TRUST.GOVERNED_DECISION_TX_001
 
-import_identifiers {
-  BirthSignId       : "BirthSignId",        // from ALE-GOV-BIRTH-SIGN-MODEL-001.rs [file:7]
-  AlnNormId         : "AlnNormId",
-  BioticTreatyId    : "BioticTreatyId",
-  MicroTreatyId     : "MicroTreatyId",
-  Did               : "Did",
-  WorkflowEventId   : "WorkflowEventId",
-  WorkflowId        : "WorkflowId",
-  NodeProfileId     : "NodeProfileId",
-  TrustTxId         : "TrustTxId"
-}
+// -----------------------------------------------------------------------------
+// Core scalar aliases
+// -----------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------
-// Enums mirrored from Rust governance model
-// ---------------------------------------------------------------------
+atom TxId
+  field value string  // Unique transaction identifier in the trust layer (e.g., Googolswarm Tx hash or UUID).[file:2]
 
-enum GovernanceDomain {
-  Land,
-  Water,
-  Air,
-  Materials,
-  Mobility,
-  Biosignals,
-  Augmentation,
-  Energy,
-  Culture,
-  Emergency
-} // [file:7]
+atom WorkflowId
+  field value string  // Stable workflow identifier, e.g., "WF-006-AWP-INGESTION" or "WF-022-SYNTHEXIS-LNP".[file:5]
 
-enum LawScope {
-  City,
-  County,
-  State,
-  National,
-  CrossBorderTreaty
-} // [file:7]
+atom WorkflowStage
+  field value string  // Stage where the decision is recorded: "Optimization", "Actuation", "EmergencyOverride", etc.[file:2][file:5]
 
-enum LocalOverlayKind {
-  NeighborhoodMicroTreaty,
-  WorkplacePolicy,
-  SchoolOrCampusPolicy,
-  FacilitySpecificProtocol,
-  EventSpecificProtocol
-} // [file:7]
+atom BirthSignId
+  field value string  // Territorial governance signature identifier for a spatial tile.[file:2]
 
-enum FpicRequirement {
-  NotApplicable,
-  RequiredBeforePlanning,
-  RequiredBeforeExecution,
-  EmergencyOverrideWithAudit
-} // [file:7]
+atom AlnNormId
+  field value string  // Identifier of an ALN norm actually consulted in this decision (law, treaty, microtreaty clause).[file:2]
 
-enum FpicStatus {
-  NotRequired,
-  Granted,
-  Pending,
-  Denied
-} // [file:7]
+atom Did
+  field value string  // Decentralized identifier for citizen, device, or institution (DID core spec compatible).[file:2]
 
-enum ConstraintMode {
-  Hard,
-  HighPenalty
-} // [file:7]
+atom NodeProfileId
+  field value string  // Identifier for firmware / node profile where the decision was computed.[file:2]
 
-enum ConstraintOutcomeKind {
-  Satisfied,
-  SoftViolation,
-  HardViolation
-} // [file:7]
+atom GovernanceDomain
+  field value string  // e.g., "Water", "Heat", "Mobility", "Biosignals", "Augmentation".[file:2][file:5]
 
-enum DecisionOutcome {
-  Approved,
-  ApprovedWithDerating,
-  Rejected,
-  PendingFpic
-} // [file:7]
+atom HashReference
+  field algo string    // Hash algorithm label (non-blacklisted), e.g., "GOOGOLSWARM-LEDGER-H1".[file:2]
+  field value string   // Hex or base64-encoded hash value.
+  field length int     // Bit-length of the hash for audit and parsing safety.
 
-enum NodeSecurityTier {
-  TeeBacked,
-  HardenedFirmwareOnly,
-  Basic
-} // [file:7]
+// -----------------------------------------------------------------------------
+// Decision outcome and violation encoding
+// -----------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------
-// Law, Indigenous, Ecological, and Overlay references
-// ---------------------------------------------------------------------
+enum DecisionOutcome
+  | Approved           // All hard constraints satisfied, no blocking FPIC issues.[file:2]
+  | ApprovedWithDerating  // Soft violations present; plan derated but executed.[file:2]
+  | Rejected           // Hard constraint or safety violation prevents execution.[file:2]
+  | PendingFpic        // Awaiting Indigenous FPIC or equivalent territorial approval.[file:2]
+  | Escalated          // Escalated to human governance or emergency override channel.[file:5]
 
-type LawRef {
-  scope      : LawScope,     // jurisdiction scope of the law [file:7]
-  alnnorm    : AlnNormId,    // ALN norm identifier
-  label      : string        // human-readable citation/label
-} // [file:7]
+// Severity of any violation associated with this decision.
+enum ViolationSeverity
+  | Info
+  | Warning
+  | Error
+  | Critical
 
-type IndigenousGovernance {
-  territoryId  : string,          // IndigenousTerritoryId encoded as string [file:7]
-  requirement  : FpicRequirement, // FPIC level for this territory
-  tekNorms     : [AlnNormId]      // TEK-related ALN norms
-} // [file:7]
+// Domain classification for violations.
+enum ViolationDomain
+  | Law
+  | Indigenous
+  | BioticTreaty
+  | Neurorights
+  | Ecosafety
+  | Thermal
+  | Mobility
+  | Water
+  | Energy
+  | Materials
+  | Consent
+  | Other
 
-type EcologicalProtections {
-  bioticTreaties            : [BioticTreatyId], // species-level BioticTreaties [file:7]
-  habitatCorridorNorms      : [AlnNormId],      // connectivity envelopes
-  lightNoiseChemicalNorms   : [AlnNormId]       // pollution / envelope limits
-} // [file:7]
+// Individual violation record, attached to the decision envelope when constraints fail.
+record Violation
+  field id             string            // Local identifier for this violation instance.
+  field severity       ViolationSeverity // Impact level of this violation.[file:2]
+  field domain         ViolationDomain   // Domain of the violated constraint.[file:2]
+  field aln_norm_id    AlnNormId?        // Optional ALN norm reference, if a specific norm was implicated.[file:2]
+  field birth_sign_id  BirthSignId?      // Optional BirthSign where the violation occurred.[file:2]
+  field message        string            // Machine + human readable explanation.
+  field details        map<string,string>// Additional key/value context (e.g., "zone" -> "BLOCK-17").[file:2]
 
-type LocalOverlay {
-  kind       : LocalOverlayKind, // micro-treaty / local norm kind [file:7]
-  microTreatyId : MicroTreatyId, // concrete micro-treaty reference
-  summary    : string            // citizen-facing summary
-} // [file:7]
+// -----------------------------------------------------------------------------
+// Constraint evaluation summary (ALN + BirthSigns)
+// -----------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------
-// BirthSign snapshot for provenance
-// ---------------------------------------------------------------------
+// Summary of governance evaluation results that led to the final outcome.[file:2][file:5]
+record GovernanceEvaluation
+  field constraint_mode string                 // "Hard" or "HighPenalty".[file:2]
+  field satisfied       bool                   // True if all constraints satisfied or acceptable under mode.
+  field hard_violations list<AlnNormId>        // ALN norms with hard violations, if any.[file:2]
+  field soft_violations list<AlnNormId>        // ALN norms with soft violations, if any.[file:2]
+  field fpic_status     string                 // "NotRequired" | "Granted" | "Pending" | "Denied".[file:2]
+  field explanation     string                 // Short justification for governance decision.[file:2][file:5]
 
-type BirthSignSnapshot {
-  id                 : BirthSignId,              // tile identifier [file:7]
-  tileRef            : string,                   // opaque geospatial key
-  domains            : [GovernanceDomain],       // domains this Birth-Sign governs
-  laws               : [LawRef],                 // public law bundle
-  indigenous         : [IndigenousGovernance],   // Indigenous governance overlays
-  ecological         : EcologicalProtections,    // ecological protections
-  localOverlays      : [LocalOverlay],           // micro-treaties and norms
-  defaultMode        : ConstraintMode,           // default enforcement mode
-  version            : integer,                  // BirthSign version
-  validFrom          : datetime,                 // validity start
-  validUntil         : datetime?                 // optional validity end
-} // [file:7]
+// -----------------------------------------------------------------------------
+// Actor / node metadata
+// -----------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------
-// Constraint evaluation and FPIC status
-// ---------------------------------------------------------------------
+record Participants
+  field subject_did  Did?           // Citizen, community, or affected subject DID (if applicable).[file:2]
+  field operator_did Did?           // Operator, planner, or system DID submitting this decision.[file:2]
+  field node_profile NodeProfileId? // Node profile on which the decision was computed.[file:2]
+  field domains      list<GovernanceDomain> // Domains influenced by this decision (e.g., ["Water","Heat"]).[file:2][file:5]
 
-type ConstraintOutcome {
-  kind     : ConstraintOutcomeKind, // satisfied / soft / hard [file:7]
-  alnnorm  : AlnNormId?,            // may be empty for generic outcomes
-  message  : string?                // optional explanation
-} // [file:7]
+// -----------------------------------------------------------------------------
+// Temporal metadata
+// -----------------------------------------------------------------------------
 
-type FpicStatusRecord {
-  status        : FpicStatus,         // NotRequired, Granted, Pending, Denied [file:7]
-  territoryId   : string?,            // IndigenousTerritoryId if applicable
-  grantedAt     : datetime?,          // for Granted
-  expiresAt     : datetime?,          // optional expiry
-  requestedAt   : datetime?,          // for Pending
-  deniedReason  : string?             // for Denied
-} // [file:7]
+record TimeWindow
+  field decision_at       datetime   // Timestamp at which the decision was finalized.[file:2]
+  field action_effective_at datetime? // Planned time when actuation becomes effective, if different.[file:5]
+  field window_start      datetime?  // Optional start of the controlled window.
+  field window_end        datetime?  // Optional end of the controlled window.
 
-type GovernanceEvaluationRecord {
-  birthSignId    : BirthSignId,          // primary BirthSign evaluated [file:7]
-  mode           : ConstraintMode,       // enforcement mode used
-  outcomes       : [ConstraintOutcome],  // per-norm outcomes
-  fpic           : FpicStatusRecord?     // FPIC status result
-} // [file:7]
+// -----------------------------------------------------------------------------
+// Core governed decision transaction schema
+// -----------------------------------------------------------------------------
 
-// ---------------------------------------------------------------------
-// Node security profile snapshot for placement audit
-// ---------------------------------------------------------------------
+record GovernedDecisionTx
+  // Core identifiers
+  field tx_id           TxId
+  field workflow_id     WorkflowId
+  field workflow_stage  WorkflowStage
 
-type NodeSecurityProfileSnapshot {
-  nodeProfileId   : NodeProfileId,    // node profile id [file:7]
-  tier            : NodeSecurityTier, // TEE-backed / hardened / basic
-  secureBoot      : boolean,
-  signedUpdates   : boolean,
-  secureTransport : boolean,
-  lastAuditPassedAt : datetime?
-} // [file:7]
+  // Territorial context
+  field birth_sign_ids  list<BirthSignId> // All BirthSigns applied during evaluation.[file:2]
+  field primary_birth_sign BirthSignId?   // Optional primary or dominant BirthSign for this decision.[file:2]
 
-// ---------------------------------------------------------------------
-// Governed decision envelope core
-// ---------------------------------------------------------------------
+  // Governance norms actually consulted
+  field applied_aln_norms      list<AlnNormId> // Explicit ALN norms evaluated (laws, treaties, overlays).[file:2]
+  field applied_biotic_treaties list<AlnNormId> // BioticTreaty norms used in evaluation.[file:2]
+  field applied_micro_treaties list<AlnNormId> // LexEthos microtreaty norms used in evaluation.[file:2]
 
-type GovernedDecisionEnvelope {
-  // Core transaction identity
-  txId           : TrustTxId,       // stable trust-layer tx identifier [file:7]
-  createdAt      : datetime,        // decision creation time
-  workflowId     : WorkflowId,      // workflow definition that produced this decision
-  workflowStage  : string,          // e.g., "Optimization", "Actuation", "EmergencyOverride"
+  // Actors and node context
+  field participants    Participants
 
-  // Territorial and legal context
-  domains        : [GovernanceDomain], // domains touched by this decision [file:7]
-  birthSignIds   : [BirthSignId],      // BirthSigns consulted (tile-scoped)
-  birthSignSnapshots : [BirthSignSnapshot]?, // optional embedded snapshots at decision time
+  // Input / output references for replay and audit
+  field inputs_hash     HashReference   // Hash over canonicalized inputs to the decision.[file:2]
+  field outputs_hash    HashReference   // Hash over canonicalized outputs (plan or actuation set).[file:2]
 
-  // Normative provenance
-  appliedAlnNorms     : [AlnNormId],       // ALN norms actually evaluated [file:7]
-  appliedBioticTreaties : [BioticTreatyId],// BioticTreaties checked
-  appliedMicroTreaties  : [MicroTreatyId], // LexEthos / micro-treaties used
+  // Governance evaluation + outcome
+  field evaluation      GovernanceEvaluation
+  field outcome         DecisionOutcome
+  field violations      list<Violation> // Possibly empty if fully satisfied.[file:2]
 
-  // Participants and execution environment
-  subjectDid     : Did?,                 // citizen / asset / subject DID
-  operatorDid    : Did?,                 // human or agent issuing the action
-  nodeProfileId  : NodeProfileId?,       // execution node profile id
-  nodeSecurity   : NodeSecurityProfileSnapshot?, // optional security snapshot
+  // Time metadata
+  field time_window     TimeWindow
 
-  // Input / output commitments
-  inputsHash     : string,               // hash of inputs payload [file:7]
-  outputsHash    : string,               // hash of outputs / actuation
+  // Free-form tags for domain-specific telemetry (must not redefine governance meaning).
+  field tags            map<string,string>
 
-  // Governance evaluation and final outcome
-  evaluation     : GovernanceEvaluationRecord, // aggregated evaluation [file:7]
-  outcome        : DecisionOutcome,            // final decision outcome
+// -----------------------------------------------------------------------------
+// Constraints and validation rules (schema-level intents)
+// -----------------------------------------------------------------------------
 
-  // Explanation and domain-specific tags
-  explanation    : string?,              // human-readable explanation for S7
-  tags           : { string : string }   // arbitrary metadata (water volumes, route ids, etc.) [file:7]
-}
+rule require_primary_birthsign_when_single
+  when tx: GovernedDecisionTx
+  if size(tx.birth_sign_ids) == 1
+  then tx.primary_birth_sign != null
 
-// ---------------------------------------------------------------------
-// Contract: all governed decision transactions MUST satisfy this shape
-// ---------------------------------------------------------------------
+rule require_inputs_outputs_hash
+  when tx: GovernedDecisionTx
+  then tx.inputs_hash.value  != ""
+   and tx.outputs_hash.value != ""
 
-contract GovernedDecisionTx {
-  envelope : GovernedDecisionEnvelope
+rule require_outcome_consistency
+  when tx: GovernedDecisionTx
+  then
+    case tx.outcome of
+      | Approved ->
+          tx.evaluation.satisfied == true
+          and size(tx.evaluation.hard_violations) == 0
+          and tx.evaluation.fpic_status != "Denied"
+          and tx.evaluation.fpic_status != "Pending"
+      | ApprovedWithDerating ->
+          size(tx.evaluation.soft_violations) > 0
+          and tx.evaluation.constraint_mode == "HighPenalty"
+      | Rejected ->
+          size(tx.evaluation.hard_violations) > 0
+          or tx.evaluation.fpic_status == "Denied"
+      | PendingFpic ->
+          tx.evaluation.fpic_status == "Pending"
+      | Escalated ->
+          true
+    end
 
-  require envelope.birthSignIds.length > 0
-    when envelope.domains.length > 0
-    message "GovernedDecisionTx: decisions touching governed domains MUST include at least one BirthSignId."
+rule require_birthsign_for_governed_decision
+  when tx: GovernedDecisionTx
+  then size(tx.birth_sign_ids) > 0
 
-  require envelope.appliedAlnNorms.length > 0
-    message "GovernedDecisionTx: at least one ALN norm MUST be recorded for a governed decision."
-
-  require envelope.inputsHash != "" and envelope.outputsHash != ""
-    message "GovernedDecisionTx: inputsHash and outputsHash MUST be non-empty."
-
-  // FPIC precedence and rejection semantics encoded at schema level:
-  //  - Pending FPIC -> outcome must be PendingFpic.
-  //  - Denied FPIC  -> outcome must be Rejected.
-  rule fpic_pending_maps_to_pending_outcome {
-    when envelope.evaluation.fpic.status == FpicStatus.Pending
-    require envelope.outcome == DecisionOutcome.PendingFpic
-      message "GovernedDecisionTx: Pending FPIC MUST result in PendingFpic outcome."
-  }
-
-  rule fpic_denied_maps_to_rejected_outcome {
-    when envelope.evaluation.fpic.status == FpicStatus.Denied
-    require envelope.outcome == DecisionOutcome.Rejected
-      message "GovernedDecisionTx: Denied FPIC MUST result in Rejected outcome."
-  }
-}
+// End of ALE-TRUST-GOVERNED-DECISION-TX-001.aln
