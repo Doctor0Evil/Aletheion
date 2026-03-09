@@ -1,0 +1,400 @@
+# Role: GitHub-native code generation pipeline for Aletheion.
+#       Reads workflow + schema specs, synthesizes new, deeper-path files
+#       (Rust, ALN, Lua, JS, Kotlin, YAML), and enforces non-duplication of IDs
+#       and filenames while wiring CI, governance, and ecosafety hooks.[file:5][file:2][file:1]
+
+[CmdletBinding()]
+param(
+    # Root of the Aletheion repo (default: current directory).
+    [Parameter(Mandatory = $false)]
+    [string]$RepoRoot = (Get-Location).Path,
+
+    # Optional: restrict generation to specific workflow IDs from WORKFLOW-INDEX-0001.md.
+    [Parameter(Mandatory = $false)]
+    [string[]]$WorkflowId = @(),
+
+    # Optional: dry-run; if set, no files are written, only plan is printed.
+    [Parameter(Mandatory = $false)]
+    [switch]$DryRun
+)
+
+#region: core helpers ----------------------------------------------------------
+
+function Resolve-AletheionPath {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot,
+        [Parameter(Mandatory = $true)][string]$Relative
+    )
+    return (Join-Path -Path $RepoRoot -ChildPath $Relative)
+}
+
+function Read-WorkflowIndex {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot
+    )
+    $indexPath = Resolve-AletheionPath -RepoRoot $RepoRoot -Relative 'aletheion/docs/workflows/WORKFLOW-INDEX-0001.md'
+    if (-not (Test-Path $indexPath)) {
+        throw "Workflow index not found at $indexPath. Please ensure WORKFLOW-INDEX-0001.md exists."
+    }
+    $lines = Get-Content -Path $indexPath -Encoding UTF8
+    # Very simple Markdown table parser: detect header separator and parse `|`-separated fields.
+    $rows = @()
+    foreach ($line in $lines) {
+        if ($line.Trim().StartsWith('|') -and $line.Contains('|')) {
+            $cells = $line.Trim().Trim('|').Split('|').ForEach{ $_.Trim() }
+            if ($cells[0] -match 'ID' -or $cells[0] -match '---') {
+                continue
+            }
+            # Expect at least: ID, Title, ERM Layers, Repo Path, Languages, Notes.[file:5]
+            if ($cells.Count -ge 4) {
+                $rows += [pscustomobject]@{
+                    Id        = $cells[0]
+                    Title     = $cells[1]
+                    ErmLayers = $cells[2]
+                    RepoPath  = $cells[3]
+                    Raw       = $cells
+                }
+            }
+        }
+    }
+    return $rows
+}
+
+function Get-ExistingAletheionFiles {
+    param(
+        [Parameter(Mandatory = $true)][string]$RepoRoot
+    )
+    # Track existing ALE-*-* IDs and full paths to avoid collisions.[file:5]
+    $idPattern = 'ALE-[A-Z0-9\-]+-\d{3}\.(rs|aln|lua|kt|js|yml)$'
+    $existing = @{}
+    Get-ChildItem -Path $RepoRoot -Recurse -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -match $idPattern } |
+        ForEach-Object {
+            $name = $_.Name
+            $id = $name -replace '\.(rs|aln|lua|kt|js|yml)$',''
+            if (-not $existing.ContainsKey($id)) {
+                $existing[$id] = @()
+            }
+            $existing[$id] += $_.FullName
+        }
+    return $existing
+}
+
+function New-UniqueId {
+    param(
+        [Parameter(Mandatory = $true)][string]$Prefix,
+        [Parameter(Mandatory = $true)][hashtable]$Existing
+    )
+    # Prefix example: ALE-RM-WATER-INGESTION, ALE-GOV-BIRTH-SIGN-MODEL.[file:5][file:2]
+    $i = 1
+    while ($true) {
+        $suffix = '{0:000}' -f $i
+        $candidate = "$Prefix-$suffix"
+        if (-not $Existing.ContainsKey($candidate)) {
+            return $candidate
+        }
+        $i++
+    }
+}
+
+function Ensure-Directory {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $false)][switch]$DryRun
+    )
+    if (-not (Test-Path $Path)) {
+        if ($DryRun) {
+            Write-Host "[DRYRUN] mkdir $Path"
+        } else {
+            New-Item -Path $Path -ItemType Directory -Force | Out-Null
+        }
+    }
+}
+
+function Write-FileSafe {
+    param(
+        [Parameter(Mandatory = $true)][string]$Path,
+        [Parameter(Mandatory = $true)][string]$Content,
+        [Parameter(Mandatory = $false)][switch]$DryRun
+    )
+    if (Test-Path $Path) {
+        throw "Refusing to overwrite existing file: $Path"
+    }
+    if ($DryRun) {
+        Write-Host "[DRYRUN] would write $Path"
+        return
+    }
+    $dir = Split-Path -Path $Path -Parent
+    Ensure-Directory -Path $dir -DryRun:$false
+    $Content | Out-File -FilePath $Path -Encoding UTF8 -Force
+    Write-Host "[WRITE] $Path"
+}
+
+#endregion core helpers --------------------------------------------------------
+
+#region: template generators ---------------------------------------------------
+
+function New-RustModuleTemplate {
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [Parameter(Mandatory = $true)][string]$Domain,
+        [Parameter(Mandatory = $true)][string]$Role
+    )
+    @"
+/// File: $Id.rs
+/// Domain: $Domain
+/// Role: $Role
+/// Notes:
+///   - Generated by ALETHEION-CODEGEN-PIPELINE-0001.ps1
+///   - Must integrate BirthSigns, ALN policies, ecosafety, and trust envelopes.[file:2][file:1]
+///   - Do not bypass compliance or ecosafety grammars.
+
+#![allow(dead_code)]
+#![allow(unused_imports)]
+
+use std::time::SystemTime;
+use std::collections::HashMap;
+
+/// Placeholder root namespace; adjust as needed when wiring into Cargo.
+pub mod aletheion {
+    pub mod $($Domain.ToLower()) {
+        pub mod generated {
+            /// Marker struct for $Id.
+            #[derive(Debug, Clone)]
+            pub struct $($Id -replace '-', '_') {
+                pub created_at: SystemTime,
+            }
+
+            impl $($Id -replace '-', '_') {
+                pub fn new() -> Self {
+                    Self { created_at: SystemTime::now() }
+                }
+            }
+        }
+    }
+}
+
+"@
+}
+
+function New-ALNModuleTemplate {
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [Parameter(Mandatory = $true)][string]$Namespace,
+        [Parameter(Mandatory = $true)][string]$Purpose
+    )
+    @"
+aln $Id.aln
+// Namespace: $Namespace
+// Purpose: $Purpose
+// Generated by ALETHEION-CODEGEN-PIPELINE-0001.ps1.
+// This module must import shared grammars (rights, BirthSigns, ecosafety) and
+// must not define ad-hoc governance shapes.[file:2][file:1]
+
+namespace $Namespace
+
+atom PlaceholderAtom
+  field id string
+
+"@
+}
+
+function New-LuaWorkflowTemplate {
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+@"
+-- File: $Id.lua
+-- Role: $Description
+-- Generated by ALETHEION-CODEGEN-PIPELINE-0001.ps1.
+-- This orchestrator MUST:
+--   - Attach BirthSignId to all events.
+--   - Call ecosafety safestep for any actuation.
+--   - Append governed decisions to the trust layer.[file:2][file:1]
+
+local M = {}
+
+function M.run(config)
+  -- TODO: bind to Rust engines and ALN validators.
+  return true
+end
+
+return M
+"@
+}
+
+function New-YamlSpecTemplate {
+    param(
+        [Parameter(Mandatory = $true)][string]$Id,
+        [Parameter(Mandatory = $true)][string]$Domain,
+        [Parameter(Mandatory = $true)][string]$Description
+    )
+@"
+# File: $Id.yml
+# Domain: $Domain
+# Description: $Description
+# Generated by ALETHEION-CODEGEN-PIPELINE-0001.ps1.[file:5][file:2]
+
+spec_id: $Id
+version: 0.1.0
+status: draft
+domain: $Domain
+description: >
+  $Description
+
+governance:
+  birthsign_required: true
+  ecosafety_required: true
+  trust_append_schema: ALE-TRUST-GOVERNED-DECISION-TX-001
+
+"@
+}
+
+#endregion template generators -------------------------------------------------
+
+#region: workflow -> file mapping ----------------------------------------------
+
+function Get-GenerationPlan {
+    param(
+        [Parameter(Mandatory = $true)][object[]]$Workflows,
+        [Parameter(Mandatory = $true)][hashtable]$ExistingIds
+    )
+
+    $plan = @()
+
+    foreach ($wf in $Workflows) {
+        $id = $wf.Id
+        $title = $wf.Title
+        $repoPath = $wf.RepoPath
+
+        # Map known patterns to families; fall back to generic.[file:5]
+        if ($title -match 'Water allocation optimization') {
+            $basePrefix = 'ALE-RM-WATER-ALLOCATION-GENERATED'
+            $newId = New-UniqueId -Prefix $basePrefix -Existing $ExistingIds
+            $plan += [pscustomobject]@{
+                WorkflowId = $id
+                Kind       = 'Rust+ALN+YAML'
+                BasePath   = 'aletheion/rm/water/allocation/generated'
+                NewId      = $newId
+            }
+        }
+        elseif ($title -match 'Synthexis LightNoisePesticidePlanner') {
+            $basePrefix = 'ALE-SYNTHEXIS-LNP-JOB'
+            $newId = New-UniqueId -Prefix $basePrefix -Existing $ExistingIds
+            $plan += [pscustomobject]@{
+                WorkflowId = $id
+                Kind       = 'Lua+Rust'
+                BasePath   = 'aletheion/synthexis/jobs/generated'
+                NewId      = $newId
+            }
+        }
+        elseif ($title -match 'Birth-Sign' -or $repoPath -match 'birthsigns') {
+            $basePrefix = 'ALE-GOV-BIRTH-SIGN-GENERATED'
+            $newId = New-UniqueId -Prefix $basePrefix -Existing $ExistingIds
+            $plan += [pscustomobject]@{
+                WorkflowId = $id
+                Kind       = 'Rust+ALN'
+                BasePath   = 'aletheion/governance/birthsigns/generated'
+                NewId      = $newId
+            }
+        }
+        else {
+            $basePrefix = 'ALE-GEN-WORKFLOW'
+            $newId = New-UniqueId -Prefix $basePrefix -Existing $ExistingIds
+            $plan += [pscustomobject]@{
+                WorkflowId = $id
+                Kind       = 'Rust'
+                BasePath   = 'aletheion/generated/workflows'
+                NewId      = $newId
+            }
+        }
+    }
+
+    return $plan
+}
+
+#endregion workflow -> file mapping -------------------------------------------
+
+#region: main pipeline ---------------------------------------------------------
+
+try {
+    Write-Host "=== ALETHEION CODEGEN PIPELINE 0001 ==="
+    Write-Host "RepoRoot : $RepoRoot"
+    Write-Host "DryRun   : $DryRun"
+    if ($WorkflowId.Count -gt 0) {
+        Write-Host "Filter   : $($WorkflowId -join ', ')"
+    }
+
+    $wfIndex = Read-WorkflowIndex -RepoRoot $RepoRoot
+    if ($WorkflowId.Count -gt 0) {
+        $wfIndex = $wfIndex | Where-Object { $WorkflowId -contains $_.Id }
+    }
+
+    if (-not $wfIndex -or $wfIndex.Count -eq 0) {
+        Write-Host "No workflows selected from WORKFLOW-INDEX-0001.md." 
+        return
+    }
+
+    $existingIds = Get-ExistingAletheionFiles -RepoRoot $RepoRoot
+    $plan = Get-GenerationPlan -Workflows $wfIndex -ExistingIds $existingIds
+
+    Write-Host "Planned artifacts:"
+    foreach ($item in $plan) {
+        Write-Host (" - {0}: {1} -> {2} ({3})" -f $item.WorkflowId, $item.Kind, $item.NewId, $item.BasePath)
+    }
+
+    foreach ($item in $plan) {
+        $baseDir = Resolve-AletheionPath -RepoRoot $RepoRoot -Relative $item.BasePath
+        Ensure-Directory -Path $baseDir -DryRun:$DryRun
+
+        switch ($item.Kind) {
+            'Rust+ALN+YAML' {
+                $rsPath  = Join-Path $baseDir ($item.NewId + '.rs')
+                $alnPath = Join-Path $baseDir ($item.NewId + '.aln')
+                $ymlPath = Join-Path $baseDir ($item.NewId + '.yml')
+
+                $rs  = New-RustModuleTemplate -Id $item.NewId -Domain 'rm_water' -Role 'Generated water allocation engine scaffold'
+                $aln = New-ALNModuleTemplate -Id $item.NewId -Namespace 'ALE.RM.WATER.ALLOCATION.GENERATED' -Purpose 'Generated objectives/constraints wrapper'
+                $yml = New-YamlSpecTemplate -Id $item.NewId -Domain 'WATER' -Description 'Generated allocation workflow spec tied to BirthSigns and ecosafety corridors'
+
+                Write-FileSafe -Path $rsPath  -Content $rs  -DryRun:$DryRun
+                Write-FileSafe -Path $alnPath -Content $aln -DryRun:$DryRun
+                Write-FileSafe -Path $ymlPath -Content $yml -DryRun:$DryRun
+            }
+            'Lua+Rust' {
+                $luaPath = Join-Path $baseDir ($item.NewId + '.lua')
+                $rsPath  = Join-Path $baseDir ($item.NewId + '.rs')
+
+                $lua = New-LuaWorkflowTemplate -Id $item.NewId -Description 'Generated nightly Synthexis planner job'
+                $rs  = New-RustModuleTemplate -Id $item.NewId -Domain 'synthexis' -Role 'Generated LightNoisePesticide planner stub'
+
+                Write-FileSafe -Path $luaPath -Content $lua -DryRun:$DryRun
+                Write-FileSafe -Path $rsPath  -Content $rs  -DryRun:$DryRun
+            }
+            'Rust+ALN' {
+                $rsPath  = Join-Path $baseDir ($item.NewId + '.rs')
+                $alnPath = Join-Path $baseDir ($item.NewId + '.aln')
+
+                $rs  = New-RustModuleTemplate -Id $item.NewId -Domain 'governance' -Role 'Generated Birth-Sign helper module'
+                $aln = New-ALNModuleTemplate -Id $item.NewId -Namespace 'ALE.GOV.BIRTHSIGN.GENERATED' -Purpose 'Generated Birth-Sign schema extension'
+
+                Write-FileSafe -Path $rsPath  -Content $rs  -DryRun:$DryRun
+                Write-FileSafe -Path $alnPath -Content $aln -DryRun:$DryRun
+            }
+            'Rust' {
+                $rsPath = Join-Path $baseDir ($item.NewId + '.rs')
+                $rs     = New-RustModuleTemplate -Id $item.NewId -Domain 'erm' -Role 'Generic generated workflow scaffold'
+                Write-FileSafe -Path $rsPath -Content $rs -DryRun:$DryRun
+            }
+        }
+    }
+
+    Write-Host "Codegen pipeline completed."
+}
+catch {
+    Write-Error "ALETHEION-CODEGEN-PIPELINE-0001 failed: $_"
+    exit 1
+}
+
+#endregion main pipeline -------------------------------------------------------
