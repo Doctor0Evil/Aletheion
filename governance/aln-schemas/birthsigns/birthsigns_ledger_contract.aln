@@ -1,0 +1,305 @@
+contract BirthsignsLedgerContract
+  version 0.1.0
+  jurisdiction "Aletheion/Phoenix"
+  scope "Governed Urban Workflow Architecture"
+
+  //////////////////////////////
+  // CORE TYPES
+  //////////////////////////////
+
+  type BirthsignId = string(max=128, pattern="^[A-Z0-9_.:-]+$")
+  type CitizenId   = string(max=128, pattern="^[ALETHEION-CIT]-[A-Z0-9-]+$")
+  type OrgId       = string(max=128, pattern="^[ORG]-[A-Z0-9-]+$")
+  type WorkflowId  = string(max=128, pattern="^[WF]-[A-Z0-9_.:-]+$")
+  type CorridorId  = string(max=128, pattern="^PHX-[A-Z0-9_.:-]+$")
+  type JurisdictionCode = string(max=64, pattern="^[A-Z]{2,8}(/[A-Z0-9_.-]+)*$")
+  type Timestamp   = int64  // ms since epoch
+  type Reason      = string(max=2048)
+  type URI         = string(max=512)
+
+  enum SubjectKind {
+    HUMAN
+    AUGMENTED_CITIZEN
+    ORGANIZATION
+    DEVICE_NODE
+    SERVICE_ACCOUNT
+  }
+
+  enum GovernanceTier {
+    EDGE_LOCAL          // home / building / cluster
+    CORRIDOR_SERVICE    // corridor‑scale operators
+    CITY_GOVERNANCE     // Phoenix‑wide
+    TREATY_SUPERVISOR   // Biotic / Neurobiome / Water treaties
+  }
+
+  enum DecisionClass {
+    INFO_ONLY           // telemetry, dashboards, non‑binding
+    OPERATIONAL         // scheduler, routing, throttling
+    POLICY_BINDING      // rules, limits, standing orders
+    EMERGENCY_OVERRIDE  // temporary override of normal constraints
+  }
+
+  enum ConsentMode {
+    EXPLICIT_OPT_IN
+    EXPLICIT_OPT_OUT
+    TREATY_BOUND
+    STATUTORY_MANDATE
+  }
+
+  enum Status {
+    PROPOSED
+    ACTIVE
+    SUSPENDED
+    REVOKED
+    EXPIRED
+  }
+
+  enum CorridorScopeKind {
+    SINGLE_CORRIDOR
+    CORRIDOR_FAMILY
+    CITY_WIDE
+    CROSS_JURISDICTION
+  }
+
+  //////////////////////////////
+  // BIRTH-SIGN CORE RECORD
+  //////////////////////////////
+
+  record BirthsignSubject {
+    subject_id      : string(max=128)
+    subject_kind    : SubjectKind
+    jurisdiction    : JurisdictionCode
+    home_corridor   : CorridorId
+    governance_tier : GovernanceTier
+  }
+
+  record BirthsignCorridorScope {
+    scope_kind      : CorridorScopeKind
+    corridors       : list<CorridorId>        // non‑empty when SINGLE/CORRIDOR_FAMILY
+    allowed_layers  : list<string(max=64)>    // e.g. ["water", "heat", "waste"]
+    max_radius_m    : int32?                  // optional physical radius
+  }
+
+  record BirthsignWorkflowBinding {
+    workflow_id      : WorkflowId
+    decision_classes : list<DecisionClass>    // which classes this birth‑sign may trigger
+    max_frequency_s  : int32                  // minimum time between binding activations
+    requires_cosign  : bool                   // multi‑sig requirement
+  }
+
+  record BirthsignConsentProfile {
+    consent_mode       : ConsentMode
+    data_use_tags      : list<string(max=64)> // e.g. ["heat-mitigation", "water-allocation"]
+    prohibited_actions : list<string(max=128)>
+    required_redaction : list<string(max=128)>
+  }
+
+  record BirthsignLimits {
+    // Safety: things this birth‑sign may NEVER cross
+    max_risk_score          : float64          // 0.0–1.0 (R from KER)
+    max_population_impact   : int32            // max households concurrently affected
+    max_duration_s          : int32            // for any single decision effect
+    requires_neurorights_ok : bool             // must pass neurorights check
+  }
+
+  record BirthsignAttestor {
+    attestor_id    : string(max=128)          // node, org, or treaty guardian
+    attestor_kind  : string(max=64)           // "notary", "governance-node", "treaty-guardian"
+    signature_uri  : URI                      // pointer to sig blob (Googolswarm / ALN-BC)
+    attested_at    : Timestamp
+  }
+
+  record BirthsignLifecycle {
+    created_at   : Timestamp
+    activated_at : Timestamp?
+    suspended_at : Timestamp?
+    revoked_at   : Timestamp?
+    expires_at   : Timestamp?
+    last_update  : Timestamp
+    status       : Status
+  }
+
+  record Birthsign {
+    birthsign_id      : BirthsignId
+    subject           : BirthsignSubject
+    corridor_scope    : BirthsignCorridorScope
+    workflows         : list<BirthsignWorkflowBinding>
+    consent_profile   : BirthsignConsentProfile
+    limits            : BirthsignLimits
+    lifecycle         : BirthsignLifecycle
+    attestors         : list<BirthsignAttestor>  // multi‑sig required
+    comment           : Reason?
+    metadata_uri      : URI?                     // optional extended metadata
+  }
+
+  //////////////////////////////
+  // LEDGER STATE
+  //////////////////////////////
+
+  ledger BirthsignsLedger {
+    births_by_id        : map<BirthsignId, Birthsign>
+    births_by_subject   : multimap<CitizenId, BirthsignId>
+    births_by_workflow  : multimap<WorkflowId, BirthsignId>
+    births_by_corridor  : multimap<CorridorId, BirthsignId>
+  }
+
+  //////////////////////////////
+  // INVARIANTS
+  //////////////////////////////
+
+  invariant UniqueBirthsignId(b: Birthsign) {
+    not exists(BirthsignsLedger.births_by_id[b.birthsign_id])
+  }
+
+  invariant AtLeastOneWorkflow(b: Birthsign) {
+    size(b.workflows) > 0
+  }
+
+  invariant AtLeastOneAttestor(b: Birthsign) {
+    size(b.attestors) >= 2    // multi‑sig baseline
+  }
+
+  invariant LifecycleTimestampsValid(b: Birthsign) {
+    b.lifecycle.created_at > 0
+    if b.lifecycle.activated_at != null then
+      b.lifecycle.activated_at >= b.lifecycle.created_at
+    end
+    if b.lifecycle.suspended_at != null then
+      b.lifecycle.suspended_at >= b.lifecycle.activated_at
+    end
+    if b.lifecycle.revoked_at != null then
+      b.lifecycle.revoked_at >= b.lifecycle.activated_at
+    end
+    if b.lifecycle.expires_at != null then
+      b.lifecycle.expires_at >= b.lifecycle.created_at
+    end
+  }
+
+  invariant LimitsWithinSafeEnvelope(b: Birthsign) {
+    b.limits.max_risk_score >= 0.0 and b.limits.max_risk_score <= 1.0
+    b.limits.max_population_impact >= 0
+    b.limits.max_duration_s > 0
+  }
+
+  //////////////////////////////
+  // AUTHZ HELPERS
+  //////////////////////////////
+
+  predicate IsTreatyGuardian(caller: string) = has_role(caller, "TREATY_GUARDIAN")
+  predicate IsCityGovernance(caller: string) = has_role(caller, "CITY_GOVERNANCE_NODE")
+  predicate IsCorridorService(caller: string) = has_role(caller, "CORRIDOR_SERVICE_NODE")
+  predicate IsSubjectSelf(caller: string, b: Birthsign) = (caller == b.subject.subject_id)
+
+  //////////////////////////////
+  // COMMANDS
+  //////////////////////////////
+
+  command ProposeBirthsign(b: Birthsign) {
+    require UniqueBirthsignId(b)
+    require size(b.attestors) >= 1
+    require IsCityGovernance(caller) or IsTreatyGuardian(caller) or IsSubjectSelf(caller, b)
+
+    let lc = b.lifecycle
+    lc.created_at = now()
+    lc.status = PROPOSED
+
+    let b2 = b
+    b2.lifecycle = lc
+
+    BirthsignsLedger.births_by_id[b2.birthsign_id] = b2
+    BirthsignsLedger.births_by_subject[b2.subject.subject_id].add(b2.birthsign_id)
+
+    for wf in b2.workflows do
+      BirthsignsLedger.births_by_workflow[wf.workflow_id].add(b2.birthsign_id)
+    end
+
+    for c in b2.corridor_scope.corridors do
+      BirthsignsLedger.births_by_corridor[c].add(b2.birthsign_id)
+    end
+  }
+
+  command AttachAttestor(birthsign_id: BirthsignId, att: BirthsignAttestor) {
+    let b = BirthsignsLedger.births_by_id[birthsign_id]
+    require b != null
+    require IsCityGovernance(caller) or IsTreatyGuardian(caller) or caller == att.attestor_id
+
+    b.attestors.add(att)
+    b.lifecycle.last_update = now()
+    BirthsignsLedger.births_by_id[birthsign_id] = b
+  }
+
+  command ActivateBirthsign(birthsign_id: BirthsignId) {
+    let b = BirthsignsLedger.births_by_id[birthsign_id]
+    require b != null
+    require b.lifecycle.status == PROPOSED
+    require size(b.attestors) >= 2
+    require IsCityGovernance(caller) or IsTreatyGuardian(caller)
+
+    b.lifecycle.activated_at = now()
+    b.lifecycle.status = ACTIVE
+    b.lifecycle.last_update = now()
+    BirthsignsLedger.births_by_id[birthsign_id] = b
+  }
+
+  command SuspendBirthsign(birthsign_id: BirthsignId, reason: Reason) {
+    let b = BirthsignsLedger.births_by_id[birthsign_id]
+    require b != null
+    require b.lifecycle.status == ACTIVE
+    require IsCityGovernance(caller) or IsTreatyGuardian(caller)
+
+    b.lifecycle.suspended_at = now()
+    b.lifecycle.status = SUSPENDED
+    b.comment = reason
+    b.lifecycle.last_update = now()
+    BirthsignsLedger.births_by_id[birthsign_id] = b
+  }
+
+  command RevokeBirthsign(birthsign_id: BirthsignId, reason: Reason) {
+    let b = BirthsignsLedger.births_by_id[birthsign_id]
+    require b != null
+    require b.lifecycle.status == ACTIVE or b.lifecycle.status == SUSPENDED
+    require IsCityGovernance(caller) or IsTreatyGuardian(caller)
+
+    b.lifecycle.revoked_at = now()
+    b.lifecycle.status = REVOKED
+    b.comment = reason
+    b.lifecycle.last_update = now()
+    BirthsignsLedger.births_by_id[birthsign_id] = b
+  }
+
+  //////////////////////////////
+  // QUERY FUNCTIONS
+  //////////////////////////////
+
+  view GetBirthsign(birthsign_id: BirthsignId): Birthsign {
+    return BirthsignsLedger.births_by_id[birthsign_id]
+  }
+
+  view ListSubjectBirthsigns(subject_id: string): list<Birthsign> {
+    let ids = BirthsignsLedger.births_by_subject[subject_id]
+    let out : list<Birthsign> = []
+    for id in ids do
+      out.add(BirthsignsLedger.births_by_id[id])
+    end
+    return out
+  }
+
+  view ListWorkflowBirthsigns(workflow_id: WorkflowId): list<Birthsign> {
+    let ids = BirthsignsLedger.births_by_workflow[workflow_id]
+    let out : list<Birthsign> = []
+    for id in ids do
+      out.add(BirthsignsLedger.births_by_id[id])
+    end
+    return out
+  }
+
+  view ListCorridorBirthsigns(corridor_id: CorridorId): list<Birthsign> {
+    let ids = BirthsignsLedger.births_by_corridor[corridor_id]
+    let out : list<Birthsign> = []
+    for id in ids do
+      out.add(BirthsignsLedger.births_by_id[id])
+    end
+    return out
+  }
+
+end
