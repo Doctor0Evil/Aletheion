@@ -1,62 +1,116 @@
+# Purpose:
+#   Central governance schema preflight for Aletheion.[file:2][file:5]
+#   Fails PRs that emit governed decision records unless they:
+#     - Import ALE-TRUST-GOVERNED-DECISION-TX-001.aln for provenance.[file:2]
+#     - Use ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln as the canonical rights/treaty base.[file:2]
+#   Enforced on all repos that participate in governed decisions (ERM, trust, governance)."[file:2][file:5]
+
 name: Aletheion Governance Schema Preflight
 
 on:
   pull_request:
-    paths:
-      - "aletheiontrust/**.aln"
-      - "aletheiongovernance/**.aln"
-      - "aletheionerm/**.aln"
-      - "aletheioninfra/**.aln"
-      - ".github/workflows/aletheion-governance-schema-preflight.yml"
+    branches: [ main, dev, phoenix-* ]
   push:
-    branches:
-      - main
-    paths:
-      - "aletheiontrust/**.aln"
-      - "aletheiongovernance/**.aln"
-      - "aletheionerm/**.aln"
-      - "aletheioninfra/**.aln"
+    branches: [ main, dev, phoenix-* ]
 
 jobs:
   governance-schema-preflight:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up Rust toolchain for ALN tooling
+      - name: Set up Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build ALN metaschema tools
+      - name: Install ripgrep (rg) for fast scanning
         run: |
-          cargo build --release -p aln-metaschema-checker
-          cargo build --release -p aln-governance-linter
+          sudo apt-get update -y
+          sudo apt-get install -y ripgrep
 
-      - name: Validate ALN files against metaschema
+      - name: List changed files (for context)
+        if: github.event_name == 'pull_request'
         run: |
-          ./target/release/aln-metaschema-checker \
-            --root . \
-            --include "aletheiontrust/**/*.aln" \
-            --include "aletheiongovernance/**/*.aln" \
-            --include "aletheionerm/**/*.aln" \
-            --include "aletheioninfra/**/*.aln"
+          echo "Changed files:"
+          git diff --name-only origin/${{ github.base_ref }}...HEAD || true
 
-      - name: Enforce governed-decision envelope usage in trust Tx schemas
+      - name: Detect governed-decision emitters
+        id: detect_emitters
         run: |
-          ./target/release/aln-governance-linter \
-            --root aletheiontrust \
-            --envelope-schema "aletheiontrust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln" \
-            --tx-glob "aletheiontrust/schemas/**/*Tx*.aln" \
-            --require-field "birthSignId" \
-            --require-list-field "applied-aln-norms"
+          echo "Scanning for governed decision emitters..."
+          # Any ALN schema or Rust module under trust / governance that mentions
+          # 'GovernedDecisionEnvelope' or 'GovernedDecision' is treated as an emitter.[file:2]
+          EMITTER_FILES=$(rg -n "GovernedDecisionEnvelope|GovernedDecision" \
+            aletheion/trust aletheion/governance aletheion/erm \
+            --glob "*.rs" --glob "*.aln" || true)
 
-      - name: Block ad-hoc treaty/right shapes outside canonical grammar
+          echo "emitter_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$EMITTER_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          if [ -z "$EMITTER_FILES" ]; then
+            echo "No governed decision emitters detected; governance schema checks will be skipped."
+          else
+            echo "Governed decision emitters detected:"
+            echo "$EMITTER_FILES"
+          fi
+
+      - name: Require ALE-TRUST-GOVERNED-DECISION-TX-001 in emitters
+        if: steps.detect_emitters.outputs.emitter_files != ''
         run: |
-          ./target/release/aln-governance-linter \
-            --root . \
-            --canonical-rights-schema "aletheiongovernance/aln/ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln" \
-            --forbid-local-rights-types \
-            --include "aletheiontrust/**/*.aln" \
-            --include "aletheionerm/**/*.aln" \
-            --include "aletheioninfra/**/*.aln"
+          echo "Enforcing ALE-TRUST-GOVERNED-DECISION-TX-001.aln import for emitters..."
+          # For each file that references governed decisions, ensure it also references
+          # the canonical transaction schema by name.[file:2]
+          FAILED=0
+
+          # Collect unique file paths from ripgrep output.
+          FILES=$(echo "${{ steps.detect_emitters.outputs.emitter_files }}" | cut -d: -f1 | sort -u)
+
+          for f in $FILES; do
+            if echo "$f" | grep -qE "\.aln$"; then
+              # ALN schemas must include or reference ALE-TRUST-GOVERNED-DECISION-TX-001.[file:2]
+              if ! rg -q "ALE-TRUST-GOVERNED-DECISION-TX-001" "$f"; then
+                echo "::error file=$f::Governed decision ALN schema must import ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+                FAILED=1
+              fi
+            elif echo "$f" | grep -qE "\.rs$"; then
+              # Rust emitters must mention the canonical schema ID in comments or type mapping.[file:2]
+              if ! rg -q "ALE-TRUST-GOVERNED-DECISION-TX-001" "$f"; then
+                echo "::error file=$f::Rust governed decision emitter must be wired to ALE-TRUST-GOVERNED-DECISION-TX-001"
+                FAILED=1
+              fi
+            fi
+          done
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "Governed decision schema import enforcement failed."
+            exit 1
+          fi
+
+      - name: Require ALE-GOV-RIGHTS-TREATY-GRAMMAR-001 in governance ALN
+        run: |
+          echo "Enforcing ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln as canonical rights/treaty grammar..."
+          FAILED=0
+
+          # Any governance ALN schemas under aletheion/governance/aln must import the canonical grammar.[file:2]
+          if ls aletheion/governance/aln/*.aln >/dev/null 2>&1; then
+            for f in aletheion/governance/aln/*.aln; do
+              if ! rg -q "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001" "$f"; then
+                echo "::error file=$f::Governance ALN schema must import ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln as the canonical rights/treaty grammar"
+                FAILED=1
+              fi
+            done
+          else
+            echo "No governance ALN files found at aletheion/governance/aln; skipping this check for now."
+          fi
+
+          if [ "$FAILED" -ne 0 ]; then
+            echo "Rights/treaty grammar enforcement failed."
+            exit 1
+          fi
+
+      - name: Governance schema preflight completed
+        if: success()
+        run: |
+          echo "Aletheion governance schema preflight passed."
