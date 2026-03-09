@@ -1,0 +1,151 @@
+# Role: CI that enforces the canonical 7-stage workflow spine (S1–S7) and
+#       governance hooks as defined in ALE-ERM-WORKFLOW-PATTERN-001.aln.[file:2][file:5]
+# Scope:
+#   - Runs on pull requests and pushes touching workflow descriptors
+#   - Fails if any workflow:
+#       * Skips required stages (S1–S7)
+#       * Omits BirthSign, compliance preflight, trust-append, or citizen-surface hooks
+#       * Declares ad-hoc governance structures outside shared ALN grammars
+
+name: Aletheion Workflow Pattern Preflight
+
+on:
+  pull_request:
+    paths:
+      - "aletheion/erm/workflows/**"
+      - "aletheion/**/workflows/**"
+      - "aletheion/docs/workflows/**"
+      - "aletheion/governance/**"
+      - ".github/workflows/aletheion-workflow-pattern-preflight.yml"
+  push:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+    paths:
+      - "aletheion/erm/workflows/**"
+      - "aletheion/**/workflows/**"
+      - "aletheion/docs/workflows/**"
+      - "aletheion/governance/**"
+      - ".github/workflows/aletheion-workflow-pattern-preflight.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  workflow-pattern-preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install .NET for ALN pattern checker (placeholder runtime)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Build workflow pattern checker
+        run: |
+          # Placeholder: pattern-checker is a small CLI you will add under tools/.
+          # It validates *.workflow.aln / *.workflow.yml descriptors against
+          # ALE-ERM-WORKFLOW-PATTERN-001.aln.[file:2][file:5]
+          if [ -d "aletheion/tools/workflow-pattern-checker" ]; then
+            dotnet build aletheion/tools/workflow-pattern-checker/WorkflowPatternChecker.csproj --configuration Release
+          fi
+
+      - name: Find workflow descriptors
+        id: find_descriptors
+        run: |
+          # Collect all workflow descriptor files:
+          #   - *.workflow.aln for canonical ALN descriptors
+          #   - *.workflow.yml for YAML descriptors that reference the ALN pattern.[file:2][file:5]
+          ALN_FILES=$(find aletheion -type f -name "*.workflow.aln" || true)
+          YAML_FILES=$(find aletheion -type f -name "*.workflow.yml" || true)
+
+          echo "aln_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$ALN_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+          echo "yaml_files<<EOF" >> $GITHUB_OUTPUT
+          echo "$YAML_FILES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Run pattern validation (ALN descriptors)
+        if: steps.find_descriptors.outputs.aln_files != ''
+        run: |
+          echo "Validating ALN workflow descriptors against ALE-ERM-WORKFLOW-PATTERN-001.aln..."
+          echo "${{ steps.find_descriptors.outputs.aln_files }}" | while read -r file; do
+            if [ -z "$file" ]; then
+              continue
+            fi
+            echo "::group::Pattern check (ALN) $file"
+            dotnet run \
+              --project aletheion/tools/workflow-pattern-checker/WorkflowPatternChecker.csproj \
+              --configuration Release \
+              -- \
+              --pattern "aletheion/erm/workflows/ALE-ERM-WORKFLOW-PATTERN-001.aln" \
+              --descriptor "$file"
+            STATUS=$?
+            echo "::endgroup::"
+            if [ $STATUS -ne 0 ]; then
+              echo "::error file=$file::Workflow descriptor violates ALE-ERM-WORKFLOW-PATTERN-001.aln (missing stage or governance hook)."
+              exit $STATUS
+            fi
+          done
+
+      - name: Run pattern validation (YAML descriptors)
+        if: steps.find_descriptors.outputs.yaml_files != ''
+        run: |
+          echo "Validating YAML workflow descriptors for required stages and governance hooks..."
+          echo "${{ steps.find_descriptors.outputs.yaml_files }}" | while read -r file; do
+            if [ -z "$file" ]; then
+              continue
+            fi
+            echo "::group::Pattern check (YAML) $file"
+            dotnet run \
+              --project aletheion/tools/workflow-pattern-checker/WorkflowPatternChecker.csproj \
+              --configuration Release \
+              -- \
+              --pattern "aletheion/erm/workflows/ALE-ERM-WORKFLOW-PATTERN-001.aln" \
+              --descriptor "$file"
+            STATUS=$?
+            echo "::endgroup::"
+            if [ $STATUS -ne 0 ]; then
+              echo "::error file=$file::Workflow YAML descriptor fails canonical 7-stage and governance-hook requirements."
+              exit $STATUS
+            fi
+          done
+
+      - name: Enforce presence of mandatory governance hooks (quick grep)
+        run: |
+          # Light-weight guardrail: all workflow descriptor files must mention
+          # BirthSigns, trust append, compliance, and citizen surface hooks, even
+          # before the richer ALN-based checker runs.[file:2][file:5]
+          VIOLATIONS=0
+
+          for file in $(find aletheion -type f \( -name "*.workflow.aln" -o -name "*.workflow.yml" \)); do
+            echo "::group::Governance hooks sanity check $file"
+            if ! grep -qi "BirthSign" "$file"; then
+              echo "::error file=$file::Missing BirthSign hook reference."
+              VIOLATIONS=1
+            fi
+            if ! grep -qi "trust" "$file"; then
+              echo "::error file=$file::Missing trust-layer append reference."
+              VIOLATIONS=1
+            fi
+            if ! grep -qi "compliance" "$file"; then
+              echo "::error file=$file::Missing compliance preflight reference."
+              VIOLATIONS=1
+            fi
+            if ! grep -qi "citizen" "$file"; then
+              echo "::error file=$file::Missing citizen surface / grievance hook reference."
+              VIOLATIONS=1
+            fi
+            echo "::endgroup::"
+          done
+
+          if [ $VIOLATIONS -ne 0 ]; then
+            echo "One or more workflow descriptors are missing mandatory governance hooks."
+            exit 1
+          fi
