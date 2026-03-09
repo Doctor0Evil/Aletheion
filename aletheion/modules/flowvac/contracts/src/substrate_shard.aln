@@ -1,0 +1,137 @@
+@version 20260310
+@namespace aletheion.flowvac.substrate
+@license BioticTreaty_v3
+@compliance ISO14851_OECD301_Neurorights_v1
+
+shard FlowVacSubstrateShard {
+    @id: u64,
+    @batch_id: u64,
+    @material_type: enum[biopolymer_phb, biochar_pine, biochar_coconut, hybrid_phb_bc],
+    @mass_kg: f64,
+    @surface_area_m2: f64,
+    @porosity_0_1: f64,
+    @deployment_date_ns: u64,
+    @expected_lifetime_days: u32,
+    
+    @kinetics: {
+        rmassloss_day_0_1: f64,
+        rleach_tox_ec50_mgl: f64,
+        rmicroplastics_count_kg: u64,
+        rleach_cec_ngl: f64,
+        rleach_pfas_ngl: f64,
+        degradation_rate_celsius: f64,
+        ph_range_min: f64,
+        ph_range_max: f64,
+    },
+    
+    @corridors: {
+        c_massloss_max: 0.02,
+        c_leach_tox_min: 100.0,
+        c_microplastics_max: 0,
+        c_cec_max: 50.0,
+        c_pfas_max: 10.0,
+    },
+    
+    @state: {
+        current_mass_kg: f64,
+        mass_loss_pct: f64,
+        leachate_sample_count: u32,
+        last_leach_test_ns: u64,
+        integrity_0_1: f64,
+        replacement_required: bool,
+    },
+    
+    @lca: {
+        embedded_energy_mj: f64,
+        gwp_kg_co2e: f64,
+        water_footprint_l: f64,
+        recyclability_pct: f64,
+    },
+    
+    @invariants: {
+        invariant mass_loss_check: self.state.mass_loss_pct <= self.kinetics.rmassloss_day_0_1 * 365.0,
+        invariant leach_toxicity_check: self.kinetics.rleach_tox_ec50_mgl >= self.corridors.c_leach_tox_min,
+        invariant microplastics_check: self.kinetics.rmicroplastics_count_kg <= self.corridors.c_microplastics_max,
+        invariant cec_check: self.kinetics.rleach_cec_ngl <= self.corridors.c_cec_max,
+        invariant pfas_check: self.kinetics.rleach_pfas_ngl <= self.corridors.c_pfas_max,
+        invariant integrity_check: self.state.integrity_0_1 >= 0.3 || self.state.replacement_required == true,
+    },
+    
+    @methods: {
+        fn validate_deployment(self) -> bool {
+            return self.kinetics.rmassloss_day_0_1 <= 0.001 &&
+                   self.kinetics.rleach_tox_ec50_mgl >= 100.0 &&
+                   self.kinetics.rmicroplastics_count_kg == 0 &&
+                   self.kinetics.rleach_cec_ngl <= 50.0 &&
+                   self.kinetics.rleach_pfas_ngl <= 10.0;
+        },
+        
+        fn update_mass(self, new_mass_kg: f64, now_ns: u64) -> Result<(), string> {
+            if new_mass_kg > self.current_mass_kg {
+                return Err("MASS_INCREASE_IMPOSSIBLE");
+            }
+            let loss = (self.current_mass_kg - new_mass_kg) / self.current_mass_kg;
+            if loss > self.corridors.c_massloss_max {
+                return Err("MASSLOSS_EXCEEDED");
+            }
+            self.state.current_mass_kg = new_mass_kg;
+            self.state.mass_loss_pct = loss * 100.0;
+            self.state.integrity_0_1 = 1.0 - loss;
+            if self.state.integrity_0_1 < 0.3 {
+                self.state.replacement_required = true;
+            }
+            return Ok(());
+        },
+        
+        fn record_leach_test(self, tox_ec50: f64, cec: f64, pfas: f64, now_ns: u64) -> Result<(), string> {
+            if tox_ec50 < self.corridors.c_leach_tox_min {
+                return Err("LEACH_TOXICITY_VIOLATION");
+            }
+            if cec > self.corridors.c_cec_max {
+                return Err("CEC_LEACH_VIOLATION");
+            }
+            if pfas > self.corridors.c_pfas_max {
+                return Err("PFAS_LEACH_VIOLATION");
+            }
+            self.kinetics.rleach_tox_ec50_mgl = tox_ec50;
+            self.kinetics.rleach_cec_ngl = cec;
+            self.kinetics.rleach_pfas_ngl = pfas;
+            self.state.leachate_sample_count += 1;
+            self.state.last_leach_test_ns = now_ns;
+            return Ok(());
+        },
+        
+        fn compute_lca_savings(self, baseline_gwp: f64) -> f64 {
+            return baseline_gwp - self.lca.gwp_kg_co2e;
+        },
+        
+        fn time_to_replacement_days(self, now_ns: u64) -> u32 {
+            if self.state.replacement_required { return 0; }
+            let elapsed_days = (now_ns - self.deployment_date_ns) / 86400000000000;
+            let remaining = self.expected_lifetime_days - elapsed_days as u32;
+            return remaining.max(0);
+        },
+    },
+    
+    @events: {
+        event DeploymentValidated { shard_id: u64, timestamp_ns: u64 },
+        event MassLossThreshold { shard_id: u64, loss_pct: f64, timestamp_ns: u64 },
+        event LeachTestPassed { shard_id: u64, tox_ec50: f64, timestamp_ns: u64 },
+        event LeachTestFailed { shard_id: u64, violation: string, timestamp_ns: u64 },
+        event ReplacementRequired { shard_id: u64, integrity: f64, timestamp_ns: u64 },
+        event EndOfLifeReached { shard_id: u64, total_days: u32, timestamp_ns: u64 },
+    },
+    
+    @audit: {
+        audit_log: [u8; 4096],
+        audit_pointer: u32,
+        fn append_audit(self, entry: [u8; 64]) {
+            if self.audit_pointer + 64 <= 4096 {
+                self.audit_log[self.audit_pointer..self.audit_pointer + 64].copy_from_slice(&entry);
+                self.audit_pointer += 64;
+            }
+        },
+    },
+}
+
+export FlowVacSubstrateShard;
