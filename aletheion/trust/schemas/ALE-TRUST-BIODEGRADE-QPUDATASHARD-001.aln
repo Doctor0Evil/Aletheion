@@ -1,0 +1,85 @@
+namespace ALE.TRUST.BIODEGRADE.QPUDATASHARD.001
+
+atom DidId
+  field id string
+
+atom ShardId
+  field id string
+
+atom MaterialId
+  field id string
+
+atom NodeId
+  field id string
+
+atom CorridorId
+  field id string
+
+atom GeographyId
+  field id string
+
+atom BirthSignId
+  field id string
+
+atom TimePoint
+  field t_seconds float
+  field rdegrade float
+  field rresidualmass float
+  field rmicroplastics float
+  field rtoxacute float
+  field rtoxchronic float
+  field vt float
+
+atom KerMetrics
+  field k float
+  field e float
+  field r float
+
+atom BiodegradeExperimentMeta
+  field protocol MaterialId
+  field lab_id string
+  field environment string
+  field notes string
+
+atom BiodegradeShardHeader
+  field shard_id ShardId
+  field issuer DidId
+  field material MaterialId
+  field node NodeId
+  field corridor CorridorId
+  field geography GeographyId
+  field birthsign BirthSignId
+  field started_at_utc string
+  field ended_at_utc string
+
+atom BiodegradeShardBody
+  field time_series list TimePoint
+  field ker KerMetrics
+  field meta BiodegradeExperimentMeta
+
+atom BiodegradeShardSignature
+  field signer DidId
+  field sig_alg string
+  field sig_bytes string
+  field multisig_threshold int
+  field multisig_signers list DidId
+
+atom BiodegradeQpuDataShard
+  field header BiodegradeShardHeader
+  field body BiodegradeShardBody
+  field signature BiodegradeShardSignature
+
+rule shard_must_have_points
+  when s BiodegradeQpuDataShard
+  then require size s.body.time_series > 0
+  else error BIODEGRADE_SHARD_EMPTY s.header.shard_id.id
+
+rule shard_ker_bounds
+  when s BiodegradeQpuDataShard
+  then
+    require 0.0 <= s.body.ker.k && s.body.ker.k <= 1.0
+    else error BIODEGRADE_K_OUT_OF_RANGE s.header.shard_id.id
+    require 0.0 <= s.body.ker.r && s.body.ker.r <= 1.0
+    else error BIODEGRADE_R_OUT_OF_RANGE s.header.shard_id.id
+
+end namespace
