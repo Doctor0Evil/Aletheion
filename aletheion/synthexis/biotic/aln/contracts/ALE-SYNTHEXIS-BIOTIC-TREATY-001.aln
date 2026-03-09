@@ -1,0 +1,1305 @@
+// ============================================================================
+// FILE: aletheion/synthexis/biotic/aln/contracts/ALE-SYNTHEXIS-BIOTIC-TREATY-001.aln
+// VERSION: 1.0.0
+// LICENSE: Apache-2.0 WITH Aletheion-Ecosafety-Exception-1.0
+// STATUS: Production-Ready | Offline-Capable | Post-Quantum-Secure
+// ============================================================================
+// PURPOSE: Formal specification of BioticTreaty contracts in ALN (Aletheion
+//          Language of Nature). This file defines the invariant rules, species
+//          sovereignty, habitat integrity, wildlife corridor protection, and
+//          Indigenous territorial rights enforcement that ALL Rust, Lua,
+//          JavaScript, Kotlin, and C++ implementations MUST satisfy. Integrates
+//          with ALE-ERM-ECOSAFETY-GRAMMAR-001.aln for ecosafety corridor
+//          validation and FPIC compliance.
+// ============================================================================
+// CONSTRAINTS:
+//   - No blacklisted cryptography (SHA-256, BLAKE, KECCAK, etc.)
+//   - Indigenous sovereignty mandatory (Akimel O'odham, Piipaash territories)
+//   - Species sovereignty enforcement (Pbee, Ptree, Pmarine corridors)
+//   - Sonoran Desert native species protection (Saguaro, Palo Verde, Ocotillo)
+//   - Wildlife corridor preservation (migration routes, habitat connectivity)
+//   - Neurorights for augmented-citizens (cognitive liberty, mental privacy)
+//   - Free, Prior, Informed Consent (FPIC) for all biotic interventions
+// ============================================================================
+// COMPATIBILITY: ALE-ERM-ECOSAFETY-GRAMMAR-001.aln, ALE-RM-WATER-MODEL-001.rs
+// ============================================================================
+
+@namespace Aletheion.Synthexis.Biotic.Treaty
+@version 1.0.0
+@timestamp 2026-03-09T00:00:00Z
+@binding rust:aletheion/synthexis/biotic/rust/contracts/ALE-SYNTHEXIS-BIOTIC-TREATY-001.rs
+@binding lua:aletheion/synthexis/biotic/lua/orchestration/ALE-SYNTHEXIS-BIOTIC-PLANNER-001.lua
+@binding js:aletheion/synthexis/biotic/js/contracts/biotic.mjs
+@binding kotlin:aletheion/synthexis/biotic/kotlin/contracts/BioticTreaty.kt
+@binding cpp:aletheion/synthexis/biotic/cpp/contracts/biotic.hpp
+
+// ============================================================================
+// SECTION 1: PRIMITIVE TYPE DECLARATIONS
+// ============================================================================
+
+primitive SpeciesAgent {
+    species_id: bytes[32],
+    species_name: string,
+    conservation_status: ConservationStatus,
+    population_count: u64,
+    habitat_range_km2: f32,
+    migration_route: array<GeoCoordinate>,
+    genetic_diversity_index: f32 [0.0, 1.0],
+    treaty_signatory: bool,
+    fpic_required: bool,
+    sovereignty_level: SovereigntyLevel
+}
+
+primitive HabitatContinuum {
+    continuum_id: bytes[32],
+    habitat_type: HabitatType,
+    area_km2: f32,
+    connectivity_index: f32 [0.0, 1.0],
+    fragmentation_score: f32 [0.0, 1.0],
+    native_species_count: u64,
+    invasive_species_count: u64,
+    restoration_priority: u8 [1, 5],
+    indigenous_territory_overlap: bool,
+    fpic_verified: bool,
+    timestamp_us: u64
+}
+
+primitive BioticCorridor {
+    corridor_id: bytes[32],
+    corridor_type: CorridorType,
+    length_km: f32,
+    width_m: f32,
+    start_coordinate: GeoCoordinate,
+    end_coordinate: GeoCoordinate,
+    species_allowed: array<bytes[32]>,
+    human_activity_level: HumanActivityLevel,
+    protection_status: ProtectionStatus,
+    monitoring_sensors: array<bytes[32]>,
+    treaty_compliant: bool
+}
+
+primitive LightNoisePesticidePlan {
+    plan_id: bytes[32],
+    entity_did: bytes[32],
+    plan_type: PlanType,
+    zone_id: u32,
+    intensity_level: f32 [0.0, 1.0],
+    duration_hours: f32,
+    affected_species: array<bytes[32]>,
+    biotic_impact_score: f32 [0.0, 1.0],
+    fpic_verified: bool,
+    treaty_compliant: bool,
+    timestamp_us: u64,
+    expiration_us: u64
+}
+
+enum ConservationStatus : u8 {
+    LEAST_CONCERN = 0,
+    NEAR_THREATENED = 1,
+    VULNERABLE = 2,
+    ENDANGERED = 3,
+    CRITICALLY_ENDANGERED = 4,
+    EXTINCT_IN_WILD = 5,
+    EXTINCT = 6
+}
+
+enum SovereigntyLevel : u8 {
+    NONE = 0,
+    PARTIAL = 1,
+    RECOGNIZED = 2,
+    FULL = 3,
+    TREATY_PROTECTED = 4
+}
+
+enum HabitatType : u8 {
+    DESERT_SCRUB = 0,
+    RIPARIAN = 1,
+    URBAN_GREEN = 2,
+    AGRICULTURAL = 3,
+    WETLAND = 4,
+    MOUNTAIN = 5,
+    GRASSLAND = 6
+}
+
+enum CorridorType : u8 {
+    WILDLIFE_MIGRATION = 0,
+    POLLINATOR_ROUTE = 1,
+    AQUATIC_CONNECTIVITY = 2,
+    URBAN_GREENWAY = 3,
+    INDIGENOUS_PROTECTED = 4,
+    RESTORATION_ZONE = 5
+}
+
+enum HumanActivityLevel : u8 {
+    NONE = 0,
+    MINIMAL = 1,
+    MODERATE = 2,
+    HIGH = 3,
+    RESTRICTED = 4
+}
+
+enum ProtectionStatus : u8 {
+    UNPROTECTED = 0,
+    MONITORED = 1,
+    CONSERVATION = 2,
+    LEGALLY_PROTECTED = 3,
+    TREATY_PROTECTED = 4
+}
+
+enum PlanType : u8 {
+    LIGHTING = 0,
+    NOISE_CONTROL = 1,
+    PESTICIDE_APPLICATION = 2,
+    HABITAT_RESTORATION = 3,
+    SPECIES_RELOCATION = 4,
+    CORRIDOR_MAINTENANCE = 5
+}
+
+// ============================================================================
+// SECTION 2: PHOENIX/SONORAN DESERT BIOTIC CONSTANTS
+// ============================================================================
+
+config SonoranDesertBioticConstants {
+    // Native species protection priorities
+    SAGUARO_CACTUS_PROTECTION_RADIUS_M: f32 = 50.0,
+    PALO_VERDE_TREE_PROTECTION_RADIUS_M: f32 = 30.0,
+    OCOTILLO_PROTECTION_RADIUS_M: f32 = 20.0,
+    CREOSOTE_BUSH_PROTECTION_RADIUS_M: f32 = 15.0,
+    
+    // Wildlife corridor specifications
+    MIN_WILDLIFE_CORRIDOR_WIDTH_M: f32 = 100.0,
+    OPTIMAL_WILDLIFE_CORRIDOR_WIDTH_M: f32 = 500.0,
+    MIN_POLLINATOR_CORRIDOR_WIDTH_M: f32 = 30.0,
+    
+    // Species population thresholds
+    MIN_VIABLE_POPULATION_JAVELINA: u64 = 50,
+    MIN_VIABLE_POPULATION_COYOTE: u64 = 30,
+    MIN_VIABLE_POPULATION_GAMBEL_QUAIL: u64 = 100,
+    MIN_VIABLE_POPULATION_POLLINATOR: u64 = 500,
+    
+    // Habitat connectivity targets
+    TARGET_CONNECTIVITY_INDEX: f32 = 0.75,
+    MAX_FRAGMENTATION_SCORE: f32 = 0.25,
+    TARGET_NATIVE_SPECIES_PERCENT: f32 = 0.80,
+    MAX_INVASIVE_SPECIES_PERCENT: f32 = 0.05,
+    
+    // Light pollution limits (for nocturnal species)
+    MAX_LIGHT_INTENSITY_LUX: f32 = 5.0,
+    MAX_LIGHT_TEMPERATURE_K: f32 = 3000.0, // Warm light only
+    CURFEW_LIGHT_REDUCTION_PERCENT: f32 = 0.70,
+    
+    // Noise pollution limits (for wildlife stress)
+    MAX_NOISE_LEVEL_DB_DAY: f32 = 55.0,
+    MAX_NOISE_LEVEL_DB_NIGHT: f32 = 40.0,
+    MAX_VIBRATION_FREQUENCY_HZ: f32 = 50.0,
+    
+    // Pesticide restrictions
+    PESTICIDE_BUFFER_ZONE_M: f32 = 100.0,
+    MAX_PESTICIDE_TOXICITY_SCORE: f32 = 0.3,
+    ORGANIC_REQUIREMENT_PERCENT: f32 = 0.90,
+    
+    // Indigenous territory specifications
+    AKIMEL_OODHAM_TERRITORY_ID: bytes[32] = [0xA1, 0x00, 0x...], // 32-byte DID
+    PIIPAASH_TERRITORY_ID: bytes[32] = [0xP1, 0x00, 0x...], // 32-byte DID
+    INDIGENOUS_FPIC_REQUIRED: bool = true,
+    
+    // Restoration priorities
+    HIGH_PRIORITY_RESTORATION_SCORE: u8 = 1,
+    MEDIUM_PRIORITY_RESTORATION_SCORE: u8 = 3,
+    LOW_PRIORITY_RESTORATION_SCORE: u8 = 5
+}
+
+// ============================================================================
+// SECTION 3: BIOTIC TREATY INVARIANTS
+// ============================================================================
+
+invariant BioticTreatyInvariants {
+    // BTI-001: All species agents must have valid conservation status
+    forall sa in SpeciesAgent {
+        sa.conservation_status != null
+        && sa.population_count > 0
+        && sa.habitat_range_km2 > 0.0
+        && sa.genetic_diversity_index >= 0.0 && sa.genetic_diversity_index <= 1.0
+    }
+
+    // BTI-002: Habitat continuum must maintain connectivity thresholds
+    forall hc in HabitatContinuum {
+        hc.connectivity_index >= SonoranDesertBioticConstants.TARGET_CONNECTIVITY_INDEX
+        && hc.fragmentation_score <= SonoranDesertBioticConstants.MAX_FRAGMENTATION_SCORE
+    }
+
+    // BTI-003: Biotic corridors must meet minimum width specifications
+    forall bc in BioticCorridor {
+        if bc.corridor_type == CorridorType.WILDLIFE_MIGRATION {
+            bc.width_m >= SonoranDesertBioticConstants.MIN_WILDLIFE_CORRIDOR_WIDTH_M
+        } else if bc.corridor_type == CorridorType.POLLINATOR_ROUTE {
+            bc.width_m >= SonoranDesertBioticConstants.MIN_POLLINATOR_CORRIDOR_WIDTH_M
+        }
+    }
+
+    // BTI-004: Indigenous territory overlap requires FPIC verification
+    forall hc in HabitatContinuum {
+        if hc.indigenous_territory_overlap == true {
+            hc.fpic_verified == true
+        }
+    }
+
+    // BTI-005: Treaty-protected corridors cannot be downgraded
+    forall bc in BioticCorridor {
+        if bc.protection_status == ProtectionStatus.TREATY_PROTECTED {
+            bc.treaty_compliant == true
+            && bc.human_activity_level <= HumanActivityLevel.MODERATE
+        }
+    }
+
+    // BTI-006: Light/noise/pesticide plans must assess biotic impact
+    forall lnpp in LightNoisePesticidePlan {
+        lnpp.biotic_impact_score <= 0.5 // Max 50% impact allowed
+        && lnpp.fpic_verified == true
+        && lnpp.treaty_compliant == true
+    }
+
+    // BTI-007: Endangered species require highest protection
+    forall sa in SpeciesAgent {
+        if sa.conservation_status == ConservationStatus.CRITICALLY_ENDANGERED 
+           || sa.conservation_status == ConservationStatus.ENDANGERED {
+            sa.sovereignty_level >= SovereigntyLevel.TREATY_PROTECTED
+            && sa.fpic_required == true
+        }
+    }
+
+    // BTI-008: Native species percentage must meet targets
+    forall hc in HabitatContinuum {
+        let native_percent = hc.native_species_count / (hc.native_species_count + hc.invasive_species_count)
+        native_percent >= SonoranDesertBioticConstants.TARGET_NATIVE_SPECIES_PERCENT
+    }
+}
+
+// ============================================================================
+// SECTION 4: SPECIES SOVEREIGNTY CONTRACTS
+// ============================================================================
+
+contract SpeciesSovereigntyContract {
+    // SSC-001: Register species as treaty signatory
+    func register_species_signatory(species: SpeciesAgent) -> Result<bool, string> {
+        // Verify species meets minimum population for sovereignty recognition
+        if species.population_count < get_min_viable_population(species.species_name) {
+            return Err("Population below minimum viable threshold")
+        }
+        
+        // Verify genetic diversity is sufficient
+        if species.genetic_diversity_index < 0.3 {
+            return Err("Genetic diversity too low for sovereignty recognition")
+        }
+        
+        // Assign sovereignty level based on conservation status
+        let sovereignty_level = match species.conservation_status {
+            ConservationStatus.CRITICALLY_ENDANGERED => SovereigntyLevel.TREATY_PROTECTED,
+            ConservationStatus.ENDANGERED => SovereigntyLevel.TREATY_PROTECTED,
+            ConservationStatus.VULNERABLE => SovereigntyLevel.RECOGNIZED,
+            ConservationStatus.NEAR_THREATENED => SovereigntyLevel.PARTIAL,
+            _ => SovereigntyLevel.NONE
+        }
+        
+        species.sovereignty_level = sovereignty_level
+        species.treaty_signatory = true
+        species.fpic_required = (sovereignty_level >= SovereigntyLevel.RECOGNIZED)
+        
+        return Ok(true)
+    }
+
+    // SSC-002: Validate FPIC for species intervention
+    func validate_species_fpic(species: SpeciesAgent, intervention_type: string) -> Result<bool, string> {
+        if !species.fpic_required {
+            return Ok(true) // FPIC not required for this species
+        }
+        
+        // Check if intervention affects Indigenous territory
+        if affects_indigenous_territory(species.habitat_range) {
+            return verify_indigenous_fpic(species.species_id, intervention_type)
+        }
+        
+        // Check if intervention affects treaty-protected habitat
+        if affects_treaty_habitat(species.habitat_range) {
+            return verify_treaty_fpic(species.species_id, intervention_type)
+        }
+        
+        return Ok(true)
+    }
+
+    // SSC-003: Enforce species corridor protection
+    func enforce_corridor_protection(corridor: BioticCorridor, proposed_activity: Activity) -> Result<bool, string> {
+        // Check if corridor is treaty-protected
+        if corridor.protection_status == ProtectionStatus.TREATY_PROTECTED {
+            if proposed_activity.impact_level > HumanActivityLevel.MODERATE {
+                return Err("Activity exceeds allowed impact for treaty-protected corridor")
+            }
+        }
+        
+        // Check if activity affects species using corridor
+        for species_id in corridor.species_allowed {
+            let species = get_species_agent(species_id)
+            if species.conservation_status >= ConservationStatus.VULNERABLE {
+                if proposed_activity.threatens_species(species) {
+                    return Err("Activity threatens vulnerable or endangered species")
+                }
+            }
+        }
+        
+        // Check connectivity impact
+        let connectivity_impact = calculate_connectivity_impact(corridor, proposed_activity)
+        if connectivity_impact > 0.1 { // Max 10% connectivity reduction
+            return Err("Activity would reduce corridor connectivity beyond threshold")
+        }
+        
+        return Ok(true)
+    }
+
+    // SSC-004: Monitor species population viability
+    func monitor_population_viability(species: SpeciesAgent) -> PopulationViabilityReport {
+        let min_viable = get_min_viable_population(species.species_name)
+        let viability_ratio = species.population_count as f32 / min_viable as f32
+        
+        let genetic_health = assess_genetic_health(species.genetic_diversity_index)
+        let habitat_adequacy = assess_habitat_adequacy(species.habitat_range_km2, species.population_count)
+        
+        return PopulationViabilityReport {
+            species_id: species.species_id,
+            viability_ratio: viability_ratio,
+            genetic_health: genetic_health,
+            habitat_adequacy: habitat_adequacy,
+            extinction_risk: calculate_extinction_risk(viability_ratio, genetic_health, habitat_adequacy),
+            recommended_actions: generate_conservation_actions(viability_ratio, genetic_health, habitat_adequacy),
+            timestamp_us: current_timestamp_us()
+        }
+    }
+
+    // SSC-005: Species relocation protocol (last resort)
+    func validate_species_relocation(species: SpeciesAgent, source_habitat: HabitatContinuum, 
+                                      target_habitat: HabitatContinuum) -> Result<bool, string> {
+        // Relocation is only permitted if source habitat is critically compromised
+        if source_habitat.connectivity_index > 0.5 {
+            return Err("Source habitat still viable - relocation not justified")
+        }
+        
+        // Target habitat must be suitable and not already overpopulated
+        if !habitat_suitable_for_species(target_habitat, species) {
+            return Err("Target habitat not suitable for species")
+        }
+        
+        if target_habitat.native_species_count > target_habitat.area_km2 * 100.0 {
+            return Err("Target habitat already at carrying capacity")
+        }
+        
+        // FPIC required for both source and target territories
+        if !validate_species_fpic(species, "relocation_from_source") {
+            return Err("FPIC verification failed for source territory")
+        }
+        
+        if !validate_species_fpic(species, "relocation_to_target") {
+            return Err("FPIC verification failed for target territory")
+        }
+        
+        // Treaty compliance check
+        if !verify_treaty_compliance("species_relocation", species.species_id) {
+            return Err("Treaty compliance verification failed")
+        }
+        
+        return Ok(true)
+    }
+}
+
+// ============================================================================
+// SECTION 5: HABITAT CONTINUUM CONTRACTS
+// ============================================================================
+
+contract HabitatContinuumContract {
+    // HCC-001: Create and register habitat continuum
+    func create_habitat_continuum(habitat: HabitatContinuum) -> Result<bytes[32], string> {
+        // Validate connectivity index
+        if habitat.connectivity_index < SonoranDesertBioticConstants.TARGET_CONNECTIVITY_INDEX {
+            habitat.restoration_priority = SonoranDesertBioticConstants.HIGH_PRIORITY_RESTORATION_SCORE
+        }
+        
+        // Validate fragmentation score
+        if habitat.fragmentation_score > SonoranDesertBioticConstants.MAX_FRAGMENTATION_SCORE {
+            habitat.restoration_priority = SonoranDesertBioticConstants.HIGH_PRIORITY_RESTORATION_SCORE
+        }
+        
+        // Check Indigenous territory overlap
+        if habitat.indigenous_territory_overlap {
+            if !habitat.fpic_verified {
+                return Err("FPIC verification required for Indigenous territory overlap")
+            }
+        }
+        
+        // Generate continuum ID
+        let continuum_id = generate_continuum_id(habitat)
+        
+        // Register in habitat registry
+        register_habitat_continuum(continuum_id, habitat)
+        
+        return Ok(continuum_id)
+    }
+
+    // HCC-002: Assess habitat restoration priority
+    func assess_restoration_priority(habitat: HabitatContinuum) -> u8 {
+        let priority_score = 0
+        
+        // Connectivity factor (0-3 points)
+        if habitat.connectivity_index < 0.5 {
+            priority_score += 3
+        } else if habitat.connectivity_index < 0.65 {
+            priority_score += 2
+        } else if habitat.connectivity_index < 0.75 {
+            priority_score += 1
+        }
+        
+        // Fragmentation factor (0-3 points)
+        if habitat.fragmentation_score > 0.5 {
+            priority_score += 3
+        } else if habitat.fragmentation_score > 0.35 {
+            priority_score += 2
+        } else if habitat.fragmentation_score > 0.25 {
+            priority_score += 1
+        }
+        
+        // Native species factor (0-2 points)
+        let native_percent = habitat.native_species_count as f32 / (habitat.native_species_count + habitat.invasive_species_count) as f32
+        if native_percent < 0.6 {
+            priority_score += 2
+        } else if native_percent < 0.8 {
+            priority_score += 1
+        }
+        
+        // Indigenous territory factor (0-2 points)
+        if habitat.indigenous_territory_overlap {
+            priority_score += 2 // Higher priority for Indigenous lands
+        }
+        
+        return (priority_score as u8).min(5).max(1)
+    }
+
+    // HCC-003: Monitor habitat connectivity over time
+    func monitor_connectivity_trend(continuum_id: bytes[32], time_series: array<f32>) -> ConnectivityTrendReport {
+        if time_series.length < 3 {
+            return ConnectivityTrendReport {
+                trend: "INSUFFICIENT_DATA",
+                rate_of_change: 0.0,
+                projection_12_months: 0.0,
+                intervention_recommended: false
+            }
+        }
+        
+        let rate_of_change = calculate_linear_regression_slope(time_series)
+        let current_index = time_series.last()
+        let projection = current_index + (rate_of_change * 12.0) // 12-month projection
+        
+        let trend = if rate_of_change > 0.01 {
+            "IMPROVING"
+        } else if rate_of_change < -0.01 {
+            "DECLINING"
+        } else {
+            "STABLE"
+        }
+        
+        let intervention_recommended = (projection < SonoranDesertBioticConstants.TARGET_CONNECTIVITY_INDEX)
+        
+        return ConnectivityTrendReport {
+            continuum_id: continuum_id,
+            trend: trend,
+            rate_of_change: rate_of_change,
+            projection_12_months: projection,
+            intervention_recommended: intervention_recommended,
+            timestamp_us: current_timestamp_us()
+        }
+    }
+
+    // HCC-004: Invasive species management protocol
+    func manage_invasive_species(habitat: HabitatContinuum, invasive_species_id: bytes[32]) -> Result<InvasiveManagementPlan, string> {
+        // Verify invasive species is actually present
+        if !verify_invasive_species_present(habitat, invasive_species_id) {
+            return Err("Invasive species not detected in habitat")
+        }
+        
+        // Calculate invasive species impact score
+        let impact_score = calculate_invasive_impact(habitat, invasive_species_id)
+        
+        // Determine management approach based on impact
+        let management_approach = if impact_score > 0.7 {
+            "ERADICATION"
+        } else if impact_score > 0.4 {
+            "CONTROL"
+        } else {
+            "MONITORING"
+        }
+        
+        // FPIC required for management activities
+        if habitat.indigenous_territory_overlap {
+            if !verify_indigenous_fpic(invasive_species_id, management_approach) {
+                return Err("FPIC verification failed for invasive species management")
+            }
+        }
+        
+        // Select treatment method (prioritize non-toxic)
+        let treatment_method = select_treatment_method(invasive_species_id, management_approach)
+        
+        return Ok(InvasiveManagementPlan {
+            habitat_id: habitat.continuum_id,
+            invasive_species_id: invasive_species_id,
+            impact_score: impact_score,
+            management_approach: management_approach,
+            treatment_method: treatment_method,
+            estimated_duration_days: estimate_treatment_duration(management_approach),
+            fpic_verified: habitat.fpic_verified,
+            timestamp_us: current_timestamp_us()
+        })
+    }
+
+    // HCC-005: Native species reintroduction protocol
+    func validate_native_reintroduction(habitat: HabitatContinuum, species: SpeciesAgent) -> Result<bool, string> {
+        // Verify species is native to this habitat type
+        if !is_native_to_habitat_type(species, habitat.habitat_type) {
+            return Err("Species not native to this habitat type")
+        }
+        
+        // Check habitat capacity
+        let carrying_capacity = calculate_carrying_capacity(habitat, species)
+        let current_population = get_current_population(habitat, species.species_id)
+        
+        if current_population >= carrying_capacity * 0.9 {
+            return Err("Habitat at or near carrying capacity for this species")
+        }
+        
+        // Verify invasive species are controlled
+        let invasive_ratio = habitat.invasive_species_count as f32 / (habitat.native_species_count + habitat.invasive_species_count) as f32
+        if invasive_ratio > SonoranDesertBioticConstants.MAX_INVASIVE_SPECIES_PERCENT {
+            return Err("Invasive species percentage too high for reintroduction")
+        }
+        
+        // FPIC verification
+        if habitat.indigenous_territory_overlap {
+            if !verify_indigenous_fpic(species.species_id, "native_reintroduction") {
+                return Err("FPIC verification failed for native reintroduction")
+            }
+        }
+        
+        return Ok(true)
+    }
+}
+
+// ============================================================================
+// SECTION 6: LIGHT/NOISE/PESTICIDE PLANNING CONTRACTS
+// ============================================================================
+
+contract LightNoisePesticideContract {
+    // LNPC-001: Lighting plan biotic impact assessment
+    func assess_lighting_impact(plan: LightNoisePesticidePlan) -> Result<BioticImpactAssessment, string> {
+        if plan.plan_type != PlanType.LIGHTING {
+            return Err("Invalid plan type for lighting assessment")
+        }
+        
+        // Check light intensity limits
+        if plan.intensity_level > SonoranDesertBioticConstants.MAX_LIGHT_INTENSITY_LUX / 10000.0 { // Normalize to 0-1
+            return Err("Light intensity exceeds maximum allowed for nocturnal species protection")
+        }
+        
+        // Check light temperature (warm light only for wildlife areas)
+        // This would be validated in the Rust implementation
+        
+        // Assess impact on affected species
+        let mut total_impact = 0.0
+        for species_id in plan.affected_species {
+            let species = get_species_agent(species_id)
+            let species_impact = calculate_light_impact_on_species(species, plan.intensity_level, plan.duration_hours)
+            total_impact += species_impact
+        }
+        
+        let average_impact = total_impact / plan.affected_species.length as f32
+        
+        if average_impact > 0.5 {
+            return Err("Average biotic impact exceeds 50% threshold")
+        }
+        
+        plan.biotic_impact_score = average_impact
+        
+        return Ok(BioticImpactAssessment {
+            plan_id: plan.plan_id,
+            overall_impact_score: average_impact,
+            species_impacts: calculate_species_impact_breakdown(plan.affected_species, plan),
+            mitigation_recommendations: generate_lighting_mitigation_recommendations(plan),
+            fpic_status: plan.fpic_verified,
+            treaty_compliant: plan.treaty_compliant
+        })
+    }
+
+    // LNPC-002: Noise control plan biotic impact assessment
+    func assess_noise_impact(plan: LightNoisePesticidePlan) -> Result<BioticImpactAssessment, string> {
+        if plan.plan_type != PlanType.NOISE_CONTROL {
+            return Err("Invalid plan type for noise assessment")
+        }
+        
+        // Check noise level limits (day vs night)
+        let is_night = is_nighttime(plan.timestamp_us)
+        let max_db = if is_night {
+            SonoranDesertBioticConstants.MAX_NOISE_LEVEL_DB_NIGHT
+        } else {
+            SonoranDesertBioticConstants.MAX_NOISE_LEVEL_DB_DAY
+        }
+        
+        // Normalize intensity to dB (assuming 0-1 maps to 0-100 dB)
+        let estimated_db = plan.intensity_level * 100.0
+        
+        if estimated_db > max_db {
+            return Err("Noise level exceeds maximum allowed for wildlife stress protection")
+        }
+        
+        // Assess impact on affected species
+        let mut total_impact = 0.0
+        for species_id in plan.affected_species {
+            let species = get_species_agent(species_id)
+            let species_impact = calculate_noise_impact_on_species(species, estimated_db, plan.duration_hours)
+            total_impact += species_impact
+        }
+        
+        let average_impact = total_impact / plan.affected_species.length as f32
+        
+        if average_impact > 0.5 {
+            return Err("Average biotic impact exceeds 50% threshold")
+        }
+        
+        plan.biotic_impact_score = average_impact
+        
+        return Ok(BioticImpactAssessment {
+            plan_id: plan.plan_id,
+            overall_impact_score: average_impact,
+            species_impacts: calculate_species_impact_breakdown(plan.affected_species, plan),
+            mitigation_recommendations: generate_noise_mitigation_recommendations(plan),
+            fpic_status: plan.fpic_verified,
+            treaty_compliant: plan.treaty_compliant
+        })
+    }
+
+    // LNPC-003: Pesticide application plan biotic impact assessment
+    func assess_pesticide_impact(plan: LightNoisePesticidePlan) -> Result<BioticImpactAssessment, string> {
+        if plan.plan_type != PlanType.PESTICIDE_APPLICATION {
+            return Err("Invalid plan type for pesticide assessment")
+        }
+        
+        // Check pesticide toxicity score
+        let toxicity_score = get_pesticide_toxicity_score(plan.plan_id)
+        if toxicity_score > SonoranDesertBioticConstants.MAX_PESTICIDE_TOXICITY_SCORE {
+            return Err("Pesticide toxicity exceeds maximum allowed threshold")
+        }
+        
+        // Verify buffer zones from sensitive habitats
+        let sensitive_habitats = get_nearby_sensitive_habitats(plan.zone_id, SonoranDesertBioticConstants.PESTICIDE_BUFFER_ZONE_M)
+        if !sensitive_habitats.is_empty() {
+            return Err("Pesticide application too close to sensitive habitats")
+        }
+        
+        // Verify organic requirement compliance
+        let organic_percent = get_organic_alternative_availability(plan.plan_id)
+        if organic_percent < SonoranDesertBioticConstants.ORGANIC_REQUIREMENT_PERCENT {
+            // Require additional justification for non-organic pesticide
+            if !justify_non_organic_necessity(plan.plan_id) {
+                return Err("Organic alternative available - non-organic pesticide not justified")
+            }
+        }
+        
+        // Assess impact on pollinator species (critical for Sonoran Desert)
+        let pollinator_impact = calculate_pollinator_impact(plan)
+        if pollinator_impact > 0.3 { // 30% max impact on pollinators
+            return Err("Pollinator impact exceeds 30% threshold")
+        }
+        
+        plan.biotic_impact_score = pollinator_impact
+        
+        return Ok(BioticImpactAssessment {
+            plan_id: plan.plan_id,
+            overall_impact_score: pollinator_impact,
+            species_impacts: calculate_pollinator_impact_breakdown(plan),
+            mitigation_recommendations: generate_pesticide_mitigation_recommendations(plan),
+            fpic_status: plan.fpic_verified,
+            treaty_compliant: plan.treaty_compliant
+        })
+    }
+
+    // LNPC-004: Nighttime curfew enforcement for lighting
+    func enforce_lighting_curfew(zone_id: u32, current_time_us: u64) -> Result<LightingCurfewStatus, string> {
+        let is_curfew_hours = is_nighttime(current_time_us) && current_time_us >= get_curfew_start() && current_time_us <= get_curfew_end()
+        
+        if !is_curfew_hours {
+            return Ok(LightingCurfewStatus {
+                zone_id: zone_id,
+                curfew_active: false,
+                required_reduction: 0.0,
+                current_compliance: true
+            })
+        }
+        
+        // During curfew, lighting must be reduced by 70%
+        let required_reduction = SonoranDesertBioticConstants.CURFEW_LIGHT_REDUCTION_PERCENT
+        let current_lighting = get_current_lighting_level(zone_id)
+        let reduced_lighting = current_lighting * (1.0 - required_reduction)
+        
+        let compliance = set_lighting_level(zone_id, reduced_lighting)
+        
+        return Ok(LightingCurfewStatus {
+            zone_id: zone_id,
+            curfew_active: true,
+            required_reduction: required_reduction,
+            current_compliance: compliance
+        })
+    }
+
+    // LNPC-005: Cumulative impact assessment for multiple plans
+    func assess_cumulative_impact(plans: array<LightNoisePesticidePlan>, zone_id: u32) -> Result<CumulativeImpactReport, string> {
+        let mut cumulative_impact = 0.0
+        let mut affected_species_set = set<bytes[32]>::new()
+        
+        for plan in plans {
+            // Verify each plan is individually compliant
+            let individual_assessment = match plan.plan_type {
+                PlanType.LIGHTING => assess_lighting_impact(plan),
+                PlanType.NOISE_CONTROL => assess_noise_impact(plan),
+                PlanType.PESTICIDE_APPLICATION => assess_pesticide_impact(plan),
+                _ => Err("Unsupported plan type")
+            }
+            
+            if individual_assessment.is_err() {
+                return Err(individual_assessment.err())
+            }
+            
+            cumulative_impact += individual_assessment.ok().overall_impact_score
+            
+            for species_id in plan.affected_species {
+                affected_species_set.add(species_id)
+            }
+        }
+        
+        // Cumulative impact should not exceed 0.7 (70%)
+        if cumulative_impact > 0.7 {
+            return Err("Cumulative biotic impact exceeds 70% threshold")
+        }
+        
+        return Ok(CumulativeImpactReport {
+            zone_id: zone_id,
+            total_plans: plans.length,
+            cumulative_impact_score: cumulative_impact,
+            unique_species_affected: affected_species_set.size(),
+            species_list: affected_species_set.to_array(),
+            recommendation: if cumulative_impact > 0.5 { "REDUCE_PLANS" } else { "APPROVED" },
+            timestamp_us: current_timestamp_us()
+        })
+    }
+}
+
+// ============================================================================
+// SECTION 7: INDIGENOUS TERRITORY AND FPIC CONTRACTS
+// ============================================================================
+
+contract IndigenousTerritoryContract {
+    // ITC-001: Verify Indigenous territory boundaries
+    func verify_territory_boundaries(territory_id: bytes[32], coordinates: array<GeoCoordinate>) -> Result<bool, string> {
+        // Check against registered Indigenous territory boundaries
+        let registered_boundaries = get_indigenous_territory_boundaries(territory_id)
+        
+        if registered_boundaries.is_empty() {
+            return Err("Territory ID not found in registry")
+        }
+        
+        // Verify coordinates fall within registered boundaries
+        for coord in coordinates {
+            if !is_within_boundaries(coord, registered_boundaries) {
+                return Err("Coordinates outside registered territory boundaries")
+            }
+        }
+        
+        return Ok(true)
+    }
+
+    // ITC-002: FPIC verification protocol
+    func verify_fpic(territory_id: bytes[32], project_type: string, project_details: ProjectDetails) -> Result<FPICVerification, string> {
+        // Determine which Indigenous nation has jurisdiction
+        let nation = if territory_id == SonoranDesertBioticConstants.AKIMEL_OODHAM_TERRITORY_ID {
+            "Akimel O'odham"
+        } else if territory_id == SonoranDesertBioticConstants.PIIPAASH_TERRITORY_ID {
+            "Piipaash"
+        } else {
+            return Err("Unknown territory ID")
+        }
+        
+        // Check if FPIC has been granted for this project type
+        let fpic_status = get_fpic_status(territory_id, project_type)
+        
+        if fpic_status == "GRANTED" {
+            return Ok(FPICVerification {
+                territory_id: territory_id,
+                nation: nation,
+                project_type: project_type,
+                status: "VERIFIED",
+                grant_date: get_fpic_grant_date(territory_id, project_type),
+                expiration_date: get_fpic_expiration_date(territory_id, project_type),
+                conditions: get_fpic_conditions(territory_id, project_type)
+            })
+        } else if fpic_status == "PENDING" {
+            return Err("FPIC verification pending - project cannot proceed")
+        } else {
+            return Err("FPIC not granted - project cannot proceed")
+        }
+    }
+
+    // ITC-003: Free, Prior, Informed Consent process initiation
+    func initiate_fpic_process(territory_id: bytes[32], project_type: string, project_details: ProjectDetails) -> Result<FPICProcess, string> {
+        // Verify territory is valid
+        if !verify_territory_boundaries(territory_id, project_details.affected_coordinates) {
+            return Err("Invalid territory boundaries")
+        }
+        
+        // Create FPIC process record
+        let process_id = generate_fpic_process_id(territory_id, project_type)
+        
+        // Notify Indigenous nation leadership
+        notify_indigenous_leadership(territory_id, project_details)
+        
+        // Schedule consultation meetings
+        let consultation_schedule = schedule_consultation_meetings(territory_id, project_details)
+        
+        // Provide project information in native languages
+        provide_translated_materials(territory_id, project_details, ["English", "Spanish", "O'odham"])
+        
+        return Ok(FPICProcess {
+            process_id: process_id,
+            territory_id: territory_id,
+            project_type: project_type,
+            status: "INITIATED",
+            consultation_schedule: consultation_schedule,
+            estimated_completion_days: 90, // Minimum 90-day consultation period
+            timestamp_us: current_timestamp_us()
+        })
+    }
+
+    // ITC-004: Traditional Ecological Knowledge (TEK) integration
+    func integrate_tek(territory_id: bytes[32], knowledge_domain: string, knowledge_content: TEKContent) -> Result<TEKRecord, string> {
+        // Verify territory has TEK sovereignty
+        if !has_tek_sovereignty(territory_id) {
+            return Err("Territory does not have TEK sovereignty recognition")
+        }
+        
+        // Verify knowledge provider has authority to share
+        if !verify_knowledge_provider_authority(knowledge_content.provider_id, territory_id) {
+            return Err("Knowledge provider lacks authority to share this knowledge")
+        }
+        
+        // Apply access restrictions based on knowledge sensitivity
+        let access_level = determine_tek_access_level(knowledge_content.sensitivity)
+        
+        // Create TEK record with appropriate protections
+        let tek_record = TEKRecord {
+            record_id: generate_tek_record_id(territory_id, knowledge_domain),
+            territory_id: territory_id,
+            knowledge_domain: knowledge_domain,
+            content_hash: hash_knowledge_content(knowledge_content), // Store content securely, not in plain text
+            access_level: access_level,
+            provider_id: knowledge_content.provider_id,
+            usage_restrictions: generate_usage_restrictions(knowledge_content),
+            benefit_sharing_agreement: create_benefit_sharing_agreement(territory_id, knowledge_content),
+            timestamp_us: current_timestamp_us()
+        }
+        
+        // Register in TEK registry
+        register_tek_record(tek_record)
+        
+        return Ok(tek_record)
+    }
+
+    // ITC-005: Co-management agreement enforcement
+    func enforce_co_management_agreement(agreement_id: bytes[32], proposed_action: Action) -> Result<bool, string> {
+        // Retrieve co-management agreement
+        let agreement = get_co_management_agreement(agreement_id)
+        
+        if agreement.is_null() {
+            return Err("Co-management agreement not found")
+        }
+        
+        // Check if proposed action requires co-management approval
+        if !requires_co_management_approval(agreement, proposed_action) {
+            return Ok(true) // No approval needed
+        }
+        
+        // Verify both parties have approved
+        let indigenous_approval = get_indigenous_approval_status(agreement_id, proposed_action)
+        let municipal_approval = get_municipal_approval_status(agreement_id, proposed_action)
+        
+        if !indigenous_approval {
+            return Err("Indigenous co-manager approval not obtained")
+        }
+        
+        if !municipal_approval {
+            return Err("Municipal co-manager approval not obtained")
+        }
+        
+        // Verify action complies with agreement terms
+        if !action_complies_with_agreement_terms(agreement, proposed_action) {
+            return Err("Proposed action violates co-management agreement terms")
+        }
+        
+        return Ok(true)
+    }
+}
+
+// ============================================================================
+// SECTION 8: SMART-CHAIN BIOTIC WORKFLOW
+// ============================================================================
+
+contract SmartChainBioticWorkflow {
+    // SCBW-001: Complete 7-step SMART-chain for biotic management
+    func execute_biotic_smart_chain(species_agents: array<SpeciesAgent>, 
+                                     habitat_continua: array<HabitatContinuum>,
+                                     biotic_corridors: array<BioticCorridor>,
+                                     proposed_plans: array<LightNoisePesticidePlan>,
+                                     entity_did: bytes[32]) -> Result<QpuDataShard, EcosafetyError> {
+        
+        // STEP 1: SENSE - Collect biotic sensor data
+        let sensor_data = collect_biotic_sensor_data(species_agents, habitat_continua)
+        if sensor_data.is_err() {
+            return Err(EcosafetyError.SYSTEM_ERROR)
+        }
+        
+        // STEP 2: MODEL - Build biotic capital state
+        let biotic_state = build_biotic_capital_state(sensor_data.ok(), habitat_continua)
+        if biotic_state.is_err() {
+            return Err(EcosafetyError.MISSING_CORRIDOR)
+        }
+        
+        // STEP 3: OPTIMIZE - Generate biotic management plans
+        let optimized_plans = optimize_biotic_management(biotic_state.ok(), proposed_plans)
+        if optimized_plans.is_err() {
+            return Err(EcosafetyError.CORRIDOR_VIOLATION)
+        }
+        
+        // STEP 4: TREATY-CHECK - Validate Indigenous rights and species sovereignty
+        let treaty_validation = validate_treaty_compliance(optimized_plans.ok(), habitat_continua)
+        if treaty_validation.is_err() {
+            return Err(EcosafetyError.TREATY_VIOLATION)
+        }
+        
+        // STEP 5: ACT - Execute with ecosafety validation
+        let seven_capital_state = build_seven_capital_state_from_biotic(biotic_state.ok(), entity_did)
+        let corridor_decision = validate_corridors(seven_capital_state, "biotic")
+        
+        if corridor_decision == CorridorDecision.STOP || corridor_decision == CorridorDecision.NO_BUILD {
+            return Err(EcosafetyError.CORRIDOR_VIOLATION)
+        }
+        
+        // STEP 6: LOG - Emit QpuDataShard
+        let shard = emit_biotic_shard(seven_capital_state, NodeAction.ACTUATE, optimized_plans.ok())
+        
+        // STEP 7: INTERFACE - Return shard for dashboard/audit
+        return Ok(shard)
+    }
+
+    // SCBW-002: Build biotic capital state for SevenCapitalState integration
+    func build_biotic_capital_state(sensor_data: BioticSensorData, 
+                                     habitat_continua: array<HabitatContinuum>) -> Result<CapitalState, string> {
+        // Calculate biotic health index from sensor data
+        let species_health = calculate_species_health_index(sensor_data.species_observations)
+        let habitat_health = calculate_habitat_health_index(habitat_continua)
+        let connectivity_health = calculate_connectivity_index(habitat_continua)
+        
+        // Weighted biotic health score
+        let biotic_health = species_health * 0.4 + habitat_health * 0.35 + connectivity_health * 0.25
+        
+        // Normalize to 0-1 scale for CapitalState
+        let current_state = biotic_health.min(1.0).max(0.0)
+        
+        return Ok(CapitalState {
+            current: current_state,
+            min_threshold: 0.3, // Minimum viable biotic health
+            max_threshold: 0.9, // Target biotic health
+            delta: 0.0,
+            risk_coords: compute_biotic_risk_coords(sensor_data, habitat_continua),
+            fpic_verified: verify_all_fpic_requirements(habitat_continua)
+        })
+    }
+
+    // SCBW-003: Compute biotic risk coordinates
+    func compute_biotic_risk_coords(sensor_data: BioticSensorData, 
+                                     habitat_continua: array<HabitatContinuum>) -> array<RiskCoord> {
+        let coords = array<RiskCoord>::new()
+        let timestamp_us = current_timestamp_us()
+        let source_did = [0u8; 32]
+        
+        // r_biotic: Overall biotic health risk
+        let biotic_health = calculate_biotic_health(sensor_data, habitat_continua)
+        let r_biotic = RiskCoord {
+            value: 1.0 - biotic_health,
+            timestamp_us: timestamp_us,
+            source_did: source_did,
+            confidence: 0.90
+        }
+        coords.push(r_biotic)
+        
+        // r_species: Species population risk
+        let species_risk = calculate_species_population_risk(sensor_data.species_observations)
+        let r_species = RiskCoord {
+            value: species_risk,
+            timestamp_us: timestamp_us,
+            source_did: source_did,
+            confidence: 0.85
+        }
+        coords.push(r_species)
+        
+        // r_habitat: Habitat fragmentation risk
+        let habitat_risk = calculate_habitat_fragmentation_risk(habitat_continua)
+        let r_habitat = RiskCoord {
+            value: habitat_risk,
+            timestamp_us: timestamp_us,
+            source_did: source_did,
+            confidence: 0.88
+        }
+        coords.push(r_habitat)
+        
+        // r_connectivity: Corridor connectivity risk
+        let connectivity_risk = calculate_connectivity_risk(habitat_continua)
+        let r_connectivity = RiskCoord {
+            value: connectivity_risk,
+            timestamp_us: timestamp_us,
+            source_did: source_did,
+            confidence: 0.87
+        }
+        coords.push(r_connectivity)
+        
+        // r_invasive: Invasive species risk
+        let invasive_risk = calculate_invasive_species_risk(habitat_continua)
+        let r_invasive = RiskCoord {
+            value: invasive_risk,
+            timestamp_us: timestamp_us,
+            source_did: source_did,
+            confidence: 0.82
+        }
+        coords.push(r_invasive)
+        
+        return coords
+    }
+}
+
+// ============================================================================
+// SECTION 9: COMPLIANCE AND AUDIT CONTRACTS
+// ============================================================================
+
+contract BioticComplianceAudit {
+    // BCA-001: Arizona state law synchronization for wildlife protection
+    func verify_arizona_wildlife_law_compliance(activities: array<Activity>, 
+                                                  habitat_continua: array<HabitatContinuum>) -> Result<bool, string> {
+        // Check Arizona Game and Fish Department regulations
+        // Check Arizona Native Plant Law compliance
+        // Check Endangered Species Act (federal) compliance
+        
+        for activity in activities {
+            if activity.affects_protected_species() {
+                if !has_required_permits(activity) {
+                    return Err("Activity affects protected species without required permits")
+                }
+            }
+            
+            if activity.affects_native_plants() {
+                if !has_native_plant_permit(activity) {
+                    return Err("Activity affects native plants without required permit")
+                }
+            }
+        }
+        
+        return Ok(true)
+    }
+
+    // BCA-002: Treaty compliance verification
+    func verify_treaty_compliance(plans: array<LightNoisePesticidePlan>, 
+                                   habitat_continua: array<HabitatContinuum>) -> Result<bool, string> {
+        // Check Akimel O'odham and Piipaash treaty obligations
+        let indigenous_habitats = habitat_continua.filter(|h| h.indigenous_territory_overlap)
+        
+        for habitat in indigenous_habitats {
+            if !habitat.fpic_verified {
+                return Err("Indigenous territory habitat lacks FPIC verification")
+            }
+        }
+        
+        for plan in plans {
+            if !plan.fpic_verified {
+                return Err("Plan lacks FPIC verification")
+            }
+            if !plan.treaty_compliant {
+                return Err("Plan is not treaty-compliant")
+            }
+        }
+        
+        return Ok(true)
+    }
+
+    // BCA-003: Biotic corridor protection audit
+    func audit_corridor_protection(biotic_corridors: array<BioticCorridor>) -> Result<CorridorAuditReport, string> {
+        let mut violations = array<string>::new()
+        let mut compliant_count = 0
+        
+        for corridor in biotic_corridors {
+            // Check minimum width requirements
+            if corridor.corridor_type == CorridorType.WILDLIFE_MIGRATION {
+                if corridor.width_m < SonoranDesertBioticConstants.MIN_WILDLIFE_CORRIDOR_WIDTH_M {
+                    violations.push("Corridor " + corridor.corridor_id + " below minimum width")
+                }
+            }
+            
+            // Check protection status
+            if corridor.protection_status < ProtectionStatus.CONSERVATION {
+                violations.push("Corridor " + corridor.corridor_id + " lacks adequate protection status")
+            }
+            
+            // Check treaty compliance
+            if corridor.protection_status == ProtectionStatus.TREATY_PROTECTED {
+                if !corridor.treaty_compliant {
+                    violations.push("Treaty-protected corridor " + corridor.corridor_id + " not treaty-compliant")
+                } else {
+                    compliant_count += 1
+                }
+            } else {
+                compliant_count += 1
+            }
+        }
+        
+        let compliance_rate = compliant_count as f32 / biotic_corridors.length as f32
+        
+        return Ok(CorridorAuditReport {
+            total_corridors: biotic_corridors.length,
+            compliant_corridors: compliant_count,
+            compliance_rate: compliance_rate,
+            violations: violations,
+            remediation_required: !violations.is_empty(),
+            timestamp_us: current_timestamp_us()
+        })
+    }
+
+    // BCA-004: Species sovereignty audit
+    func audit_species_sovereignty(species_agents: array<SpeciesAgent>) -> Result<SpeciesSovereigntyReport, string> {
+        let mut sovereignty_violations = array<string>::new()
+        let mut recognized_count = 0
+        
+        for species in species_agents {
+            // Check if endangered species have proper sovereignty recognition
+            if species.conservation_status >= ConservationStatus.ENDANGERED {
+                if species.sovereignty_level < SovereigntyLevel.TREATY_PROTECTED {
+                    sovereignty_violations.push("Endangered species " + species.species_name + " lacks treaty protection")
+                } else {
+                    recognized_count += 1
+                }
+            } else {
+                recognized_count += 1
+            }
+            
+            // Check FPIC requirements
+            if species.fpic_required && !species.treaty_signatory {
+                sovereignty_violations.push("Species " + species.species_name + " requires FPIC but not treaty signatory")
+            }
+        }
+        
+        return Ok(SpeciesSovereigntyReport {
+            total_species: species_agents.length,
+            recognized_species: recognized_count,
+            recognition_rate: recognized_count as f32 / species_agents.length as f32,
+            violations: sovereignty_violations,
+            remediation_required: !sovereignty_violations.is_empty(),
+            timestamp_us: current_timestamp_us()
+        })
+    }
+
+    // BCA-005: Generate compliance report for regulatory submission
+    func generate_compliance_report(biotic_data: BioticData, 
+                                     audit_results: array<AuditResult>) -> RegulatoryComplianceReport {
+        let overall_compliance = audit_results.all(|r| r.compliant)
+        let compliance_score = calculate_overall_compliance_score(audit_results)
+        
+        return RegulatoryComplianceReport {
+            report_id: generate_report_id(),
+            entity_did: biotic_data.entity_did,
+            reporting_period_start: biotic_data.period_start,
+            reporting_period_end: biotic_data.period_end,
+            overall_compliant: overall_compliance,
+            compliance_score: compliance_score,
+            audit_results: audit_results,
+            corrective_actions: generate_corrective_actions(audit_results),
+            next_audit_date: calculate_next_audit_date(compliance_score),
+            regulatory_body: "Arizona Game and Fish Department",
+            treaty_oversight: "Akimel O'odham and Piipaash Nations",
+            timestamp_us: current_timestamp_us()
+        }
+    }
+}
+
+// ============================================================================
+// SECTION 10: CROSS-LANGUAGE BINDING SPECIFICATIONS
+// ============================================================================
+
+binding rust {
+    module: aletheion/synthexis/biotic/rust/contracts/ALE-SYNTHEXIS-BIOTIC-TREATY-001.rs
+    function_mapping: {
+        "execute_biotic_smart_chain" -> "execute_smart_chain",
+        "register_species_signatory" -> "register_species",
+        "verify_fpic" -> "verify_indigenous_fpic",
+        "assess_lighting_impact" -> "assess_lighting_biotic_impact",
+        "assess_noise_impact" -> "assess_noise_biotic_impact",
+        "assess_pesticide_impact" -> "assess_pesticide_biotic_impact"
+    }
+    type_mapping: {
+        "SpeciesAgent" -> "SpeciesAgent",
+        "HabitatContinuum" -> "HabitatContinuum",
+        "BioticCorridor" -> "BioticCorridor",
+        "LightNoisePesticidePlan" -> "LightNoisePesticidePlan"
+    }
+}
+
+binding lua {
+    module: aletheion/synthexis/biotic/lua/orchestration/ALE-SYNTHEXIS-BIOTIC-PLANNER-001.lua
+    function_mapping: {
+        "execute_biotic_smart_chain" -> "biotic_smart_chain",
+        "enforce_lighting_curfew" -> "lighting_curfew_handler",
+        "verify_treaty_compliance" -> "treaty_compliance_check",
+        "assess_cumulative_impact" -> "cumulative_impact_assessment"
+    }
+    ffi_surface: "biotic_execute_smart_chain(species_json, habitat_json, plans_json) -> shard_json"
+}
+
+binding js {
+    module: aletheion/synthexis/biotic/js/contracts/biotic.mjs
+    function_mapping: {
+        "execute_biotic_smart_chain" -> "executeBioticSmartChain",
+        "register_species_signatory" -> "registerSpeciesSignatory",
+        "verify_fpic" -> "verifyFPIC",
+        "assess_lighting_impact" -> "assessLightingImpact"
+    }
+    export_type: "ESM"
+}
+
+binding kotlin {
+    module: aletheion/synthexis/biotic/kotlin/contracts/BioticTreaty.kt
+    function_mapping: {
+        "execute_biotic_smart_chain" -> "executeBioticSmartChain",
+        "verify_treaty_compliance" -> "verifyTreatyCompliance",
+        "assess_cumulative_impact" -> "assessCumulativeImpact"
+    }
+    jvm_target: "17"
+}
+
+binding cpp {
+    module: aletheion/synthexis/biotic/cpp/contracts/biotic.hpp
+    function_mapping: {
+        "execute_biotic_smart_chain" -> "executeBioticSmartChain",
+        "register_species_signatory" -> "registerSpeciesSignatory",
+        "verify_fpic" -> "verifyFPIC"
+    }
+    standard: "C++20"
+}
+
+// ============================================================================
+// END OF FILE: ALE-SYNTHEXIS-BIOTIC-TREATY-001.aln
+// ============================================================================
