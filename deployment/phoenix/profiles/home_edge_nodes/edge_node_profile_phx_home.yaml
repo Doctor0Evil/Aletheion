@@ -1,0 +1,270 @@
+# Aletheion Phoenix – Home Edge Node Deployment Profile
+
+profile_id: PHX_HOME_EDGE_V1
+profile_version: 1
+description: >
+  Baseline deployment profile for Aletheion home/office edge nodes in Phoenix.
+  Targets consumer-grade routers, gateways, and always-on appliances to host
+  low-risk ERM workloads under strict energy, governance, and ecosafety limits. [file:26][file:30]
+
+location:
+  city: Phoenix
+  state: AZ
+  country: US
+  climate_band: SONORAN_DESERT
+  pilot_zone:
+    name: DOWNTOWN_CENTRAL
+    reference_docs:
+      - ERM_ARCHITECTURE_DOC:file:30
+      - HEAT_WATER_TREE_ENGINE_DOC:file:28
+
+hardware_classes:
+  router_openwrt:
+    cpu_arch: armv7
+    cores: 2
+    ram_mb: 256
+    storage_mb: 512
+    expected_duty_cycle: LOW
+    notes: >
+      Typical ISP or community router running a hardened OpenWrt image for
+      Aletheion edge workloads. [file:26]
+  appliance_gateway:
+    cpu_arch: x86_64
+    cores: 4
+    ram_mb: 4096
+    storage_mb: 64000
+    expected_duty_cycle: MEDIUM
+    notes: >
+      Small form-factor PC or NAS used as a local ERM mirror and workflow
+      runner for multi-unit buildings. [file:26][file:30]
+  iot_hub_mcu:
+    cpu_arch: esp32
+    cores: 2
+    ram_mb: 0.5
+    storage_mb: 4
+    expected_duty_cycle: HIGH
+    notes: >
+      ESP32-class hubs for sensor aggregation and minimal preprocessing only;
+      optimization and governance offloaded upstream. [file:26]
+
+os_firmware_stack:
+  base_firmware:
+    name: OpenWrt
+    channel_id: PHX_HOME_EDGE_OPENWRT
+    hardened_image: true
+    signed_updates_required: true
+    secure_boot_required: true
+    reference_docs:
+      - GOVERNED_URBAN_WORKFLOW_ARCH:file:26
+  container_runtime:
+    type: microvm
+    options:
+      - name: firecracker
+        allowed: true
+      - name: gvisor
+        allowed: true
+    rationale: >
+      MicroVM-style isolation for mixed-trust home environments while keeping
+      resource overhead low. [file:26]
+  tee_support:
+    required_for_domains:
+      - BIOSIGNALS
+      - CONSENT
+      - GOVERNANCE_KEYS
+    optional_for_domains:
+      - WATER_STATE_MIRROR
+      - THERMAL_STATE_MIRROR
+    notes: >
+      When TEEs are absent, sensitive workloads are not scheduled on this node
+      and remain on higher-tier infrastructure. [file:26][file:31]
+
+energy_constraints:
+  max_cpu_utilization:
+    normal_ops: 0.30
+    heatwave_ops: 0.40
+  max_power_increment_watts:
+    router_openwrt: 3
+    appliance_gateway: 25
+  preferred_active_windows:
+    - name: SOLAR_PEAK
+      local_time_range: "10:00-16:00"
+      rationale: >
+        Align heavier optimization bursts with rooftop/utility solar peak to
+        minimize marginal grid load. [file:28][file:30]
+  disallowed_windows:
+    - name: CRITICAL_HEAT_NIGHT
+      local_time_range: "20:00-06:00"
+      rationale: >
+        Avoid raising indoor device heat during nocturnal heat risk windows,
+        especially in heat-vulnerable housing. [file:28]
+
+governance_and_birthsign:
+  birthsign_binding:
+    required: true
+    method: GEO_TILE_LOOKUP
+    reference_impl: ALE-GOV-BIRTH-SIGN-MODEL-001.rs
+    notes: >
+      Every workflow scheduled on a home node must carry a BirthSignId for its
+      spatial tile; no corridor, no build. [file:26][file:27]
+  allowed_governance_domains:
+    - WATER
+    - THERMAL
+    - MATERIALS
+    - MOBILITY_INFO
+  disallowed_governance_domains:
+    - BIOSIGNALS
+    - AUGMENTATION
+    - HIGH_RISK_TREATY_EDIT
+  aln_schemas_required:
+    - ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln
+    - ALE-TRUST-GOVERNED-DECISION-TX-001.aln
+  compliance_hooks:
+    - ALE-COMP-CORE-001.rs
+    - WORKFLOW-PATTERN-PREFLIGHT.yml
+    - GOVERNANCE-SCHEMA-PREFLIGHT.yml
+  trust_layer_append:
+    enabled: true
+    mode: ASYNC_BUFFERED
+    max_local_buffer_entries: 2000
+    flush_triggers:
+      - INTERVAL_MINUTES: 15
+      - HEAT_ALERT_LEVEL_CHANGE
+      - GOVERNANCE_POLICY_UPDATE
+    notes: >
+      Home nodes buffer governed decision envelopes and append to Googolswarm
+      when connectivity permits, preserving jurisdiction-aware auditability. [file:26]
+
+security_posture:
+  node_security_tier: HardenedFirmwareOnly
+  node_security_profile:
+    secure_boot: true
+    signed_updates: true
+    secure_transport: true
+    vuln_scan_interval_days: 14
+  allowed_workload_sensitivity:
+    can_host_sensitive_governance: false
+    can_host_general_erm: true
+  network_policies:
+    outbound_only_protocols:
+      - HTTPS
+      - NATS_MQTT_TLS
+    inbound_accept:
+      - MGMT_SSH_FROM_LOCAL_LAN
+    blocked_categories:
+      - CLEAR_TEXT_CONTROL
+      - UNAUTHENTICATED_RPC
+  identity:
+    node_did_required: true
+    owner_did_binding_required: true
+    multisig_attestation_required: false
+
+workload_classes:
+  permitted:
+    - id: WATER_STATE_MIRROR_HOME
+      description: >
+        Read-only mirrors of neighborhood water and canal segment state for
+        localized display and low-risk analytics. [file:27][file:28]
+      erm_layers:
+        - STATE_MODEL
+        - CITIZEN_INTERFACE
+      max_cpu_share: 0.10
+      max_mem_mb: 256
+    - id: THERMAL_BUDGET_CACHE
+      description: >
+        Local cache of block-level HeatBudget envelopes for routing and
+        notifications during heat events. [file:28]
+      erm_layers:
+        - STATE_MODEL
+        - OPTIMIZATION_READ_ONLY
+      max_cpu_share: 0.08
+      max_mem_mb: 256
+    - id: ROUTING_HINTS_SOMAPLEX_LOCAL
+      description: >
+        Body-first routing hint computation for a single household or building,
+        using centrally computed SomaticCost and HeatCost surfaces. [file:28]
+      erm_layers:
+        - OPTIMIZATION_LIGHT
+        - CITIZEN_INTERFACE
+      max_cpu_share: 0.06
+      max_mem_mb: 512
+    - id: WASTE_FEEDBACK_COACH
+      description: >
+        Neighborhood waste diversion coaching UI and simple analytics using
+        centrally computed plans; no hazardous routing on home nodes. [file:27]
+      erm_layers:
+        - CITIZEN_INTERFACE
+      max_cpu_share: 0.04
+      max_mem_mb: 256
+  forbidden:
+    - NEUROBIOME_POLICY_ENGINE
+    - CRYPTOSOMATIC_SHIELD_CORE
+    - TREATY_COMPILER
+    - AWP_PLANT_CONTROL
+    - CYBOQUATIC_PUMP_AUTOPILOT
+
+placement_rules:
+  scheduling_policy: ENERGY_AWARE
+  eligible_hardware_classes:
+    - router_openwrt
+    - appliance_gateway
+  min_free_ram_mb: 128
+  min_free_storage_mb: 256
+  max_parallel_workflows: 4
+  temperature_guardrail:
+    max_device_temp_c: 70
+    action_on_violation: THROTTLE_AND_PAUSE_NEW_WORKLOADS
+  jurisdiction_guardrail:
+    enforce_birthsign_match: true
+    enforce_treaty_domains:
+      - WATER
+      - THERMAL
+      - BIOTIC
+  resilience_modes:
+    offline_first:
+      enabled: true
+      cache_layers:
+        - STATE_MODEL_SNAPSHOTS
+        - HEATBUDGET_ENVELOPES
+      conflict_resolution: FORWARD_ONLY_APPEND
+    graceful_degradation:
+      drop_order:
+        - WASTE_FEEDBACK_COACH
+        - ROUTING_HINTS_SOMAPLEX_LOCAL
+        - THERMAL_BUDGET_CACHE
+        - WATER_STATE_MIRROR_HOME
+
+citizen_interface_bindings:
+  allowed_clients:
+    - MOBILE_APP_KOTLIN
+    - WEB_DASHBOARD_JS
+  exposed_capabilities:
+    - VIEW_NEIGHBORHOOD_STATE
+    - VIEW_HEAT_ALERTS
+    - VIEW_COOLING_ROUTING_HINTS
+    - SUBMIT_FEEDBACK_GRIEVANCE
+  consent_scopes:
+    required_for:
+      - LOCATION_SHARING_FOR_ROUTING
+      - PARTICIPATION_IN_HEAT_STUDIES
+    governance_refs:
+      - LEXETHOS_RIGHTS_GRAMMAR
+      - CRYPTOSOMATIC_SHIELD_ENVELOPES
+  privacy:
+    data_retention_hours:
+      routing_trace: 4
+      heat_alert_logs: 720
+    anonymization:
+      enabled_for_analytics: true
+      k_anonymity_min: 20
+
+ci_cd_requirements:
+  required_checks:
+    - ALE-ERM-WORKFLOW-PATTERN-001.aln
+    - ALETHEION-COMPLIANCE.yml
+    - ALETHEION-GOVERNANCE-SCHEMA-PREFLIGHT.yml
+  deployment_channel:
+    name: PHX_HOME_EDGE_STABLE
+    promotion_requirements:
+      - HEATWAVE_SIMULATION_PASS
+      - ENERGY_BUDGET_REGRESSION_PASS
+      - GOVERNANCE_ENVELOPE_DIFF_REVIEWED
