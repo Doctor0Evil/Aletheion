@@ -1,0 +1,123 @@
+ALN-SCHEMA DOWNTOWN-FREIGHT-SOMAPLEX-CORRIDORS-001
+  VERSION "0.1.0"
+  REGION  "REGION_DOWNTOWN_CORE"
+  DOMAIN  ["logistics","somatic","thermal","treaty","equity"]
+  WORKFLOW-ANCHORS [
+    "aletheiontransportfreightALE-TM-FREIGHT-STATE-001.rs",
+    "aletheiontransportfreightALE-TM-FREIGHT-ORCH-002.rs",
+    "aletheiontransportmobilityALE-TM-ROUTER-002.rs",
+    "aletheionsomaplexcareDOWNTOWN-CARE-ROUTE-PLANNER-001.rs"
+  ]
+  SMART-CHAINS [
+    "SMART01-AWP-THERMAL-THERMAPHORA",
+    "SMART05-SOMAPLEX-ROUTING-DOWNTOWN-001",
+    "SMART05-SOMAPLEX-FREIGHT-DOWNTOWN-001"
+  ]
+
+ENUM FreightBand
+  VALUE LIGHT_VAN
+  VALUE MEDIUM_TRUCK
+  VALUE HEAVY_TRUCK
+END
+
+ENUM TimeWindowClass
+  VALUE DAY_GENERAL
+  VALUE NIGHT_QUIET_SENSITIVE
+  VALUE PEAK_COMMUTE
+END
+
+RECORD RiskCorridor
+  FIELD id          STRING
+  FIELD domain      STRING
+  FIELD rx_min      FLOAT
+  FIELD rx_max      FLOAT
+  FIELD vmax_bound  FLOAT
+  FIELD unit_range  STRING
+END
+
+SET DowntownFreightSomaplexCorridors
+  ELEMENT RiskCorridor {
+    id         = "FREIGHT_RING_NO_SCHOOL_CLINIC"
+    domain     = "logistics"
+    rx_min     = 0.0
+    rx_max     = 0.7
+    vmax_bound = 0.0
+    unit_range = "fraction-of-heavy-freight-trips-per-hour"
+  }
+  ELEMENT RiskCorridor {
+    id         = "QUIET_SCHOOL_CLINIC"
+    domain     = "somatic"
+    rx_min     = 0.0
+    rx_max     = 0.3
+    vmax_bound = 0.0
+    unit_range = "normalized-joint-load-plus-noise"
+  }
+  ELEMENT RiskCorridor {
+    id         = "CARE_ROUTE_PRIORITY"
+    domain     = "somatic"
+    rx_min     = 0.0
+    rx_max     = 0.4
+    vmax_bound = 0.0
+    unit_range = "somatic-cost-headroom-fraction"
+  }
+  ELEMENT RiskCorridor {
+    id         = "UHI_SENSITIVE_FREIGHT"
+    domain     = "thermal"
+    rx_min     = 0.0
+    rx_max     = 0.8
+    vmax_bound = 0.0
+    unit_range = "normalized-heat-cost"
+  }
+  ELEMENT RiskCorridor {
+    id         = "EQUITY_HIGH_RISK_BLOCKS"
+    domain     = "equity"
+    rx_min     = 0.0
+    rx_max     = 0.6
+    vmax_bound = 0.0
+    unit_range = "equity-weighted-exposure-index"
+  }
+END
+
+; Segment-level mapping to corridors and freight bands
+RECORD FreightSegmentCorridorBinding
+  FIELD segment_id         STRING
+  FIELD freight_band       FreightBand
+  FIELD time_window_class  TimeWindowClass
+  FIELD corridor_ids       LIST<STRING>
+END
+
+SET DowntownFreightSegmentBindings
+  ; Example patterns, concrete segment_ids come from ERM graph export
+  ELEMENT FreightSegmentCorridorBinding {
+    segment_id         = "SEGMENT:DOWNTOWN_CORE_RING_01"
+    freight_band       = HEAVY_TRUCK
+    time_window_class  = DAY_GENERAL
+    corridor_ids       = ["FREIGHT_RING_NO_SCHOOL_CLINIC","UHI_SENSITIVE_FREIGHT"]
+  }
+  ELEMENT FreightSegmentCorridorBinding {
+    segment_id         = "SEGMENT:SCHOOL_CLINIC_AXIS_01"
+    freight_band       = HEAVY_TRUCK
+    time_window_class  = NIGHT_QUIET_SENSITIVE
+    corridor_ids       = ["QUIET_SCHOOL_CLINIC","CARE_ROUTE_PRIORITY","EQUITY_HIGH_RISK_BLOCKS"]
+  }
+  ELEMENT FreightSegmentCorridorBinding {
+    segment_id         = "SEGMENT:CARE_CORRIDOR_PRIMARY_01"
+    freight_band       = MEDIUM_TRUCK
+    time_window_class  = PEAK_COMMUTE
+    corridor_ids       = ["CARE_ROUTE_PRIORITY","EQUITY_HIGH_RISK_BLOCKS"]
+  }
+END
+
+RULE heavy_truck_blocked_on_care_corridors
+  INPUT binding FreightSegmentCorridorBinding
+  WHEN  binding.freight_band == HEAVY_TRUCK
+        AND "CARE_ROUTE_PRIORITY" IN binding.corridor_ids
+  ASSERT FALSE   ; static rule: no heavy trucks on CARE_ROUTE_PRIORITY segments
+END
+
+RULE night_quiet_limits_freight
+  INPUT binding FreightSegmentCorridorBinding
+  WHEN  binding.time_window_class == NIGHT_QUIET_SENSITIVE
+        AND binding.freight_band != LIGHT_VAN
+  ASSERT FALSE   ; static rule: no medium/heavy freight on NIGHT_QUIET_SENSITIVE
+END
