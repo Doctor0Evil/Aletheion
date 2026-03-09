@@ -1,0 +1,247 @@
+aln_schema ALE-TRUST-GOVERNED-DECISION-TX-001
+version 1
+
+// Canonical Googolswarm provenance envelope for governed decisions.
+// Mirrors Rust types in ALE-GOV-BIRTH-SIGN-MODEL-001.rs and prepares
+// a stable, machine-enforceable record for audit, FPIC, and treaty checks. [file:7]
+
+import_identifiers {
+  BirthSignId       : "BirthSignId",        // from ALE-GOV-BIRTH-SIGN-MODEL-001.rs [file:7]
+  AlnNormId         : "AlnNormId",
+  BioticTreatyId    : "BioticTreatyId",
+  MicroTreatyId     : "MicroTreatyId",
+  Did               : "Did",
+  WorkflowEventId   : "WorkflowEventId",
+  WorkflowId        : "WorkflowId",
+  NodeProfileId     : "NodeProfileId",
+  TrustTxId         : "TrustTxId"
+}
+
+// ---------------------------------------------------------------------
+// Enums mirrored from Rust governance model
+// ---------------------------------------------------------------------
+
+enum GovernanceDomain {
+  Land,
+  Water,
+  Air,
+  Materials,
+  Mobility,
+  Biosignals,
+  Augmentation,
+  Energy,
+  Culture,
+  Emergency
+} // [file:7]
+
+enum LawScope {
+  City,
+  County,
+  State,
+  National,
+  CrossBorderTreaty
+} // [file:7]
+
+enum LocalOverlayKind {
+  NeighborhoodMicroTreaty,
+  WorkplacePolicy,
+  SchoolOrCampusPolicy,
+  FacilitySpecificProtocol,
+  EventSpecificProtocol
+} // [file:7]
+
+enum FpicRequirement {
+  NotApplicable,
+  RequiredBeforePlanning,
+  RequiredBeforeExecution,
+  EmergencyOverrideWithAudit
+} // [file:7]
+
+enum FpicStatus {
+  NotRequired,
+  Granted,
+  Pending,
+  Denied
+} // [file:7]
+
+enum ConstraintMode {
+  Hard,
+  HighPenalty
+} // [file:7]
+
+enum ConstraintOutcomeKind {
+  Satisfied,
+  SoftViolation,
+  HardViolation
+} // [file:7]
+
+enum DecisionOutcome {
+  Approved,
+  ApprovedWithDerating,
+  Rejected,
+  PendingFpic
+} // [file:7]
+
+enum NodeSecurityTier {
+  TeeBacked,
+  HardenedFirmwareOnly,
+  Basic
+} // [file:7]
+
+// ---------------------------------------------------------------------
+// Law, Indigenous, Ecological, and Overlay references
+// ---------------------------------------------------------------------
+
+type LawRef {
+  scope      : LawScope,     // jurisdiction scope of the law [file:7]
+  alnnorm    : AlnNormId,    // ALN norm identifier
+  label      : string        // human-readable citation/label
+} // [file:7]
+
+type IndigenousGovernance {
+  territoryId  : string,          // IndigenousTerritoryId encoded as string [file:7]
+  requirement  : FpicRequirement, // FPIC level for this territory
+  tekNorms     : [AlnNormId]      // TEK-related ALN norms
+} // [file:7]
+
+type EcologicalProtections {
+  bioticTreaties            : [BioticTreatyId], // species-level BioticTreaties [file:7]
+  habitatCorridorNorms      : [AlnNormId],      // connectivity envelopes
+  lightNoiseChemicalNorms   : [AlnNormId]       // pollution / envelope limits
+} // [file:7]
+
+type LocalOverlay {
+  kind       : LocalOverlayKind, // micro-treaty / local norm kind [file:7]
+  microTreatyId : MicroTreatyId, // concrete micro-treaty reference
+  summary    : string            // citizen-facing summary
+} // [file:7]
+
+// ---------------------------------------------------------------------
+// BirthSign snapshot for provenance
+// ---------------------------------------------------------------------
+
+type BirthSignSnapshot {
+  id                 : BirthSignId,              // tile identifier [file:7]
+  tileRef            : string,                   // opaque geospatial key
+  domains            : [GovernanceDomain],       // domains this Birth-Sign governs
+  laws               : [LawRef],                 // public law bundle
+  indigenous         : [IndigenousGovernance],   // Indigenous governance overlays
+  ecological         : EcologicalProtections,    // ecological protections
+  localOverlays      : [LocalOverlay],           // micro-treaties and norms
+  defaultMode        : ConstraintMode,           // default enforcement mode
+  version            : integer,                  // BirthSign version
+  validFrom          : datetime,                 // validity start
+  validUntil         : datetime?                 // optional validity end
+} // [file:7]
+
+// ---------------------------------------------------------------------
+// Constraint evaluation and FPIC status
+// ---------------------------------------------------------------------
+
+type ConstraintOutcome {
+  kind     : ConstraintOutcomeKind, // satisfied / soft / hard [file:7]
+  alnnorm  : AlnNormId?,            // may be empty for generic outcomes
+  message  : string?                // optional explanation
+} // [file:7]
+
+type FpicStatusRecord {
+  status        : FpicStatus,         // NotRequired, Granted, Pending, Denied [file:7]
+  territoryId   : string?,            // IndigenousTerritoryId if applicable
+  grantedAt     : datetime?,          // for Granted
+  expiresAt     : datetime?,          // optional expiry
+  requestedAt   : datetime?,          // for Pending
+  deniedReason  : string?             // for Denied
+} // [file:7]
+
+type GovernanceEvaluationRecord {
+  birthSignId    : BirthSignId,          // primary BirthSign evaluated [file:7]
+  mode           : ConstraintMode,       // enforcement mode used
+  outcomes       : [ConstraintOutcome],  // per-norm outcomes
+  fpic           : FpicStatusRecord?     // FPIC status result
+} // [file:7]
+
+// ---------------------------------------------------------------------
+// Node security profile snapshot for placement audit
+// ---------------------------------------------------------------------
+
+type NodeSecurityProfileSnapshot {
+  nodeProfileId   : NodeProfileId,    // node profile id [file:7]
+  tier            : NodeSecurityTier, // TEE-backed / hardened / basic
+  secureBoot      : boolean,
+  signedUpdates   : boolean,
+  secureTransport : boolean,
+  lastAuditPassedAt : datetime?
+} // [file:7]
+
+// ---------------------------------------------------------------------
+// Governed decision envelope core
+// ---------------------------------------------------------------------
+
+type GovernedDecisionEnvelope {
+  // Core transaction identity
+  txId           : TrustTxId,       // stable trust-layer tx identifier [file:7]
+  createdAt      : datetime,        // decision creation time
+  workflowId     : WorkflowId,      // workflow definition that produced this decision
+  workflowStage  : string,          // e.g., "Optimization", "Actuation", "EmergencyOverride"
+
+  // Territorial and legal context
+  domains        : [GovernanceDomain], // domains touched by this decision [file:7]
+  birthSignIds   : [BirthSignId],      // BirthSigns consulted (tile-scoped)
+  birthSignSnapshots : [BirthSignSnapshot]?, // optional embedded snapshots at decision time
+
+  // Normative provenance
+  appliedAlnNorms     : [AlnNormId],       // ALN norms actually evaluated [file:7]
+  appliedBioticTreaties : [BioticTreatyId],// BioticTreaties checked
+  appliedMicroTreaties  : [MicroTreatyId], // LexEthos / micro-treaties used
+
+  // Participants and execution environment
+  subjectDid     : Did?,                 // citizen / asset / subject DID
+  operatorDid    : Did?,                 // human or agent issuing the action
+  nodeProfileId  : NodeProfileId?,       // execution node profile id
+  nodeSecurity   : NodeSecurityProfileSnapshot?, // optional security snapshot
+
+  // Input / output commitments
+  inputsHash     : string,               // hash of inputs payload [file:7]
+  outputsHash    : string,               // hash of outputs / actuation
+
+  // Governance evaluation and final outcome
+  evaluation     : GovernanceEvaluationRecord, // aggregated evaluation [file:7]
+  outcome        : DecisionOutcome,            // final decision outcome
+
+  // Explanation and domain-specific tags
+  explanation    : string?,              // human-readable explanation for S7
+  tags           : { string : string }   // arbitrary metadata (water volumes, route ids, etc.) [file:7]
+}
+
+// ---------------------------------------------------------------------
+// Contract: all governed decision transactions MUST satisfy this shape
+// ---------------------------------------------------------------------
+
+contract GovernedDecisionTx {
+  envelope : GovernedDecisionEnvelope
+
+  require envelope.birthSignIds.length > 0
+    when envelope.domains.length > 0
+    message "GovernedDecisionTx: decisions touching governed domains MUST include at least one BirthSignId."
+
+  require envelope.appliedAlnNorms.length > 0
+    message "GovernedDecisionTx: at least one ALN norm MUST be recorded for a governed decision."
+
+  require envelope.inputsHash != "" and envelope.outputsHash != ""
+    message "GovernedDecisionTx: inputsHash and outputsHash MUST be non-empty."
+
+  // FPIC precedence and rejection semantics encoded at schema level:
+  //  - Pending FPIC -> outcome must be PendingFpic.
+  //  - Denied FPIC  -> outcome must be Rejected.
+  rule fpic_pending_maps_to_pending_outcome {
+    when envelope.evaluation.fpic.status == FpicStatus.Pending
+    require envelope.outcome == DecisionOutcome.PendingFpic
+      message "GovernedDecisionTx: Pending FPIC MUST result in PendingFpic outcome."
+  }
+
+  rule fpic_denied_maps_to_rejected_outcome {
+    when envelope.evaluation.fpic.status == FpicStatus.Denied
+    require envelope.outcome == DecisionOutcome.Rejected
+      message "GovernedDecisionTx: Denied FPIC MUST result in Rejected outcome."
+  }
+}
