@@ -1,171 +1,312 @@
--- Purpose: Birth-Sign jurisdictional signature propagation and enforcement.
--- Layers: L1 Edge Ingest, L2 State Model, L4 Governance Preflight, L6 Actuation.
--- Domains: land, water, air, biosignals, citizens must always carry non-empty birthSignId.[file:1]
+-- Aletheion Birth-Sign Jurisdictional Signature Propagation
+-- Role:
+--  - Attach BirthSignId to all ingested assets/events (S1 → S2).
+--  - Ensure every message between Ingest, StateModel, Optimization, Governance, Actuation
+--    carries a non-empty birthSignId field when domains touch land, water, air, biosignals, or citizens.
+--  - Provide glue for ERM sync orchestrators and SMARTchain validators to enforce jurisdictional preconditions.
+--
+-- Assumptions:
+--  - Rust model aletheion/governance/birthsigns/ALE-GOV-BIRTH-SIGN-MODEL-001.rs defines BirthSignId and domains.
+--  - A geospatial context service is reachable via get_birth_sign_for_point(lat, lon, t).
+--  - Messages are Lua tables with a reserved field `birthSignId` and a `domains` array of domain strings.
+--  - Compliance preflight is handled by ALE-COMP-CORE-001.rs at CI/runtime, not reimplemented here.
 
 local BirthSignPropagation = {}
 
--- Domains for which Birth-Signs are mandatory.
-local GOVERNED_DOMAINS = {
-  land       = true,
-  water      = true,
-  air        = true,
-  biosignals = true,
-  citizens   = true,
+----------------------------------------------------------------------
+-- Domain and scope helpers (mirrors GovernanceDomain in Rust)
+----------------------------------------------------------------------
+
+local TERRITORIAL_DOMAINS = {
+  Land = true,
+  Water = true,
+  Air = true,
+  Materials = true,
+  Mobility = true,
+  Biosignals = true,
+  Augmentation = true,
+  Energy = true,
+  Culture = true,
+  Emergency = true,
 }
 
-----------------------------------------------------------------------
--- External dependencies (to be provided by existing services)
-----------------------------------------------------------------------
-
--- Geospatial context service: given (lat, lon, time) returns a BirthSignId or nil.
-local GeoContext = require("aletheion.geo.context")          -- birth_sign_for_point(lat, lon, t) -> string|nil
--- State model ingress: append events with governance metadata into L2 state model.
-local StateModelIngress = require("aletheion.erm.state_ingress") -- ingest(events_with_birthsign) -> ()
--- Compliance logger: structured errors and audit events.
-local ComplianceLog = require("aletheion.compliance.log")    -- violation(kind, details), info(kind, details)
-
-----------------------------------------------------------------------
--- Utility helpers
-----------------------------------------------------------------------
-
-local function is_governed_domain(domain)
-  return GOVERNED_DOMAINS[domain] == true
-end
-
--- Ensure event has the standard governance envelope table.
-local function ensure_governance_envelope(event)
-  event.governance = event.governance or {}
-  return event.governance
-end
-
--- Extract spatial-temporal coordinates from an event.
-local function extract_spatiotemporal(event)
-  local loc = event.location or {}
-  return loc.lat, loc.lon, event.timestamp or os.time()
-end
-
--- Attach a birthSignId to a single event if required by its domain.
-local function attach_birth_sign_to_event(event)
-  local domain = event.domain
-  if not is_governed_domain(domain) then
-    return event -- no-op for non-governed domains
+-- Return true if any of the message domains require Birth-Sign binding.
+local function domains_require_birthsign(domains)
+  if type(domains) ~= "table" then
+    return false
   end
-
-  local g = ensure_governance_envelope(event)
-
-  -- Respect existing, valid birthSignId if already present.
-  if type(g.birthSignId) == "string" and g.birthSignId ~= "" then
-    return event
+  for _, d in ipairs(domains) do
+    if TERRITORIAL_DOMAINS[d] then
+      return true
+    end
   end
-
-  local lat, lon, t = extract_spatiotemporal(event)
-  if not lat or not lon then
-    ComplianceLog.violation("birthsign_missing_location", {
-      domain = domain,
-      reason = "Cannot resolve Birth-Sign without lat/lon",
-      event_id = event.id,
-    })
-    error("Birth-Sign propagation: missing location for governed domain " .. tostring(domain))
-  end
-
-  local birthSignId = GeoContext.birth_sign_for_point(lat, lon, t)
-  if not birthSignId or birthSignId == "" then
-    ComplianceLog.violation("birthsign_resolution_failed", {
-      domain = domain,
-      lat = lat,
-      lon = lon,
-      event_id = event.id,
-    })
-    error("Birth-Sign propagation: geocontext lookup failed for governed domain " .. tostring(domain))
-  end
-
-  g.birthSignId = birthSignId
-
-  ComplianceLog.info("birthsign_attached", {
-    domain = domain,
-    birthSignId = birthSignId,
-    event_id = event.id,
-  })
-
-  return event
+  return false
 end
 
 ----------------------------------------------------------------------
--- Public API: Ingest path
+-- Geospatial context service adapter
+-- (must be wired to real geospatial DB / service in deployment)
 ----------------------------------------------------------------------
 
--- Attach birthSignId and forward a batch of events into the state model.
--- Each event MUST include:
---   - event.domain (string)
---   - event.location.lat, event.location.lon (for governed domains)
---   - event.timestamp (optional, defaults to now)
--- A governance envelope is added/updated at event.governance.birthSignId.[file:1]
-function BirthSignPropagation.ingest_with_birth_sign(events)
-  if type(events) ~= "table" then
-    error("BirthSignPropagation.ingest_with_birth_sign expects a table of events")
+local GeoContext = {}
+
+-- Stub for actual geospatial lookup.
+-- Expected to return a non-empty BirthSignId string for (lat, lon, timestamp),
+-- or nil if no Birth-Sign is configured for that tile.
+function GeoContext.get_birth_sign_for_point(lat, lon, timestamp)
+  -- In production, this would query the geospatial context service:
+  --  - Tile index / H3 / S2 / custom grid
+  --  - Time-versioned BirthSign registry
+  --  - Return tile-scoped BirthSignId (matches Rust BirthSignId(pub String))
+  --
+  -- Here we only expose the hook; implementation belongs in infra/geo stack.
+  if type(lat) ~= "number" or type(lon) ~= "number" then
+    return nil
+  end
+  -- Placeholder: caller must replace with real lookup.
+  return nil
+end
+
+BirthSignPropagation.GeoContext = GeoContext
+
+----------------------------------------------------------------------
+-- Core propagation functions
+----------------------------------------------------------------------
+
+-- Attach a BirthSignId to a single ingested record if required by domains.
+-- record:
+--  {
+--    assetId = "...",
+--    deviceId = "...",
+--    lat = number,
+--    lon = number,
+--    timestamp = number | string | os.time(),
+--    domains = { "Water", "Energy", ... },
+--    birthSignId = nil | string (will be set/validated),
+--    ...
+--  }
+--
+-- Returns:
+--  record (mutated) and a status table:
+--  {
+--    attached = boolean,
+--    reason = "ok" | "no_domains" | "no_birthsign" | "not_required",
+--  }
+function BirthSignPropagation.attach_birth_sign_for_ingest(record, geocontext)
+  geocontext = geocontext or GeoContext
+
+  if type(record) ~= "table" then
+    return record, { attached = false, reason = "invalid_record" }
   end
 
-  local enriched = {}
-  for i, ev in ipairs(events) do
-    enriched[i] = attach_birth_sign_to_event(ev)
+  local domains = record.domains
+  if not domains_require_birthsign(domains) then
+    -- For non-territorial domains, do not force a Birth-Sign.
+    return record, { attached = false, reason = "not_required" }
   end
 
-  StateModelIngress.ingest(enriched)
+  if type(record.birthSignId) == "string" and record.birthSignId ~= "" then
+    -- Already tagged at the edge: accept and propagate.
+    return record, { attached = false, reason = "already_present" }
+  end
+
+  local lat = record.lat
+  local lon = record.lon
+  local ts  = record.timestamp or os.time()
+
+  local bsid = geocontext.get_birth_sign_for_point(lat, lon, ts)
+  if type(bsid) ~= "string" or bsid == "" then
+    -- Missing Birth-Sign is a governance error when domains require it.
+    return record, { attached = false, reason = "no_birthsign" }
+  end
+
+  record.birthSignId = bsid
+  return record, { attached = true, reason = "ok" }
+end
+
+-- Ensure that an internal workflow message carries a valid BirthSignId
+-- if its domains require one. Intended for hops between:
+--  S1 Ingest → S2 StateModel → S4 Optimization → S5 Governance → S6 Actuation.
+--
+-- msg:
+--  {
+--    workflowEventId = "...",
+--    domains = { "Water", "Mobility", ... },
+--    birthSignId = "..." | nil,
+--    ...
+--  }
+--
+-- Returns:
+--  msg (unchanged) and a validation status:
+--  {
+--    valid = boolean,
+--    reason = "ok" | "missing_birthsign" | "not_required",
+--  }
+function BirthSignPropagation.validate_message_birth_sign(msg)
+  if type(msg) ~= "table" then
+    return msg, { valid = false, reason = "invalid_message" }
+  end
+
+  local domains = msg.domains
+  if not domains_require_birthsign(domains) then
+    return msg, { valid = true, reason = "not_required" }
+  end
+
+  local bsid = msg.birthSignId
+  if type(bsid) == "string" and bsid ~= "" then
+    return msg, { valid = true, reason = "ok" }
+  end
+
+  return msg, { valid = false, reason = "missing_birthsign" }
 end
 
 ----------------------------------------------------------------------
--- Public API: Actuation guard
+-- Batch helpers for ERM sync orchestrator
 ----------------------------------------------------------------------
 
--- Validate that any actuation touching governed domains carries a non-empty birthSignId.
--- actuation_request MUST include:
---   - actuation_request.domain (string)
---   - actuation_request.governance.birthSignId (string) for governed domains.
--- If validation fails, an error is raised and the caller MUST NOT perform actuation.[file:1]
-function BirthSignPropagation.require_birth_sign_for_actuation(actuation_request)
-  if type(actuation_request) ~= "table" then
-    error("BirthSignPropagation.require_birth_sign_for_actuation expects a table")
+-- Apply Birth-Sign attachment to a batch of ingest records.
+-- Returns:
+--  updated_records, stats
+-- stats:
+--  {
+--    total = N,
+--    required = n_required,
+--    attached = n_attached,
+--    already_present = n_already,
+--    missing_birthsign = n_missing,
+--    not_required = n_not_required,
+--  }
+function BirthSignPropagation.attach_for_ingest_batch(records, geocontext)
+  geocontext = geocontext or GeoContext
+
+  if type(records) ~= "table" then
+    return records, {
+      total = 0,
+      required = 0,
+      attached = 0,
+      already_present = 0,
+      missing_birthsign = 0,
+      not_required = 0,
+    }
   end
 
-  local domain = actuation_request.domain
-  if not is_governed_domain(domain) then
-    return true -- Non-governed domains are not constrained here.
+  local stats = {
+    total = 0,
+    required = 0,
+    attached = 0,
+    already_present = 0,
+    missing_birthsign = 0,
+    not_required = 0,
+  }
+
+  for idx, rec in ipairs(records) do
+    stats.total = stats.total + 1
+
+    local needs = domains_require_birthsign(rec and rec.domains)
+    if not needs then
+      stats.not_required = stats.not_required + 1
+    else
+      stats.required = stats.required + 1
+    end
+
+    local updated, status = BirthSignPropagation.attach_birth_sign_for_ingest(rec, geocontext)
+    records[idx] = updated
+
+    if status.reason == "ok" and status.attached then
+      stats.attached = stats.attached + 1
+    elseif status.reason == "already_present" then
+      stats.already_present = stats.already_present + 1
+    elseif status.reason == "no_birthsign" then
+      stats.missing_birthsign = stats.missing_birthsign + 1
+    end
   end
 
-  local g = actuation_request.governance or {}
-  local birthSignId = g.birthSignId
+  return records, stats
+end
 
-  if type(birthSignId) ~= "string" or birthSignId == "" then
-    ComplianceLog.violation("birthsign_missing_for_actuation", {
-      domain = domain,
-      actuation_id = actuation_request.id,
-    })
-    error("Birth-Sign enforcement: non-empty birthSignId required for actuation in domain " .. tostring(domain))
+-- Validate that every message in a batch carries a BirthSignId if required.
+-- Intended to be called:
+--  - Immediately before S4 Optimization runs.
+--  - Immediately before S6 Actuation on any governed action.
+--
+-- Returns:
+--  messages, stats
+-- stats:
+--  {
+--    total = N,
+--    required = n_required,
+--    valid = n_valid,
+--    missing_birthsign = n_missing,
+--    not_required = n_not_required,
+--  }
+function BirthSignPropagation.validate_message_batch(messages)
+  if type(messages) ~= "table" then
+    return messages, {
+      total = 0,
+      required = 0,
+      valid = 0,
+      missing_birthsign = 0,
+      not_required = 0,
+    }
   end
 
-  ComplianceLog.info("birthsign_verified_for_actuation", {
-    domain = domain,
-    actuation_id = actuation_request.id,
-    birthSignId = birthSignId,
-  })
+  local stats = {
+    total = 0,
+    required = 0,
+    valid = 0,
+    missing_birthsign = 0,
+    not_required = 0,
+  }
 
-  return true
+  for idx, msg in ipairs(messages) do
+    stats.total = stats.total + 1
+
+    local needs = domains_require_birthsign(msg and msg.domains)
+    if not needs then
+      stats.not_required = stats.not_required + 1
+      -- Treat as valid for governance purposes.
+      stats.valid = stats.valid + 1
+    else
+      stats.required = stats.required + 1
+      local _, status = BirthSignPropagation.validate_message_birth_sign(msg)
+      if status.valid then
+        stats.valid = stats.valid + 1
+      elseif status.reason == "missing_birthsign" then
+        stats.missing_birthsign = stats.missing_birthsign + 1
+      end
+    end
+  end
+
+  return messages, stats
 end
 
 ----------------------------------------------------------------------
--- Convenience wrapper for orchestrators
+-- SMARTchain / compliance integration hooks
 ----------------------------------------------------------------------
 
--- Orchestrator helper: one-shot pattern combining ingest and later actuation.
--- Example usage pattern in a workflow:
---   local events = collect_edge_events()
---   BirthSignPropagation.ingest_with_birth_sign(events)
---   ...
---   BirthSignPropagation.require_birth_sign_for_actuation(plan.actuation)
---   perform_actuation(plan.actuation)
-function BirthSignPropagation.guard_and_actuate(actuation_request, perform_fn)
-  BirthSignPropagation.require_birth_sign_for_actuation(actuation_request)
-  return perform_fn(actuation_request)
+-- Pre-optimization hook:
+--  - Ensures that every candidate action payload includes a BirthSignId
+--    when required by its domains.
+--  - Returns:
+--      ok = true  -> safe to proceed to optimization
+--      ok = false -> must reject or repair before proceeding
+function BirthSignPropagation.pre_optimization_guard(messages)
+  local _, stats = BirthSignPropagation.validate_message_batch(messages)
+  -- Optimization MUST NOT proceed if any required message lacks Birth-Sign.
+  if stats.missing_birthsign > 0 then
+    return false, stats
+  end
+  return true, stats
+end
+
+-- Pre-actuation hook:
+--  - Same semantics as pre_optimization_guard, but intended for S6.
+function BirthSignPropagation.pre_actuation_guard(messages)
+  local _, stats = BirthSignPropagation.validate_message_batch(messages)
+  if stats.missing_birthsign > 0 then
+    return false, stats
+  end
+  return true, stats
 end
 
 return BirthSignPropagation
