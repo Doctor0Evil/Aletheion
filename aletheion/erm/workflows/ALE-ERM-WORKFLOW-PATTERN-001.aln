@@ -1,0 +1,174 @@
+// Purpose: Canonical, machine-enforceable pattern for Aletheion workflows.
+// Scope:
+//   - Applies to all workflows that touch land, water, air, materials, biosignals,
+//     augmentation, mobility, energy, culture, or citizens.[file:2][file:5]
+//   - Encodes the mandatory seven-stage spine and required governance hooks.
+// Governance anchors:
+//   - Birth-Signs jurisdictional signatures must be present for governed domains.[file:2]
+//   - Compliance preflight and ecosafety grammars must be invoked before actuation.[file:1][file:2]
+//   - Trust-layer append using governed decision envelopes must be performed.
+//   - Citizen surface and grievance loop must be wired as S7.[file:5]
+
+namespace ALE.ERM.WORKFLOW.PATTERN
+
+// ----------------------------
+// Core identifiers
+// ----------------------------
+
+atom WorkflowId
+  field value string
+
+atom WorkflowVersion
+  field major int
+  field minor int
+  field patch int
+
+atom StageId
+  field code string    // "S1".."S7"
+
+atom ModulePath
+  field repo_path string   // e.g., "aletheion/rm/water/allocation"
+  field file_path string   // e.g., "ALE-RM-WATER-ALLOCATION-CORE-001.rs"
+
+atom BirthSignIdRef
+  field id string          // Refers to ALE-GOV-BIRTH-SIGN-MODEL-001.rs BirthSignId.[file:2]
+
+atom GovernanceDomainRef
+  field name string        // Land, Water, Air, Materials, Mobility, Biosignals, etc.[file:2]
+
+atom TrustSchemaIdRef
+  field id string          // e.g., "ALE-TRUST-GOVERNED-DECISION-TX-001".[file:2]
+
+atom ComplianceProfileRef
+  field id string          // e.g., "ALE-COMP-CORE-001".[file:5]
+
+atom EcosafetyProfileRef
+  field id string          // e.g., "ALE-ERM-ECOSAFETY-GRAMMAR-001".[file:1]
+
+atom RightsGrammarRef
+  field id string          // e.g., "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001".[file:2]
+
+atom CIWorkflowRef
+  field path string        // e.g., ".github/workflows/aletheion-compliance-preflight.yml"[file:5]
+
+atom CitizenSurfaceRef
+  field app_path string    // e.g., "aletheion/citizen/app/HEAT-ROUTES-APP-001.kt"[file:5]
+  field web_path string    // e.g., "aletheion/citizen/web/HEAT-ROUTES-DASH-001.js"[file:5]
+
+// ----------------------------
+// Stage taxonomy
+// ----------------------------
+
+enum StageCode
+  S1_EDGE_INGESTION
+  S2_STATE_MODEL_UPDATE
+  S3_TRUST_APPEND
+  S4_OPTIMIZATION_ENGINE
+  S5_GOVERNANCE_VALIDATION
+  S6_ACTUATION_ORCHESTRATION
+  S7_CITIZEN_SURFACE
+
+atom StageRole
+  field code StageCode
+  field description string
+
+// ----------------------------
+// Stage descriptors
+// ----------------------------
+
+record StageDescriptor
+  field id StageId
+  field role StageRole
+  field module ModulePath
+  field languages list string
+  field domains list GovernanceDomainRef
+  field requires_birthsign bool
+  field requires_compliance bool
+  field requires_trust_append bool
+  field requires_citizen_surface bool
+
+// ----------------------------
+// Workflow descriptor
+// ----------------------------
+
+record WorkflowDescriptor
+  field workflow_id WorkflowId
+  field version WorkflowVersion
+  field title string
+  field description string
+  field domains list GovernanceDomainRef
+  field birthsign_required bool
+  field rights_grammars list RightsGrammarRef
+  field ecosafety_profiles list EcosafetyProfileRef
+  field compliance_profiles list ComplianceProfileRef
+  field trust_schemas list TrustSchemaIdRef
+  field stages list StageDescriptor
+  field ci_workflows list CIWorkflowRef
+  field citizen_surfaces list CitizenSurfaceRef
+
+// ----------------------------
+// Constraints (informal, to be enforced by validators):
+//
+// C1: A valid workflow MUST define exactly one S1..S7 per StageCode.
+// C2: For any domain in {Land, Water, Air, Materials, Mobility, Biosignals,
+//     Augmentation, Energy, Emergency}, birthsign_required MUST be true.[file:2]
+// C3: If birthsign_required is true, then StageDescriptor.requires_birthsign MUST
+//     be true for S1, S2, S4, S5, S6.[file:2][file:5]
+// C4: At least one TrustSchemaIdRef MUST be "ALE-TRUST-GOVERNED-DECISION-TX-001"
+//     when domains include governed resources.[file:2]
+// C5: At least one RightsGrammarRef MUST be "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001".[file:2]
+// C6: At least one EcosafetyProfileRef MUST reference the ecosafety grammar spine
+//     when any ecological corridor or biodegradable node is affected.[file:1]
+// C7: compliance_profiles MUST include the centralized compliance core.[file:5]
+// C8: ci_workflows MUST include compliance preflight and workflow-pattern preflight.
+// C9: citizen_surfaces MUST be non-empty when human-facing impacts exist.[file:5]
+// ----------------------------
+
+// ----------------------------
+// Example pattern instances
+// (These are templates; concrete workflows clone and specialize them.)
+// ----------------------------
+
+record DefaultSpineStageS1
+  field stage StageDescriptor
+
+record DefaultSpineStageS2
+  field stage StageDescriptor
+
+record DefaultSpineStageS3
+  field stage StageDescriptor
+
+record DefaultSpineStageS4
+  field stage StageDescriptor
+
+record DefaultSpineStageS5
+  field stage StageDescriptor
+
+record DefaultSpineStageS6
+  field stage StageDescriptor
+
+record DefaultSpineStageS7
+  field stage StageDescriptor
+
+// A generic 7-stage bundle for cloning when defining a new workflow.
+record DefaultWorkflowSpine
+  field s1 DefaultSpineStageS1
+  field s2 DefaultSpineStageS2
+  field s3 DefaultSpineStageS3
+  field s4 DefaultSpineStageS4
+  field s5 DefaultSpineStageS5
+  field s6 DefaultSpineStageS6
+  field s7 DefaultSpineStageS7
+
+// ----------------------------
+// Minimal meta-API for validators (to be implemented in Rust/Lua):
+//
+//   fn is_well_formed_workflow(w: WorkflowDescriptor) -> bool
+//   fn has_full_seven_stage_spine(w: WorkflowDescriptor) -> bool
+//   fn enforces_birthsigns_for_governed_domains(w: WorkflowDescriptor) -> bool
+//   fn wires_trust_append_and_citizen_surface(w: WorkflowDescriptor) -> bool
+//
+// These functions are referenced by CI workflows such as
+// `.github/workflows/aletheion-workflow-pattern-preflight.yml` to accept or
+// reject new or modified workflows.
+// ----------------------------
