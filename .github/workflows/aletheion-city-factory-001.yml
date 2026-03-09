@@ -1,0 +1,529 @@
+name: Aletheion City Factory v1
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+  pull_request:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+  workflow_dispatch:
+    inputs:
+      run_profile:
+        description: "Run profile (fast, full, domain-water, domain-thermal, domain-synthexis, domain-governance)"
+        required: false
+        default: "fast"
+
+env:
+  RUST_BACKTRACE: "1"
+  CARGO_TERM_COLOR: always
+  ALETHEION_ERM_PROFILE: "phoenix"
+  ALETHEION_GOV_BIRTHSIGN_SCHEMA: "aletheion/governance/aln/ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln"
+  ALETHEION_TRUST_TX_SCHEMA: "aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+  ALETHEION_WORKFLOW_PATTERN_SCHEMA: "aletheion/erm/workflows/ALE-ERM-WORKFLOW-PATTERN-001.aln"
+
+jobs:
+  matrix-dispatch:
+    name: Compute City-Factory Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      run_fast: ${{ steps.profile.outputs.run_fast }}
+      run_full: ${{ steps.profile.outputs.run_full }}
+      run_water: ${{ steps.profile.outputs.run_water }}
+      run_thermal: ${{ steps.profile.outputs.run_thermal }}
+      run_waste: ${{ steps.profile.outputs.run_waste }}
+      run_energy: ${{ steps.profile.outputs.run_energy }}
+      run_mobility: ${{ steps.profile.outputs.run_mobility }}
+      run_synthexis: ${{ steps.profile.outputs.run_synthexis }}
+      run_neurobiome: ${{ steps.profile.outputs.run_neurobiome }}
+      run_governance: ${{ steps.profile.outputs.run_governance }}
+      run_citizen: ${{ steps.profile.outputs.run_citizen }}
+    steps:
+      - name: Resolve run profile
+        id: profile
+        run: |
+          profile="${{ github.event.inputs.run_profile || 'fast' }}"
+          echo "profile=${profile}"
+          case "${profile}" in
+            fast)
+              echo "run_fast=true" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_water=true" >> $GITHUB_OUTPUT
+              echo "run_thermal=true" >> $GITHUB_OUTPUT
+              echo "run_waste=true" >> $GITHUB_OUTPUT
+              echo "run_energy=true" >> $GITHUB_OUTPUT
+              echo "run_mobility=true" >> $GITHUB_OUTPUT
+              echo "run_synthexis=false" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=false" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=true" >> $GITHUB_OUTPUT
+              ;;
+            full)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=true" >> $GITHUB_OUTPUT
+              echo "run_water=true" >> $GITHUB_OUTPUT
+              echo "run_thermal=true" >> $GITHUB_OUTPUT
+              echo "run_waste=true" >> $GITHUB_OUTPUT
+              echo "run_energy=true" >> $GITHUB_OUTPUT
+              echo "run_mobility=true" >> $GITHUB_OUTPUT
+              echo "run_synthexis=true" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=true" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=true" >> $GITHUB_OUTPUT
+              ;;
+            domain-water)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_water=true" >> $GITHUB_OUTPUT
+              echo "run_thermal=false" >> $GITHUB_OUTPUT
+              echo "run_waste=false" >> $GITHUB_OUTPUT
+              echo "run_energy=false" >> $GITHUB_OUTPUT
+              echo "run_mobility=false" >> $GITHUB_OUTPUT
+              echo "run_synthexis=false" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=false" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=false" >> $GITHUB_OUTPUT
+              ;;
+            domain-thermal)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_water=false" >> $GITHUB_OUTPUT
+              echo "run_thermal=true" >> $GITHUB_OUTPUT
+              echo "run_waste=false" >> $GITHUB_OUTPUT
+              echo "run_energy=true" >> $GITHUB_OUTPUT
+              echo "run_mobility=true" >> $GITHUB_OUTPUT
+              echo "run_synthexis=false" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=true" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=true" >> $GITHUB_OUTPUT
+              ;;
+            domain-synthexis)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_water=false" >> $GITHUB_OUTPUT
+              echo "run_thermal=false" >> $GITHUB_OUTPUT
+              echo "run_waste=false" >> $GITHUB_OUTPUT
+              echo "run_energy=false" >> $GITHUB_OUTPUT
+              echo "run_mobility=false" >> $GITHUB_OUTPUT
+              echo "run_synthexis=true" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=true" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=true" >> $GITHUB_OUTPUT
+              ;;
+            domain-governance)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_water=false" >> $GITHUB_OUTPUT
+              echo "run_thermal=false" >> $GITHUB_OUTPUT
+              echo "run_waste=false" >> $GITHUB_OUTPUT
+              echo "run_energy=false" >> $GITHUB_OUTPUT
+              echo "run_mobility=false" >> $GITHUB_OUTPUT
+              echo "run_synthexis=false" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=false" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown profile '${profile}', defaulting to fast"
+              echo "run_fast=true" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_water=true" >> $GITHUB_OUTPUT
+              echo "run_thermal=true" >> $GITHUB_OUTPUT
+              echo "run_waste=true" >> $GITHUB_OUTPUT
+              echo "run_energy=true" >> $GITHUB_OUTPUT
+              echo "run_mobility=true" >> $GITHUB_OUTPUT
+              echo "run_synthexis=false" >> $GITHUB_OUTPUT
+              echo "run_neurobiome=false" >> $GITHUB_OUTPUT
+              echo "run_governance=true" >> $GITHUB_OUTPUT
+              echo "run_citizen=true" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+  compliance-preflight:
+    name: Central Compliance Preflight
+    runs-on: ubuntu-latest
+    needs: matrix-dispatch
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build compliance core
+        run: |
+          cargo build \
+            --manifest-path aletheion/compliance/core/Cargo.toml \
+            --package alethion-compliance-core
+
+      - name: Run compliance scan
+        run: |
+          cargo run \
+            --manifest-path aletheion/compliance/core/Cargo.toml \
+            --package alethion-compliance-core \
+            --bin alethion-compliance-scan \
+            -- \
+              --root . \
+              --forbid-term "digital twin" \
+              --forbid-language "Python"
+
+  governance-schema-preflight:
+    name: Governance & Birth-Sign Schema Preflight
+    runs-on: ubuntu-latest
+    needs: compliance-preflight
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate ALN governance grammars
+        run: |
+          cargo run \
+            --manifest-path aletheion/governance/tools/Cargo.toml \
+            --package alethion-governance-schema-check \
+            -- \
+              --rights-grammar "${ALETHEION_GOV_BIRTHSIGN_SCHEMA}" \
+              --trust-schema "${ALETHEION_TRUST_TX_SCHEMA}" \
+              --workflow-pattern "${ALETHEION_WORKFLOW_PATTERN_SCHEMA}"
+
+      - name: Enforce BirthSign usage in workflows
+        run: |
+          cargo run \
+            --manifest-path aletheion/governance/tools/Cargo.toml \
+            --package alethion-governance-schema-check \
+            -- \
+              verify-birthsign-hooks \
+              --root aletheion \
+              --require-for-domains "land,water,air,materials,mobility,biosignals,augmentation,energy"
+
+  workflow-pattern-preflight:
+    name: Canonical Workflow Pattern Preflight
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate workflow descriptors against 7-stage spine
+        run: |
+          cargo run \
+            --manifest-path aletheion/erm/workflows/tools/Cargo.toml \
+            --package alethion-erm-workflow-pattern-check \
+            -- \
+              --root aletheion \
+              --pattern "${ALETHEION_WORKFLOW_PATTERN_SCHEMA}" \
+              --require-stages "S1,S2,S3,S4,S5,S6,S7"
+
+  water-suite:
+    name: Water & Sewer Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_water == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Run AWP ingestion tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/water/Cargo.toml \
+            --package ALE-RM-WATER-INGESTION-001 \
+            --features "phoenix-awp"
+
+      - name: Run groundwater recharge calibration
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/water/Cargo.toml \
+            --package ALE-RM-GW-STATE-001 \
+            --features "phoenix-gw-calibration"
+
+      - name: Nightly water allocation scenarios
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/water/Cargo.toml \
+            --package ALE-RM-WATER-ALLOCATION-RUNNER-001 \
+            --features "phoenix-scenarios"
+
+      - name: Sewer industrial pollutant workflow checks
+        run: |
+          cargo test \
+            --manifest-path aletheion/infra/sewer/Cargo.toml \
+            --all-targets
+
+  thermal-suite:
+    name: Thermal & Heat Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_thermal == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Thermal state & ingestion tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/thermal/Cargo.toml \
+            --all-targets
+
+      - name: Heatwave early warning engine
+        run: |
+          cargo test \
+            --manifest-path aletheion/emergency/heat/Cargo.toml \
+            --all-targets
+
+      - name: Water-thermal co-optimization
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/thermal/Cargo.toml \
+            --package ALE-RM-WATER-THERMAL-COOPT-001
+
+  waste-materials-suite:
+    name: Waste, Materials & 99% Diversion Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_waste == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Materials provenance & circularity
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/materials/Cargo.toml \
+            --all-targets
+
+      - name: MRF optimization kernel (C++)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential
+          cmake -S aletheion/infra/waste -B aletheion/infra/waste/build
+          cmake --build aletheion/infra/waste/build --config Release
+          ctest --test-dir aletheion/infra/waste/build
+
+      - name: Hazardous route isolation
+        run: |
+          cargo test \
+            --manifest-path aletheion/infra/waste/hazmat/Cargo.toml \
+            --all-targets
+
+  energy-suite:
+    name: Energy & Microgrid Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_energy == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Solar & grid ingestion replay
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/energy/Cargo.toml \
+            --package ALE-RM-ENERGY-STATE-001 \
+            --features "phoenix-replay"
+
+      - name: Microgrid balancing & P2P settlement
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/energy/Cargo.toml \
+            --package ALE-RM-MICROGRID-BALANCER-001
+
+  mobility-suite:
+    name: Mobility, Somaplex & Logistics Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_mobility == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Multimodal transport state & routing
+        run: |
+          cargo test \
+            --manifest-path aletheion/transport/Cargo.toml \
+            --package ALE-TM-STATE-001 \
+            --package ALE-TM-ROUTER-001
+
+      - name: Somatic Route Engine regression
+        run: |
+          cargo test \
+            --manifest-path aletheion/somaplex/Cargo.toml \
+            --package ALE-SOMATIC-ROUTE-ENGINE-001
+
+      - name: Freight separation orchestrator
+        run: |
+          cargo test \
+            --manifest-path aletheion/transport/freight/Cargo.toml \
+            --all-targets
+
+  synthexis-suite:
+    name: Synthexis & BioticTreaty Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_synthexis == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Validate Synthexis ALN models
+        run: |
+          cargo run \
+            --manifest-path aletheion/synthexis/tools/Cargo.toml \
+            --package alethion-synthexis-aln-check \
+            -- \
+              --species aletheion/synthexis/model/SpeciesAgent.aln \
+              --treaties aletheion/synthexis/model/BioticTreaty.aln
+
+      - name: Habitat continuity engine tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/synthexis/engine/Cargo.toml \
+            --package HabitatContinuityEngine
+
+      - name: Nightly LightNoisePesticide planner script sanity
+        run: |
+          luac -p aletheion/synthexis/jobs/nightly/ALE-SYNTHEXIS-LNP-NIGHTLY-ENGINE-003.lua
+
+  neurobiome-suite:
+    name: Neurobiome & Microbiome Corridors Suite
+    runs-on: ubuntu-latest
+    needs: workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_neurobiome == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Neurobiome score & surface optimizer
+        run: |
+          cargo test \
+            --manifest-path aletheion/neurobiome/Cargo.toml \
+            --all-targets
+
+  governance-suite:
+    name: LexEthos, Birth-Signs, Trust & Consent Suite
+    runs-on: ubuntu-latest
+    needs:
+      - governance-schema-preflight
+      - workflow-pattern-preflight
+    if: needs.matrix-dispatch.outputs.run_governance == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: LexEthos grammar & compiler tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/governance/lexethos/Cargo.toml \
+            --all-targets
+
+      - name: Birth-Sign model & propagation tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/governance/birthsigns/Cargo.toml \
+            --all-targets
+
+      - name: Governed decision Tx schema round-trip
+        run: |
+          cargo test \
+            --manifest-path aletheion/trust/schemas/Cargo.toml \
+            --package ALE-TRUST-GOVERNED-DECISION-TX-001
+
+      - name: Neurorights guardrail runner
+        run: |
+          cargo test \
+            --manifest-path aletheion/compliance/neurorights-guard/Cargo.toml \
+            --all-targets
+
+      - name: Consent state synchronization
+        run: |
+          cargo test \
+            --manifest-path aletheion/citizen/consent/Cargo.toml \
+            --all-targets
+
+  citizen-suite:
+    name: Citizen Interfaces, Grievances & PM Metrics
+    runs-on: ubuntu-latest
+    needs:
+      - water-suite
+      - thermal-suite
+      - waste-materials-suite
+      - energy-suite
+      - mobility-suite
+      - synthexis-suite
+      - neurobiome-suite
+      - governance-suite
+    if: needs.matrix-dispatch.outputs.run_citizen == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install JavaScript dependencies
+        run: |
+          cd aletheion/citizen/web
+          npm ci
+
+      - name: Web dashboards lint & test
+        run: |
+          cd aletheion/citizen/web
+          npm test
+
+      - name: Install Android SDK (minimal)
+        uses: android-actions/setup-android@v3
+
+      - name: Kotlin citizen apps unit tests
+        run: |
+          cd aletheion/citizen/mobile
+          ./gradlew testDebugUnitTest
+
+      - name: Grievance and cooling-resolution core
+        run: |
+          cargo test \
+            --manifest-path aletheion/citizen/grievance/Cargo.toml \
+            --all-targets
+
+      - name: Program-level PM metrics aggregator
+        run: |
+          cargo run \
+            --manifest-path aletheion/pm/metrics/Cargo.toml \
+            --package alethion-pm-metrics \
+            -- \
+              --profile "${ALETHEION_ERM_PROFILE}" \
+              --emit-json pm-out/metrics-${{ github.sha }}.json
+
+      - name: Upload PM metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pm-metrics-${{ github.sha }}
+          path: pm-out/
