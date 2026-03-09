@@ -1,0 +1,200 @@
+ALN-SCHEMA DOWNTOWN-SOMAPLEX-PERSONA-SCHEMA-001
+  VERSION "0.1.0"
+  REGION  "REGION_DOWNTOWN_CORE"
+  DOMAIN  ["somatic","thermal","equity","treaty"]
+  WORKFLOW-ANCHORS [
+    "aletheionsomaplexDOWNTOWNSOMATICROUTEENGINE-001.rs",
+    "aletheionsomaplexcareDOWNTOWN-CARE-ROUTE-PLANNER-001.rs",
+    "aletheionthermaphoraDOWNTOWNHEATBUDGETENGINE-001.rs",
+    "aletheiontransportmobilityALE-TM-ROUTER-002.rs"
+  ]
+  SMART-CHAINS [
+    "SMART01-AWP-THERMAL-THERMAPHORA",
+    "SMART05-SOMAPLEX-ROUTING-DOWNTOWN-001",
+    "SMART05-SOMAPLEX-CARE-DOWNTOWN-001"
+  ]
+
+ENUM PersonaKind
+  VALUE ELDER_LOW_MOBILITY
+  VALUE ELDER_MED_MOBILITY
+  VALUE WHEELCHAIR_USER
+  VALUE WALKER_OR_CANES
+  VALUE OUTDOOR_WORKER_DAY
+  VALUE OUTDOOR_WORKER_NIGHT
+  VALUE CAREGIVER_STANDARD
+  VALUE CAREGIVER_HEAVY_LOAD
+  VALUE STUDENT_CHILD
+  VALUE UNHOUSED_BASELINE
+  VALUE UNHOUSED_HIGH_RISK
+END
+
+ENUM MobilityAid
+  VALUE NONE
+  VALUE CANE
+  VALUE WALKER
+  VALUE MANUAL_WHEELCHAIR
+  VALUE POWER_WHEELCHAIR
+  VALUE SCOOTER
+END
+
+ENUM HeatRiskProfile
+  VALUE BASELINE
+  VALUE CARDIOVASCULAR
+  VALUE RENAL
+  VALUE NEURO
+  VALUE POLYPHARMACY
+END
+
+ENUM ShiftPattern
+  VALUE NONE
+  VALUE DAY_FIXED
+  VALUE NIGHT_FIXED
+  VALUE SPLIT_SHIFT
+  VALUE ROTATING
+END
+
+ENUM CareRole
+  VALUE NONE
+  VALUE FORMAL_CAREGIVER
+  VALUE FAMILY_CAREGIVER
+  VALUE COMMUNITY_OUTREACH
+END
+
+ENUM CapitalSensitivityLevel
+  VALUE LOW
+  VALUE MEDIUM
+  VALUE HIGH
+END
+
+RECORD SomaplexPersonaId
+  FIELD city_id         STRING   ; DID / civic id if present, optional at runtime
+  FIELD local_tag       STRING   ; local label or pseudonym
+  FIELD persona_kind    PersonaKind
+END
+
+RECORD SomaplexSomaticProfile
+  FIELD mobility_aid           MobilityAid
+  FIELD gait_stability_score   FLOAT  ; 0.0 (very unstable) .. 1.0 (stable)
+  FIELD max_segment_slope_pct  FLOAT  ; e.g., 3.0 for gentle slopes
+  FIELD max_crossing_freq_per_km FLOAT ; crossings/km tolerated
+  FIELD requires_ramps         BOOL
+  FIELD prefers_benches_every_m FLOAT ; meters between safe rest points
+END
+
+RECORD SomaplexHeatProfile
+  FIELD heat_risk_profile       HeatRiskProfile
+  FIELD max_utci_degC           FLOAT  ; personal upper UTCI bound
+  FIELD daily_heat_budget_min   INT    ; total safe minutes per day
+  FIELD hourly_heat_budget_min  INT    ; safe minutes per hour envelope
+  FIELD prefers_shade_fraction  FLOAT  ; 0.0–1.0 minimum desired shade along route
+END
+
+RECORD SomaplexCareContext
+  FIELD care_role        CareRole
+  FIELD shift_pattern    ShiftPattern
+  FIELD typical_shift_start_local STRING ; "HH:MM"
+  FIELD typical_shift_end_local   STRING ; "HH:MM"
+  FIELD carries_heavy_load        BOOL   ; e.g., equipment, supplies
+  FIELD accompanies_low_mobility  BOOL   ; whether they escort a low-mobility person
+END
+
+RECORD EquityContext
+  FIELD hvi_bin                 INT        ; Heat Vulnerability decile from state model
+  FIELD equity_weight           FLOAT      ; precomputed weight 1.0–5.0
+  FIELD priority_corridor_tags  LIST<STRING> ; e.g., ["CARE_ROUTE_PRIORITY","QUIET_SCHOOL_CLINIC"]
+END
+
+RECORD SevenCapitalPersonaEnvelopes
+  FIELD somatic_max_cost_per_km      FLOAT
+  FIELD somatic_daily_budget         FLOAT
+  FIELD thermal_daily_heat_minutes   INT
+  FIELD thermal_per_trip_heat_minutes INT
+  FIELD treaty_requires_fpic         BOOL
+  FIELD neurobiome_noise_sensitivity CapitalSensitivityLevel
+  FIELD biotic_light_sensitivity    CapitalSensitivityLevel
+END
+
+RECORD SomaplexPersona
+  FIELD id                 SomaplexPersonaId
+  FIELD somatic_profile    SomaplexSomaticProfile
+  FIELD heat_profile       SomaplexHeatProfile
+  FIELD care_context       SomaplexCareContext
+  FIELD equity             EquityContext
+  FIELD capital_envelopes  SevenCapitalPersonaEnvelopes
+END
+
+; ---- Bindings into Downtown SevenCapitalState and HeatBudgetEnvelope ----
+
+ALIAS SevenCapitalStateRef = STRING
+ALIAS HeatBudgetEnvelopeRef = STRING
+
+RECORD PersonaBinding
+  FIELD persona_kind          PersonaKind
+  FIELD seven_capital_state   SevenCapitalStateRef
+  FIELD heat_budget_envelope  HeatBudgetEnvelopeRef
+  FIELD smart_chains          LIST<STRING>
+END
+
+SET PersonaBindingsDOWNTOWN
+  ELEMENT PersonaBinding {
+    persona_kind         = ELDER_LOW_MOBILITY
+    seven_capital_state  = "NEIGHBORHOODSTATE:REGION_DOWNTOWN_CORE:ELDER_PROFILE"
+    heat_budget_envelope = "HEATBUDGET:BLOCK-HVI-HIGH:ELDER"
+    smart_chains         = ["SMART01-AWP-THERMAL-THERMAPHORA","SMART05-SOMAPLEX-CARE-DOWNTOWN-001"]
+  }
+  ELEMENT PersonaBinding {
+    persona_kind         = WHEELCHAIR_USER
+    seven_capital_state  = "NEIGHBORHOODSTATE:REGION_DOWNTOWN_CORE:MOBILITY_AID_PROFILE"
+    heat_budget_envelope = "HEATBUDGET:BLOCK-HVI-HIGH:WHEELCHAIR"
+    smart_chains         = ["SMART01-AWP-THERMAL-THERMAPHORA","SMART05-SOMAPLEX-CARE-DOWNTOWN-001"]
+  }
+  ELEMENT PersonaBinding {
+    persona_kind         = OUTDOOR_WORKER_DAY
+    seven_capital_state  = "NEIGHBORHOODSTATE:REGION_DOWNTOWN_CORE:OUTDOOR_WORKER"
+    heat_budget_envelope = "HEATBUDGET:BLOCK-HVI-HIGH:OUTDOOR_WORKER_DAY"
+    smart_chains         = ["SMART01-AWP-THERMAL-THERMAPHORA","SMART05-SOMAPLEX-ROUTING-DOWNTOWN-001"]
+  }
+  ELEMENT PersonaBinding {
+    persona_kind         = CAREGIVER_STANDARD
+    seven_capital_state  = "NEIGHBORHOODSTATE:REGION_DOWNTOWN_CORE:CAREGIVER"
+    heat_budget_envelope = "HEATBUDGET:BLOCK-HVI-MED:CAREGIVER"
+    smart_chains         = ["SMART01-AWP-THERMAL-THERMAPHORA","SMART05-SOMAPLEX-CARE-DOWNTOWN-001"]
+  }
+  ELEMENT PersonaBinding {
+    persona_kind         = UNHOUSED_HIGH_RISK
+    seven_capital_state  = "NEIGHBORHOODSTATE:REGION_DOWNTOWN_CORE:UNHOUSED_HIGH"
+    heat_budget_envelope = "HEATBUDGET:BLOCK-HVI-HIGHEST:UNHOUSED"
+    smart_chains         = ["SMART01-AWP-THERMAL-THERMAPHORA","SMART05-SOMAPLEX-ROUTING-DOWNTOWN-001"]
+  }
+END
+
+; ---- Validation rules used by SMART05-SOMAPLEX-CARE-DOWNTOWN-001 ----
+
+RULE persona_somatic_limits
+  INPUT  p SomaplexPersona
+  ASSERT p.capital_envelopes.somatic_max_cost_per_km >= 0.0
+  ASSERT p.capital_envelopes.somatic_daily_budget    >= p.capital_envelopes.somatic_max_cost_per_km
+END
+
+RULE persona_heat_limits
+  INPUT  p SomaplexPersona
+  ASSERT p.heat_profile.daily_heat_budget_min  >= p.heat_profile.hourly_heat_budget_min
+  ASSERT p.heat_profile.max_utci_degC         <= 40.0
+  ASSERT p.heat_profile.prefers_shade_fraction >= 0.0
+  ASSERT p.heat_profile.prefers_shade_fraction <= 1.0
+END
+
+RULE persona_equity_weight
+  INPUT  p SomaplexPersona
+  ASSERT p.equity.equity_weight >= 1.0
+  ASSERT p.equity.equity_weight <= 5.0
+END
+
+RULE persona_requires_fpic_when_treaty_sensitive
+  INPUT  p SomaplexPersona
+  WHEN   p.capital_envelopes.treaty_requires_fpic == TRUE
+  REQUIRE-CHAIN-DOMAIN "treaty"
+  REQUIRE-RIGHTS ["LexEthos.FPIC","LexEthos.RightToSafeMovement"]
+END
+
+; End of DOWNTOWN-SOMAPLEX-PERSONA-SCHEMA-001.aln
