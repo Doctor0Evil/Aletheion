@@ -1,0 +1,53 @@
+namespace ALE.GOV.SMART.BIODEGRADE.POLICY.001
+
+atom SmartChainDomain
+  enum WATER_BIODEGRADE MAR_BIODEGRADE CANAL_BIODEGRADE
+
+atom SmartChainMode
+  enum CLASSICAL HYBRID PQSTRICT
+
+atom SmartChainCtx
+  field domain SmartChainDomain
+  field mode SmartChainMode
+
+atom NodeRef
+  field node_id string
+  field corridor_present bool
+  field biodegrade_enabled bool
+
+atom ShardRef
+  field shard_id string
+  field node_id string
+  field valid bool
+
+atom BiodegradeDecision
+  enum APPROVE DERATE REJECT
+
+rule require_corridor_for_pqstrict
+  when ctx SmartChainCtx ctx.mode PQSTRICT
+       n NodeRef n.biodegrade_enabled true
+  then require n.corridor_present
+  else error BIODEGRADE_NO_CORRIDOR n.node_id
+
+rule require_valid_shard_for_pqstrict
+  when ctx SmartChainCtx ctx.mode PQSTRICT
+       n NodeRef n.biodegrade_enabled true
+  then require exists s ShardRef where s.node_id n.node_id && s.valid true
+  else error BIODEGRADE_NO_VALID_SHARD n.node_id
+
+template DecideBiodegradeAction
+  arg ctx SmartChainCtx
+  arg node NodeRef
+  returns BiodegradeDecision
+  body
+    when ctx.mode CLASSICAL
+      then APPROVE
+    when ctx.mode HYBRID && node.biodegrade_enabled false
+      then APPROVE
+    when ctx.mode HYBRID && node.biodegrade_enabled true
+      then DERATE
+    when ctx.mode PQSTRICT && node.biodegrade_enabled true && node.corridor_present
+      then APPROVE
+    else REJECT
+
+end namespace
