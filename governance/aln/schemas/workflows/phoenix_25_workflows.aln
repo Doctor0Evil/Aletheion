@@ -1,0 +1,774 @@
+# Aletheion Phoenix 25-Workflow Canonical Schema [file:5][file:2]
+# This ALN file encodes:
+# - A reusable workflow pattern grammar (INGEST → STATE → OPTIMIZE → GOVERN → ACTUATE → TRUST → SURFACE).
+# - Domain-specific workflow instances for the first 25 Phoenix automations.
+# - Binding to Birth-Signs, Rights grammars, BioticTreaties, and SMART-Chain ids. [file:5][file:2]
+
+schema PhoenixWorkflowSchema v1 {
+    meta {
+        jurisdiction = "US-AZ-PHX";
+        project      = "Aletheion-Phoenix";
+        source_docs  = [
+            "Aletheion Phoenix GOD-City: 25 Workflow Blueprint",
+            "Governed Urban Workflow Architecture",
+            "ERM Architecture: Phoenix Smart City Blueprint"
+        ];
+    }
+
+    # ---------------------------
+    # Core types and enumerations
+    # ---------------------------
+
+    enum Layer {
+        EDGE_SENSING,
+        STATE_MODEL,
+        BLOCKCHAIN_TRUST,
+        OPTIMIZATION_ENGINE,
+        CITIZEN_INTERFACE
+    }
+
+    enum WorkflowDomain {
+        WATER,
+        THERMAL,
+        SEWER,
+        MATERIALS,
+        ENERGY,
+        MOBILITY,
+        GOVERNANCE,
+        NEUROBIOME,
+        SYNTHEXIS,
+        LEXETHOS,
+        CITIZEN
+    }
+
+    enum StageKind {
+        INGEST,
+        STATE_UPDATE,
+        OPTIMIZE,
+        TREATY_CHECK,
+        ACTUATE,
+        TRUST_APPEND,
+        CITIZEN_SURFACE
+    }
+
+    enum RiskEnvelope {
+        FEAR,
+        PAIN,
+        SANITY
+    }
+
+    enum RightsGrammar {
+        RightToShade,
+        RightToSafeMovement,
+        FPIC,
+        BioticTreaty,
+        LexEthos,
+        CryptoSomatic
+    }
+
+    enum EnforcementMode {
+        HARD,
+        HIGH_PENALTY
+    }
+
+    enum PqMode {
+        NONE,
+        HYBRID,
+        PQ_STRICT
+    }
+
+    type WorkflowId = string
+        pattern = "^WF-[0-9]{3}-[A-Z0-9_]+$";
+
+    type SmartChainId = string
+        pattern = "^SMART_[0-9]{2}_[A-Z0-9_]+$";
+
+    type BirthSignRef = string
+        pattern = "^BS-[A-Z0-9:_-]+$";
+
+    type RepoPath = string;
+
+    # -----------------------------
+    # Canonical workflow pattern
+    # -----------------------------
+
+    record WorkflowStage {
+        id: string;
+        kind: StageKind;
+        layer: Layer;
+
+        impl_path: RepoPath;
+
+        requires_birth_sign: bool;
+        birth_sign_domains: [WorkflowDomain];
+
+        required_rights: [RightsGrammar];
+        required_risk_envelopes: [RiskEnvelope];
+
+        enforcement_mode: EnforcementMode;
+
+        smart_chain: SmartChainId?;
+        pq_mode: PqMode;
+
+        description: string;
+    }
+
+    record Workflow {
+        id: WorkflowId;
+        name: string;
+        domains: [WorkflowDomain];
+        layers: [Layer];
+
+        stages: [WorkflowStage];
+
+        # Birth-Sign scope and requirements. [file:2]
+        birth_sign_required: bool;
+        birth_sign_scopes: [BirthSignRef];
+
+        # Rights grammars and treaties this workflow must honor. [file:2][file:5]
+        rights_grammars: [RightsGrammar];
+        biotic_treaties_required: bool;
+
+        # PQ cryptography mode for this workflow overall. [file:4]
+        pq_mode: PqMode;
+
+        # Human-readable explanation for operators and citizens.
+        summary: string;
+    }
+
+    record WorkflowSet {
+        workflows: [Workflow];
+    }
+}
+
+use PhoenixWorkflowSchema::*;
+
+# -------------------------------------------
+# Canonical pattern: all workflows must have:
+# INGEST → STATE_UPDATE → OPTIMIZE → TREATY_CHECK → ACTUATE → TRUST_APPEND
+# Optional CITIZEN_SURFACE stages for interface-facing flows. [file:5][file:2]
+# -------------------------------------------
+
+const PATTERN_BASE_STAGES = [
+    StageKind::INGEST,
+    StageKind::STATE_UPDATE,
+    StageKind::OPTIMIZE,
+    StageKind::TREATY_CHECK,
+    StageKind::ACTUATE,
+    StageKind::TRUST_APPEND
+];
+
+# ---------------------------------
+# Workflow 1: AWP Water Allocation
+# ---------------------------------
+# Maps to: AWP Water Allocation & Resilience Monitoring. [file:5]
+
+const WF_001_AWP_WATER: Workflow = Workflow {
+    id   = "WF-001-AWP_WATER_ALLOCATION";
+    name = "AWP Water Allocation & Resilience Monitoring";
+
+    domains = [WorkflowDomain::WATER];
+    layers  = [
+        Layer::EDGE_SENSING,
+        Layer::STATE_MODEL,
+        Layer::OPTIMIZATION_ENGINE,
+        Layer::BLOCKCHAIN_TRUST,
+        Layer::CITIZEN_INTERFACE
+    ];
+
+    stages = [
+        WorkflowStage {
+            id   = "WF-001-STAGE-INGEST";
+            kind = StageKind::INGEST;
+            layer = Layer::EDGE_SENSING;
+
+            impl_path = "aletheion/rm/water/ALE-RM-WATER-INGESTION-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::FPIC];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Ingest AWP flows, recharge, sewer return and validate against design/regulatory limits.";
+        },
+        WorkflowStage {
+            id   = "WF-001-STAGE-STATE";
+            kind = StageKind::STATE_UPDATE;
+            layer = Layer::STATE_MODEL;
+
+            impl_path = "aletheion/rm/water/ALE-RM-WATER-MODEL-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::FPIC];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Update water state model (reservoirs, aquifers, portfolio, resilience metrics).";
+        },
+        WorkflowStage {
+            id   = "WF-001-STAGE-OPT";
+            kind = StageKind::OPTIMIZE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/rm/water/ALE-RM-WATER-ALLOCATION-ENGINE-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::FPIC];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Run multi-objective allocation (reuse fraction, rights, energy cost) under hard constraints.";
+        },
+        WorkflowStage {
+            id   = "WF-001-STAGE-TREATY";
+            kind = StageKind::TREATY_CHECK;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/rm/water/ALE-RM-WATER-ALLOCATION-001.aln";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::FPIC];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Enforce FPIC and Indigenous water rights for any reallocation altering basin flows.";
+        },
+        WorkflowStage {
+            id   = "WF-001-STAGE-ACT";
+            kind = StageKind::ACTUATE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/rm/water/ALE-RM-WATER-RESILIENCE-001.lua";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::FPIC];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Orchestrate actuations and alerts for allocations and resilience actions.";
+        },
+        WorkflowStage {
+            id   = "WF-001-STAGE-TRUST";
+            kind = StageKind::TRUST_APPEND;
+            layer = Layer::BLOCKCHAIN_TRUST;
+
+            impl_path = "aletheion/rm/water/ALE-RM-WATER-TRUST-APPEND-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::FPIC];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Append signed allocation decisions to Googolswarm trust layer with multi-sig attestation.";
+        }
+    ];
+
+    birth_sign_required = true;
+    birth_sign_scopes   = ["BS-WATER:PHX:ALL"];
+
+    rights_grammars          = [RightsGrammar::FPIC];
+    biotic_treaties_required = false;
+
+    pq_mode = PqMode::PQ_STRICT;
+
+    summary = "Citywide AWP water allocation respecting Indigenous rights, reuse targets, and resilience metrics.";
+};
+
+# -----------------------------------------------
+# Workflow 2: Integrated Water–Thermal Monitoring
+# -----------------------------------------------
+
+const WF_002_WATER_THERMAL: Workflow = Workflow {
+    id   = "WF-002-WATER_THERMAL_COOPT";
+    name = "Integrated Water–Thermal Flow Monitoring";
+
+    domains = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+    layers  = [
+        Layer::EDGE_SENSING,
+        Layer::STATE_MODEL,
+        Layer::OPTIMIZATION_ENGINE,
+        Layer::BLOCKCHAIN_TRUST
+    ];
+
+    stages = [
+        WorkflowStage {
+            id   = "WF-002-STAGE-INGEST";
+            kind = StageKind::INGEST;
+            layer = Layer::EDGE_SENSING;
+
+            impl_path = "aletheion/rm/thermal/ALE-RM-THERMAL-INGESTION-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Ingest pavement temps, air temps, humidity, soil moisture, canal flow, and tree health.";
+        },
+        WorkflowStage {
+            id   = "WF-002-STAGE-STATE";
+            kind = StageKind::STATE_UPDATE;
+            layer = Layer::STATE_MODEL;
+
+            impl_path = "aletheion/rm/thermal/ALE-RM-THERMAL-STATE-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Maintain combined hydrologic–thermal state, including cool pavements and shade assets.";
+        },
+        WorkflowStage {
+            id   = "WF-002-STAGE-OPT";
+            kind = StageKind::OPTIMIZE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/rm/thermal/ALE-RM-THERMAL-ALLOCATION-ENGINE-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Co-optimize irrigation, cool pavements, and assets for microclimate benefit under water constraints.";
+        },
+        WorkflowStage {
+            id   = "WF-002-STAGE-TREATY";
+            kind = StageKind::TREATY_CHECK;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/rm/thermal/ALE-RM-THERMAL-ALLOCATION-001.aln";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Apply BioticTreaties and nocturnal species protections for siting shade and water features.";
+        },
+        WorkflowStage {
+            id   = "WF-002-STAGE-ACT";
+            kind = StageKind::ACTUATE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/rm/thermal/ALE-RM-THERMAL-ACTUATION-001.lua";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Dispatch cooling actions; enforce no-harm to nocturnal species via light/noise constraints.";
+        },
+        WorkflowStage {
+            id   = "WF-002-STAGE-TRUST";
+            kind = StageKind::TRUST_APPEND;
+            layer = Layer::BLOCKCHAIN_TRUST;
+
+            impl_path = "aletheion/rm/thermal/ALE-RM-THERMAL-TRUST-APPEND-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::WATER, WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Append co-optimization decisions and treaty checks to the trust layer.";
+        }
+    ];
+
+    birth_sign_required = true;
+    birth_sign_scopes   = ["BS-WATER:PHX:ALL", "BS-THERMAL:PHX:DOWNTOWN"];
+
+    rights_grammars          = [RightsGrammar::BioticTreaty];
+    biotic_treaties_required = true;
+
+    pq_mode = PqMode::PQ_STRICT;
+
+    summary = "Joins water distribution and thermal assets to target cooling where it maximally reduces heat risk.";
+};
+
+# ------------------------------------------------
+# Workflow 3: Sewer & Industrial Pollutant Monitor
+# ------------------------------------------------
+
+const WF_003_SEWER_POLLUTANTS: Workflow = Workflow {
+    id   = "WF-003-SEWER_POLLUTANT_CONTROL";
+    name = "Sewer & Industrial Pollutant Monitoring";
+
+    domains = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+    layers  = [
+        Layer::EDGE_SENSING,
+        Layer::STATE_MODEL,
+        Layer::OPTIMIZATION_ENGINE,
+        Layer::BLOCKCHAIN_TRUST
+    ];
+
+    stages = [
+        WorkflowStage {
+            id   = "WF-003-STAGE-INGEST";
+            kind = StageKind::INGEST;
+            layer = Layer::EDGE_SENSING;
+
+            impl_path = "aletheion/infra/sewer/ALE-INF-SEWER-INGEST-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+            required_rights       = [];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_02_SEWER_PROTECTION";
+            pq_mode     = PqMode::HYBRID;
+
+            description = "Ingest sewer AI sensor streams and detect anomalous pollutants.";
+        },
+        WorkflowStage {
+            id   = "WF-003-STAGE-STATE";
+            kind = StageKind::STATE_UPDATE;
+            layer = Layer::STATE_MODEL;
+
+            impl_path = "aletheion/infra/sewer/ALE-INF-SEWER-STATE-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+            required_rights       = [];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_02_SEWER_PROTECTION";
+            pq_mode     = PqMode::HYBRID;
+
+            description = "Maintain pollutant risk state and tie dischargers to sewer segments and AWP inflows.";
+        },
+        WorkflowStage {
+            id   = "WF-003-STAGE-OPT";
+            kind = StageKind::OPTIMIZE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/infra/sewer/ALE-INF-SEWER-ENFORCEMENT-ENGINE-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+            required_rights       = [];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_02_SEWER_PROTECTION";
+            pq_mode     = PqMode::HYBRID;
+
+            description = "Select permits to throttle or reroute to keep plants stable while minimizing industrial disruption.";
+        },
+        WorkflowStage {
+            id   = "WF-003-STAGE-TREATY";
+            kind = StageKind::TREATY_CHECK;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/infra/sewer/ALE-INF-SEWER-COMPLIANCE-001.aln";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+            required_rights       = [RightsGrammar::BioticTreaty];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_02_SEWER_PROTECTION";
+            pq_mode     = PqMode::HYBRID;
+
+            description = "Enforce zero-discharge zones and BioticTreaty rules for sensitive effluents.";
+        },
+        WorkflowStage {
+            id   = "WF-003-STAGE-ACT";
+            kind = StageKind::ACTUATE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/infra/sewer/ALE-INF-SEWER-WORKFLOW-001.lua";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+            required_rights       = [];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_02_SEWER_PROTECTION";
+            pq_mode     = PqMode::HYBRID;
+
+            description = "Trigger throttling/valve actions and notify dischargers with appeal and audit trails.";
+        },
+        WorkflowStage {
+            id   = "WF-003-STAGE-TRUST";
+            kind = StageKind::TRUST_APPEND;
+            layer = Layer::BLOCKCHAIN_TRUST;
+
+            impl_path = "aletheion/infra/sewer/ALE-INF-SEWER-TRUST-APPEND-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::SEWER, WorkflowDomain::WATER];
+            required_rights       = [];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_02_SEWER_PROTECTION";
+            pq_mode     = PqMode::HYBRID;
+
+            description = "Append pollutant enforcement decisions and reasons to the trust layer.";
+        }
+    ];
+
+    birth_sign_required = true;
+    birth_sign_scopes   = ["BS-SEWER:PHX:ALL", "BS-WATER:PHX:ALL"];
+
+    rights_grammars          = [RightsGrammar::BioticTreaty];
+    biotic_treaties_required = true;
+
+    pq_mode = PqMode::HYBRID;
+
+    summary = "Protects AWP, canals, and cyboquatic systems by enforcing sewer pollutant limits and zero-discharge zones.";
+};
+
+# -------------------------------------------------------------
+# Workflow 24: Consent-state synchronization and audit-trail
+# -------------------------------------------------------------
+
+const WF_024_CONSENT: Workflow = Workflow {
+    id   = "WF-024-CITIZEN_CONSENT_SYNC";
+    name = "Consent-State Synchronization & Audit-Trail";
+
+    domains = [WorkflowDomain::CITIZEN, WorkflowDomain::GOVERNANCE];
+    layers  = [
+        Layer::BLOCKCHAIN_TRUST,
+        Layer::CITIZEN_INTERFACE
+    ];
+
+    stages = [
+        WorkflowStage {
+            id   = "WF-024-STAGE-STATE";
+            kind = StageKind::STATE_UPDATE;
+            layer = Layer::BLOCKCHAIN_TRUST;
+
+            impl_path = "aletheion/citizen/consent/ALE-CIT-CONSENT-STATE-001.aln";
+
+            requires_birth_sign   = false;
+            birth_sign_domains    = [];
+            required_rights       = [RightsGrammar::CryptoSomatic];
+            required_risk_envelopes = [RiskEnvelope::FEAR, RiskEnvelope::PAIN, RiskEnvelope::SANITY];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_04_NEUROBIOME_MESH";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Formal consent state machine for DID-bound envelopes, subject to CryptoSomatic rules.";
+        },
+        WorkflowStage {
+            id   = "WF-024-STAGE-GW";
+            kind = StageKind::ACTUATE;
+            layer = Layer::BLOCKCHAIN_TRUST;
+
+            impl_path = "aletheion/citizen/consent/ALE-CIT-CONSENT-GW-001.rs";
+
+            requires_birth_sign   = false;
+            birth_sign_domains    = [];
+            required_rights       = [RightsGrammar::CryptoSomatic];
+            required_risk_envelopes = [RiskEnvelope::FEAR, RiskEnvelope::PAIN, RiskEnvelope::SANITY];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_04_NEUROBIOME_MESH";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Gateway enforcing consent envelopes on all app integrations, with trust-layer audit logging.";
+        },
+        WorkflowStage {
+            id   = "WF-024-STAGE-JOB";
+            kind = StageKind::CITIZEN_SURFACE;
+            layer = Layer::CITIZEN_INTERFACE;
+
+            impl_path = "aletheion/citizen/consent/jobs/consent_reconciliation.lua";
+
+            requires_birth_sign   = false;
+            birth_sign_domains    = [];
+            required_rights       = [RightsGrammar::CryptoSomatic];
+            required_risk_envelopes = [RiskEnvelope::FEAR, RiskEnvelope::PAIN, RiskEnvelope::SANITY];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_04_NEUROBIOME_MESH";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Nightly reconciliation and citizen-visible dashboards for consent state and revocations.";
+        }
+    ];
+
+    birth_sign_required = false;
+    birth_sign_scopes   = [];
+
+    rights_grammars          = [RightsGrammar::CryptoSomatic];
+    biotic_treaties_required = false;
+
+    pq_mode = PqMode::PQ_STRICT;
+
+    summary = "Keeps citizen consent states synchronized, auditable, and anchored in CryptoSomatic envelopes.";
+};
+
+# -----------------------------------------------------------------
+# Workflow 25: Incident, grievance, and cooling-resolution workflow
+# -----------------------------------------------------------------
+
+const WF_025_GRIEVANCE: Workflow = Workflow {
+    id   = "WF-025-CITIZEN_GRIEVANCE";
+    name = "Incident, Grievance, and Cooling-Resolution Orchestrator";
+
+    domains = [WorkflowDomain::CITIZEN, WorkflowDomain::GOVERNANCE, WorkflowDomain::THERMAL];
+    layers  = [
+        Layer::CITIZEN_INTERFACE,
+        Layer::OPTIMIZATION_ENGINE,
+        Layer::BLOCKCHAIN_TRUST
+    ];
+
+    stages = [
+        WorkflowStage {
+            id   = "WF-025-STAGE-INTAKE";
+            kind = StageKind::INGEST;
+            layer = Layer::CITIZEN_INTERFACE;
+
+            impl_path = "aletheion/citizen/grievance/ALE-CIT-GRIEVANCE-API-001.js";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::RightToShade, RightsGrammar::RightToSafeMovement, RightsGrammar::LexEthos];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Ingest citizen incidents and grievances related to heat, mobility, and services.";
+        },
+        WorkflowStage {
+            id   = "WF-025-STAGE-RESOLUTION";
+            kind = StageKind::OPTIMIZE;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/citizen/grievance/ALE-CIT-RESOLUTION-CORE-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::RightToShade, RightsGrammar::RightToSafeMovement, RightsGrammar::LexEthos];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Select cooling and non-policing responses consistent with LexEthos micro-treaties.";
+        },
+        WorkflowStage {
+            id   = "WF-025-STAGE-POLICY";
+            kind = StageKind::TREATY_CHECK;
+            layer = Layer::OPTIMIZATION_ENGINE;
+
+            impl_path = "aletheion/citizen/grievance/policies/LEXETHOS-MAP-001.aln";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::LexEthos];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HARD;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Map grievance categories to LexEthos micro-treaties and enforce their constraints.";
+        },
+        WorkflowStage {
+            id   = "WF-025-STAGE-TRUST";
+            kind = StageKind::TRUST_APPEND;
+            layer = Layer::BLOCKCHAIN_TRUST;
+
+            impl_path = "aletheion/citizen/grievance/ALE-CIT-GRIEVANCE-TRUST-APPEND-001.rs";
+
+            requires_birth_sign   = true;
+            birth_sign_domains    = [WorkflowDomain::THERMAL];
+            required_rights       = [RightsGrammar::LexEthos];
+            required_risk_envelopes = [];
+            enforcement_mode      = EnforcementMode::HIGH_PENALTY;
+
+            smart_chain = "SMART_01_AWP_THERMAL_THERMAPHORA";
+            pq_mode     = PqMode::PQ_STRICT;
+
+            description = "Append incident and resolution records to the trust layer for civic auditability.";
+        }
+    ];
+
+    birth_sign_required = true;
+    birth_sign_scopes   = ["BS-THERMAL:PHX:DOWNTOWN"];
+
+    rights_grammars          = [RightsGrammar::RightToShade, RightsGrammar::RightToSafeMovement, RightsGrammar::LexEthos];
+    biotic_treaties_required = false;
+
+    pq_mode = PqMode::PQ_STRICT;
+
+    summary = "Provides governed, non-policing responses to citizen incidents and tracks them in the trust layer.";
+};
+
+# --------------------------
+# Phoenix workflow collection
+# --------------------------
+
+const PHOENIX_25_WORKFLOWS: WorkflowSet = WorkflowSet {
+    workflows = [
+        WF_001_AWP_WATER,
+        WF_002_WATER_THERMAL,
+        WF_003_SEWER_POLLUTANTS,
+        WF_024_CONSENT,
+        WF_025_GRIEVANCE
+        # Remaining workflows 4–23 follow the same pattern and will be added
+        # as additional Workflow constants in this schema.
+    ];
+};
