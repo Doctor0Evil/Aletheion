@@ -1,0 +1,61 @@
+ALN-SMART-CHAIN SMART05-SOMAPLEX-FREIGHT-DOWNTOWN-001
+  VERSION "0.1.0"
+  NAME    "SMART05 Somaplex–Freight Downtown"
+  SCOPE {
+    layers   = ["L2","L4","L5"]
+    domains  = ["logistics","somatic","thermal","equity","treaty"]
+    cityregion = ["REGION_DOWNTOWN_CORE"]
+  }
+
+DEPENDSON [
+  { code = "SMART01-AWP-THERMAL-THERMAPHORA", path_hint = "aletheionerm-workflow-indexSMART-HIERARCHY-CHAINS-001.aln" },
+  { code = "SMART05-SOMAPLEX-ROUTING-DOWNTOWN-001", path_hint = "aletheionsomaplexSMART05-SOMAPLEX-ROUTING-DOWNTOWN-001.aln" }
+]
+
+EXPOSES {
+  envelopes = [
+    "CoolingAssetEnvelopeSegmentDowntown",
+    "SomaticCorridorCARE_ROUTE_PRIORITY",
+    "FreightRingCorridorDowntown"
+  ]
+  allocations = [
+    "FreightPlanDowntown",
+    "CareRouteDowntown"
+  ]
+  alerts = [
+    "FreightSomaticConflict",
+    "FreightEquityOverExposure"
+  ]
+}
+
+ACCEPTS-RESTRAINTS {
+  treaties = [
+    "BioticTreaty.RiparianCorridor",
+    "LexEthos.FPIC",
+    "LexEthos.RightToSafeMovement"
+  ]
+  rights_grammars = [
+    "LexEthos.RightToShade",
+    "LexEthos.RightToQuietNight",
+    "LexEthos.RightToCareAccess"
+  ]
+  somatic_envelopes = [
+    "Somaplex.SomaticCostHeadroom",
+    "Somaplex.CareRoutePriority"
+  ]
+  fear_pain_sanity = true
+}
+
+EXECUTION {
+  pattern           = "PERIODIC"
+  cadence           = "PT5M"
+  triggers          = ["HEAT_ALERT","MONSOON_ALERT","DOWNTOWN_FREIGHT_SCHEDULE_UPDATE"]
+  rollback_forbidden = true
+}
+
+TRUST {
+  ledger_stream     = "Googolswarm.SOMAPLEX_FREIGHT_DOWNTOWN"
+  pq_mode           = "PQSTRICT"
+  multisig_threshold = 2
+  signers           = ["CITY_FREIGHT_OFFICE","CITY_HEAT_OFFICE","INDIGENOUS_WATER_RIGHTS_BODY"]
+}
