@@ -1,0 +1,369 @@
+# destination: Aletheion
+# description: Manifest of Phoenix ERM edge sensors, schemas, and corridor bindings.
+
+version: 0.1.0
+city: "Phoenix, Arizona, US"
+erm_layer: "edge-sensing"
+profile: "aletheion-phx-base"
+generated_from:
+  - "Aletheion ERM Architecture: Phoenix Smart City Blueprint"        # [file:24]
+  - "Aletheion Phoenix GOD-City: 25 Workflow Blueprint"               # [file:23]
+  - "Phoenix Heat-Water-Tree Optimization Engine Blueprint"           # [file:22]
+  - "Aletheion Phoenix: 3-Tier Corridor Framework"                    # [file:21]
+
+metadata:
+  owner_org: "Aletheion Phoenix Stewardship Mesh"
+  maintainer_role: "ERM-Edge-Sensing-Lead"
+  contact_channel: "infra/contacts/edge-sensing@aletheion.phx"
+  last_reviewed: "2026-03-08T22:41:00-07:00"
+  review_interval_days: 30
+  jurisdiction_tags:
+    - "phoenix-metro"
+    - "maricopa-county"
+    - "salt-river-canal"
+    - "downtown-heat-core"
+  privacy_bands:
+    - name: "public-environmental"
+      description: "No direct human or household identification possible."
+    - name: "household-adjacent"
+      description: "Could infer household-level patterns; requires treaty-governed controls."
+    - name: "biosignal-adjacent"
+      description: "Could correlate with human/animal physiological states; neurorights-critical."
+
+safety_envelopes:
+  # Derived from KER and BioticTreaty concepts. [file:23][file:24]
+  global_defaults:
+    max_telemetry_rate_hz: 1.0
+    max_payload_bytes: 4096
+    require_signed_firmware: true
+    require_quorum_activation: true
+    max_continuous_uptime_hours: 720
+    allowed_network_domains:
+      - "city-backbone-fiber"
+      - "canal-mesh"
+      - "neighborhood-coax"
+  privacy_controls:
+    require_pseudonymous_ids: true
+    disallow_raw_audio: true
+    disallow_raw_video_faces: true
+    require_local_aggregation_for_household_adjacent: true
+  treaty_links:
+    - "treaties/biotic_neuro/sonoran_neurobiome_treaty.aln"
+    - "treaties/water/phoenix_canal_allocation.aln"
+
+corridor_classes:
+  - id: "PHX-C1-DOWNTOWN-HEAT"
+    description: "Downtown Phoenix high-heat core, mixed-use, high foot-traffic."   # [file:22]
+    service_tiers: ["thermal", "water", "shade", "mobility"]
+  - id: "PHX-C2-CANAL-SPINE"
+    description: "Main canal and lateral branches crossing residential/industrial."  # [file:21][file:23]
+    service_tiers: ["water", "waste", "cyboquatic"]
+  - id: "PHX-C3-NEIGHBORHOOD-RES"
+    description: "Residential neighborhoods, tree corridors, local streets."
+    service_tiers: ["thermal", "water", "waste"]
+  - id: "PHX-C4-INDUSTRIAL-EDGE"
+    description: "Industrial/warehouse areas with heavy impervious cover."
+    service_tiers: ["thermal", "waste"]
+  - id: "PHX-C5-CAMPUS-HEALTH"
+    description: "Hospitals, clinics, shelters, and vulnerable-population sites."
+    service_tiers: ["thermal", "water", "neurobiome"]
+
+sensor_families:
+  - family_id: "water-quality"
+    description: "Inline and near-line sensors for canal and reclaimed water quality."
+    typical_corridors: ["PHX-C2-CANAL-SPINE", "PHX-C1-DOWNTOWN-HEAT"]
+    privacy_band: "public-environmental"
+    payload_schema_ref: "#/schemas/water_quality_v1"
+    default_sample_interval_sec: 300
+    max_sample_interval_sec: 900
+    critical_parameters:
+      - "dissolved_oxygen_mg_per_l"
+      - "conductivity_uS_per_cm"
+      - "turbidity_ntu"
+      - "temperature_c"
+      - "flow_velocity_m_per_s"
+    mount_types:
+      - "canal-wall-fixed"
+      - "bridge-underdeck"
+      - "bank-pole"
+    power_profile:
+      class: "line-powered-or-solar"
+      typical_watts: 5.0
+      low_power_mode_supported: true
+
+  - family_id: "sewer-level"
+    description: "Depth and flow rate sensing for sewer and storm pipes."
+    typical_corridors: ["PHX-C2-CANAL-SPINE", "PHX-C4-INDUSTRIAL-EDGE"]
+    privacy_band: "household-adjacent"
+    payload_schema_ref: "#/schemas/sewer_level_v1"
+    default_sample_interval_sec: 120
+    max_sample_interval_sec: 600
+    critical_parameters:
+      - "depth_m"
+      - "flow_rate_l_per_s"
+      - "backflow_flag"
+    mount_types:
+      - "manhole-frame"
+      - "pipe-hanger"
+    power_profile:
+      class: "battery-or-line"
+      typical_watts: 2.0
+      low_power_mode_supported: true
+
+  - family_id: "pavement-thermal"
+    description: "Surface and near-surface temperature probes for pavements and plazas."   # [file:22]
+    typical_corridors: ["PHX-C1-DOWNTOWN-HEAT", "PHX-C4-INDUSTRIAL-EDGE"]
+    privacy_band: "public-environmental"
+    payload_schema_ref: "#/schemas/pavement_thermal_v1"
+    default_sample_interval_sec: 60
+    max_sample_interval_sec: 300
+    critical_parameters:
+      - "surface_temp_c"
+      - "subsurface_temp_c"
+      - "albedo_index"
+    mount_types:
+      - "flush-inlay"
+      - "sidewalk-bollard"
+    power_profile:
+      class: "solar-or-line"
+      typical_watts: 1.0
+      low_power_mode_supported: true
+
+  - family_id: "canopy-moisture"
+    description: "Tree canopy moisture and sap-flow probes to manage irrigation and heat mitigation."  # [file:22][file:23]
+    typical_corridors: ["PHX-C1-DOWNTOWN-HEAT", "PHX-C3-NEIGHBORHOOD-RES"]
+    privacy_band: "public-environmental"
+    payload_schema_ref: "#/schemas/canopy_moisture_v1"
+    default_sample_interval_sec: 900
+    max_sample_interval_sec: 3600
+    critical_parameters:
+      - "leaf_water_potential_mpa"
+      - "sap_flow_rate_kg_per_h"
+      - "soil_moisture_vol_frac"
+      - "air_temp_c"
+      - "vpd_kpa"
+    mount_types:
+      - "trunk-strap"
+      - "branch-clamp"
+      - "root-zone-probe"
+    power_profile:
+      class: "battery-solar"
+      typical_watts: 0.5
+      low_power_mode_supported: true
+
+  - family_id: "hydration-node-usage"
+    description: "Flow and activation sensors at hydration stations and fountains."   # [file:22]
+    typical_corridors: ["PHX-C1-DOWNTOWN-HEAT", "PHX-C5-CAMPUS-HEALTH"]
+    privacy_band: "household-adjacent"
+    payload_schema_ref: "#/schemas/hydration_node_usage_v1"
+    default_sample_interval_sec: 30
+    max_sample_interval_sec: 300
+    critical_parameters:
+      - "dispensed_volume_l"
+      - "session_count"
+      - "activation_method"      # button, touchless, external-trigger
+    mount_types:
+      - "fountain-integrated"
+      - "standpipe-inline"
+    power_profile:
+      class: "line-or-battery"
+      typical_watts: 3.0
+      low_power_mode_supported: true
+
+  - family_id: "ambient-air"
+    description: "Ambient air temperature, humidity, and particulate sensors for corridor-level thermal load and health."  # [file:24]
+    typical_corridors: ["PHX-C1-DOWNTOWN-HEAT", "PHX-C3-NEIGHBORHOOD-RES", "PHX-C5-CAMPUS-HEALTH"]
+    privacy_band: "public-environmental"
+    payload_schema_ref: "#/schemas/ambient_air_v1"
+    default_sample_interval_sec: 60
+    max_sample_interval_sec: 600
+    critical_parameters:
+      - "air_temp_c"
+      - "relative_humidity_pct"
+      - "pm2_5_ug_per_m3"
+      - "pm10_ug_per_m3"
+      - "ozone_ppb"
+    mount_types:
+      - "light-pole"
+      - "building-wall"
+      - "shelter-roof"
+    power_profile:
+      class: "solar-or-line"
+      typical_watts: 2.5
+      low_power_mode_supported: true
+
+  - family_id: "cyboquatic-node-health"
+    description: "Health and state-of-charge reporting for biodegradable cyboquatic nodes in canals and basins."  # [file:21][file:23]
+    typical_corridors: ["PHX-C2-CANAL-SPINE"]
+    privacy_band: "public-environmental"
+    payload_schema_ref: "#/schemas/cyboquatic_node_health_v1"
+    default_sample_interval_sec: 300
+    max_sample_interval_sec: 900
+    critical_parameters:
+      - "node_status"           # ok, warning, fail, dissolved
+      - "battery_state_pct"
+      - "depth_m"
+      - "local_temp_c"
+      - "safe_step_violation_flag"
+    mount_types:
+      - "free-floating"
+      - "tethered-bank"
+    power_profile:
+      class: "self-powered"
+      typical_watts: 0.2
+      low_power_mode_supported: true
+
+  - family_id: "biosignal-safe-proxy"
+    description: "Aggregated, privacy-preserving biosignal proxies (e.g., crowd heat stress risk indices) at shelters and campuses."  # [file:23][file:24]
+    typical_corridors: ["PHX-C5-CAMPUS-HEALTH"]
+    privacy_band: "biosignal-adjacent"
+    payload_schema_ref: "#/schemas/biosignal_safe_proxy_v1"
+    default_sample_interval_sec: 120
+    max_sample_interval_sec: 600
+    critical_parameters:
+      - "estimated_heat_stress_index"
+      - "crowd_density_class"
+      - "queue_time_bucket"
+    mount_types:
+      - "indoor-lobby"
+      - "outdoor-canopy"
+    power_profile:
+      class: "line-powered"
+      typical_watts: 4.0
+      low_power_mode_supported: true
+
+schemas:
+  water_quality_v1:
+    type: "object"
+    description: "Canonical water quality payload for canals and reclaimed flows."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      dissolved_oxygen_mg_per_l: "number"
+      conductivity_uS_per_cm: "number"
+      turbidity_ntu: "number"
+      temperature_c: "number"
+      flow_velocity_m_per_s: "number"
+      quality_flag: "string"   # ok, warning, breach
+  sewer_level_v1:
+    type: "object"
+    description: "Canonical sewer/storm level payload."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      depth_m: "number"
+      flow_rate_l_per_s: "number"
+      backflow_flag: "boolean"
+      surcharge_flag: "boolean"
+  pavement_thermal_v1:
+    type: "object"
+    description: "Canonical pavement thermal payload for heat mitigation planning."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      surface_temp_c: "number"
+      subsurface_temp_c: "number"
+      albedo_index: "number"
+      pavement_material_class: "string"
+  canopy_moisture_v1:
+    type: "object"
+    description: "Canonical canopy moisture payload for irrigation scheduling."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      species_code: "string"
+      leaf_water_potential_mpa: "number"
+      sap_flow_rate_kg_per_h: "number"
+      soil_moisture_vol_frac: "number"
+      air_temp_c: "number"
+      vpd_kpa: "number"
+  hydration_node_usage_v1:
+    type: "object"
+    description: "Hydration station and fountain usage payload."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      dispensed_volume_l: "number"
+      session_count: "integer"
+      activation_method: "string"
+  ambient_air_v1:
+    type: "object"
+    description: "Ambient air payload for environmental health and heat analytics."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      air_temp_c: "number"
+      relative_humidity_pct: "number"
+      pm2_5_ug_per_m3: "number"
+      pm10_ug_per_m3: "number"
+      ozone_ppb: "number"
+  cyboquatic_node_health_v1:
+    type: "object"
+    description: "Cyboquatic node health status payload."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      node_status: "string"
+      battery_state_pct: "number"
+      depth_m: "number"
+      local_temp_c: "number"
+      safe_step_violation_flag: "boolean"
+  biosignal_safe_proxy_v1:
+    type: "object"
+    description: "Aggregated biosignal-safe proxy payload."
+    fields:
+      timestamp_utc: "string"
+      sensor_id: "string"
+      corridor_id: "string"
+      estimated_heat_stress_index: "number"
+      crowd_density_class: "string"
+      queue_time_bucket: "string"
+
+activation_policies:
+  # Where and when different families are enabled, and who can read them. [file:23]
+  - policy_id: "public-environmental-open"
+    applies_to_privacy_band: "public-environmental"
+    read_roles:
+      - "city-ops"
+      - "research"
+      - "public-dashboard"
+    requires_consent_registry: false
+  - policy_id: "household-adjacent-guarded"
+    applies_to_privacy_band: "household-adjacent"
+    read_roles:
+      - "city-ops"
+      - "regulator"
+    requires_consent_registry: true
+  - policy_id: "biosignal-adjacent-guarded"
+    applies_to_privacy_band: "biosignal-adjacent"
+    read_roles:
+      - "health-partner"
+      - "regulator"
+    requires_consent_registry: true
+    neurorights_constraints_ref: "treaties/neurorights/phoenix_mesh_neurorights.aln"
+
+edge_node_bindings:
+  # Which minimal edge node profiles are required for each family. [file:24]
+  - family_id: "water-quality"
+    edge_profile: "phx-canal-mast-v1"
+  - family_id: "sewer-level"
+    edge_profile: "phx-underground-v1"
+  - family_id: "pavement-thermal"
+    edge_profile: "phx-streetlight-v1"
+  - family_id: "canopy-moisture"
+    edge_profile: "phx-tree-node-v1"
+  - family_id: "hydration-node-usage"
+    edge_profile: "phx-hydration-v1"
+  - family_id: "ambient-air"
+    edge_profile: "phx-streetlight-v1"
+  - family_id: "cyboquatic-node-health"
+    edge_profile: "phx-canal-mesh-v1"
+  - family_id: "biosignal-safe-proxy"
+    edge_profile: "phx-campus-health-v1"
