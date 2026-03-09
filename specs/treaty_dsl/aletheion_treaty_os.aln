@@ -1,0 +1,521 @@
+// ============================================================================
+// Aletheion Treaty OS Grammar
+// Canonical ALN schema for rights/treaties used across all workflows
+// ============================================================================
+
+aln_version 1.0
+namespace Aletheion.TreatyOS
+
+// ---------------------------------------------------------------------------
+// 1. Core identifiers and enums
+// ---------------------------------------------------------------------------
+
+type Id = string                     // stable, non-semantic identifier
+type Uri = string
+type IsoTimestamp = string          // ISO-8601
+type Decimal = number
+type Int = integer
+type Bool = boolean
+
+enum Domain {
+  WATER
+  THERMAL
+  WASTE
+  AIR
+  SOIL
+  MOBILITY
+  ENERGY
+  BIOSIGNAL
+  SOMATIC
+  BIOTIC
+  GOVERNANCE
+}
+
+enum Modality {
+  OBLIGATION          // must do
+  PROHIBITION         // must not do
+  PERMISSION          // may do
+  EXEMPTION           // may omit duty under conditions
+}
+
+enum EnforcementMode {
+  HARD_BLOCK          // action must be blocked
+  SOFT_PENALTY        // allowed but cost/score penalized
+  ADVISORY            // logged + surfaced; no direct effect
+}
+
+enum Severity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum Decision {
+  ALLOW
+  BLOCK
+  ALLOW_WITH_OVERRIDE
+}
+
+enum OverrideLevel {
+  NONE
+  MUNICIPAL
+  REGIONAL
+  TREATY_JOINT_BODY
+}
+
+// ---------------------------------------------------------------------------
+// 2. RightsAtom: indivisible, composable rights/treaty clause
+// ---------------------------------------------------------------------------
+
+record RightsAtom {
+  rights_atom_id      : Id
+  label               : string              // human label
+  description         : string              // short explanation
+
+  domain              : Domain              // e.g., WATER, BIOTIC
+  modality            : Modality            // obligation/prohibition/permission
+  enforcement_mode    : EnforcementMode
+  severity            : Severity
+
+  // Spatial/temporal scoping
+  geo_scope_ref       : Id                  // references a GeoZone or BirthSign bundle
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp        // open-ended allowed via sentinel value
+
+  // Threshold-style parameters (normalized semantics per domain)
+  min_value           : Decimal?            // e.g., min shade, min flow
+  max_value           : Decimal?            // e.g., max dB, max withdrawal
+  unit                : string?             // e.g., "cfs", "lux", "dBA", "mg/L"
+
+  // Tags for search/filtering and explanation
+  tags                : [string]
+  source_uri          : Uri?                // statute, treaty, or policy reference
+}
+
+// ---------------------------------------------------------------------------
+// 3. FPIC (Free, Prior, Informed Consent) atoms
+// ---------------------------------------------------------------------------
+
+enum FPICStatus {
+  NOT_APPLICABLE
+  REQUIRED
+  PENDING
+  GRANTED
+  DENIED
+  EXPIRED
+}
+
+record FpicRequirement {
+  fpic_req_id         : Id
+  label               : string
+  description         : string
+
+  indigenous_body_id  : Id                  // Tribe / Nation / Council identifier
+  geo_scope_ref       : Id                  // where this requirement applies
+
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+
+  // Which actions require FPIC under this requirement
+  required_for_domains : [Domain]
+  required_for_tags    : [string]           // e.g., "canal_reallocation", "mining"
+
+  // Optional threshold for impact magnitude that triggers FPIC
+  min_impact_score    : Decimal?            // e.g., 0.0-1.0 impact index
+}
+
+record FpicGrant {
+  fpic_grant_id       : Id
+  fpic_req_id         : Id                 // links to requirement
+  indigenous_body_id  : Id
+
+  granted_by          : Id                 // DID or governance entity
+  granted_at          : IsoTimestamp
+
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+
+  conditions          : [string]           // narrative constraints still binding
+  revoked             : Bool
+  revoked_at          : IsoTimestamp?
+  revoked_reason      : string?
+}
+
+// ---------------------------------------------------------------------------
+// 4. BioticTreaty: cross-species envelopes
+// ---------------------------------------------------------------------------
+
+record SpeciesAgentRef {
+  species_agent_id    : Id                 // consistent with Synthexis models
+}
+
+record BioticTreaty {
+  biotic_treaty_id    : Id
+  label               : string
+  description         : string
+
+  species             : [SpeciesAgentRef]  // one or many species
+  geo_scope_ref       : Id                 // polygon/corridor ID
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+
+  // Lighting constraints (artificial light at night, ALAN)
+  max_lux_corridor    : Decimal?           // commuting corridors
+  max_lux_foraging    : Decimal?
+  allowed_spectra     : [string]?          // e.g., "amber", ">=560nm only"
+  dark_hours_start    : string?            // local time, e.g., "18:00"
+  dark_hours_end      : string?
+
+  // Noise constraints
+  max_db_night        : Decimal?
+  max_db_day          : Decimal?
+  impulsive_noise_penalty : Decimal?       // raises violation score
+
+  // Chemical/pesticide constraints
+  banned_pesticide_classes : [string]?     // local code names or CAS group tags
+  no_spray_buffer_m        : Decimal?      // meters from corridor/core habitat
+  no_spray_hours_before_activity : Int?    // hours before critical species activity
+
+  // Habitat structure requirements (summary form)
+  min_native_plant_fraction : Decimal?     // 0.0-1.0
+  min_canopy_cover          : Decimal?     // 0.0-1.0
+  snag_or_cavity_required   : Bool?
+
+  enforcement_mode    : EnforcementMode
+  severity            : Severity
+  tags                : [string]
+  source_uri          : Uri?
+}
+
+// ---------------------------------------------------------------------------
+// 5. MicroTreaty: neighborhood / corridor level social & EJ agreements
+// ---------------------------------------------------------------------------
+
+record MicroTreaty {
+  micro_treaty_id     : Id
+  label               : string
+  description         : string
+
+  geo_scope_ref       : Id                 // tile, neighborhood, corridor
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+
+  // Composed rights atoms; all are presumed to share same geo scope
+  rights_atoms        : [RightsAtom]
+
+  // Priority for conflict resolution within same level
+  priority            : Int                // higher = wins locally
+
+  // Who authored/ratified this micro-treaty
+  authors             : [Id]               // DIDs or group IDs
+  ratified_by         : [Id]
+  source_uri          : Uri?
+}
+
+// ---------------------------------------------------------------------------
+// 6. Environmental Justice (EJ) overlays
+// ---------------------------------------------------------------------------
+
+record EJZone {
+  ej_zone_id          : Id
+  label               : string
+  description         : string
+
+  geo_scope_ref       : Id
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+
+  // Vulnerability indicators (normalized 0-1)
+  heat_vulnerability_index   : Decimal
+  pollution_burden_index     : Decimal
+  income_index               : Decimal
+  health_risk_index          : Decimal
+
+  // Derived enforcement settings
+  max_additional_pollution   : Decimal?    // domain-specific, e.g., µg/m3 PM
+  preferred_cooling_priority : Bool        // bias optimization in favor
+}
+
+// ---------------------------------------------------------------------------
+// 7. Water compact & Phoenix-specific water norms (examples)
+// ---------------------------------------------------------------------------
+
+record WaterCompactClause {
+  clause_id           : Id
+  label               : string
+  description         : string
+
+  geo_scope_ref       : Id                 // basin or allocation zone
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+
+  max_withdrawal_cfs  : Decimal?           // cubic feet per second
+  max_annual_volume_af: Decimal?           // acre-feet per year
+
+  drought_tier        : Int?               // e.g., 0 = normal, 1,2,3 = shortage tiers
+  tier_multiplier     : Decimal?           // e.g., 0.85 = 15% cut when tier active
+
+  enforcement_mode    : EnforcementMode
+  severity            : Severity
+  tags                : [string]
+  source_uri          : Uri?
+}
+
+// Canonical example: Phoenix canal allocation constraint (illustrative)
+record PhoenixWaterExample_IndigenousPriority {
+  clause              : WaterCompactClause
+  fpic_requirement    : FpicRequirement
+}
+
+// ---------------------------------------------------------------------------
+// 8. Neurorights & biosignal constraints (summary atoms)
+// ---------------------------------------------------------------------------
+
+enum NeurorightType {
+  MENTAL_PRIVACY
+  MENTAL_INTEGRITY
+  COGNITIVE_LIBERTY
+  PSYCHOLOGICAL_CONTINUITY
+}
+
+record NeurorightsAtom {
+  neuroright_id       : Id
+  label               : string
+  description         : string
+
+  neuroright_type     : NeurorightType
+  domain              : Domain = BIOSIGNAL
+
+  // Whether biosignal source must be fully opt-in and revocable
+  explicit_opt_in_required : Bool
+  continuous_use_allowed   : Bool
+  profiling_prohibited     : Bool
+  coercion_prohibited      : Bool
+
+  enforcement_mode    : EnforcementMode
+  severity            : Severity
+  geo_scope_ref       : Id
+  valid_from          : IsoTimestamp
+  valid_until         : IsoTimestamp
+  source_uri          : Uri?
+}
+
+// ---------------------------------------------------------------------------
+// 9. Evaluation context and decision schema
+// ---------------------------------------------------------------------------
+
+// Context passed to treaty engine from optimization/simulation layer
+record ActionContext {
+  action_id           : Id
+  workflow_id         : Id
+  stage               : string            // e.g., "Optimization", "TreatyCheck"
+
+  // Spatial-temporal references
+  birth_sign_id       : Id               // external BirthSign model id
+  geo_scope_ref       : Id
+  timestamp           : IsoTimestamp
+
+  // Domain & magnitude metadata
+  domains             : [Domain]
+  tags                : [string]         // "canal_reallocation", "cool_pavement"
+  impact_score        : Decimal          // 0-1 composite from simulation
+
+  // Resource deltas (optional, domain-specific)
+  delta_water_cfs     : Decimal?         // net change in water flow
+  delta_heat_kW       : Decimal?
+  delta_pollution     : Decimal?         // e.g., µg/m3 or equivalent index
+
+  // Affected populations & species (summaries)
+  affected_population_estimate : Int?
+  affected_species             : [SpeciesAgentRef]?
+  ej_zones                     : [EJZone]?
+
+  // Governance and consent status
+  fpic_status          : FPICStatus
+  fpic_req_ids         : [Id]
+  fpic_grant_ids       : [Id]
+}
+
+// Result of a single treaty module evaluation
+record TreatyModuleResult {
+  module_id           : Id              // e.g., "treaty_indigenous", "treaty_ej"
+  decision            : Decision
+  override_level      : OverrideLevel
+  violated_atoms      : [Id]           // rights_atom_id, biotic_treaty_id, etc.
+  explanation         : string
+  severity            : Severity
+  tags                : [string]
+}
+
+// Aggregated decision passed back to actuation layer
+record TreatyDecision {
+  action_id           : Id
+  overall_decision    : Decision
+  highest_override    : OverrideLevel
+  module_results      : [TreatyModuleResult]
+
+  // Precomputed for Googolswarm envelope
+  violated_norm_ids   : [Id]
+  applied_norm_ids    : [Id]
+  explanation_summary : string
+}
+
+// ---------------------------------------------------------------------------
+// 10. Phoenix canonical examples (non-fictional, schematic)
+// ---------------------------------------------------------------------------
+
+// Example 1: Canal reallocation constraint respecting Indigenous water rights
+
+record Example_Phoenix_IndigenousWaterReallocation {
+  rights_atom : RightsAtom = {
+    rights_atom_id      = "ALE-RIGHTS-WATER-INDIGENOUS-001"
+    label               = "Protect Indigenous canal allocations during reallocation"
+    description         = "Prohibits reallocation of canal flows that reduce Indigenous allocations below treaty-defined minima."
+
+    domain              = WATER
+    modality            = PROHIBITION
+    enforcement_mode    = HARD_BLOCK
+    severity            = CRITICAL
+
+    geo_scope_ref       = "BIRTHSIGN-AKIMEL-OODHAM-BASIN"
+    valid_from          = "2020-01-01T00:00:00Z"
+    valid_until         = "9999-12-31T23:59:59Z"
+
+    min_value           = null
+    max_value           = null
+    unit                = null
+
+    tags                = ["indigenous_rights", "water_compact", "canal_allocation"]
+    source_uri          = "urn:phoenix:water:compact:akimel-oodham"
+  }
+
+  fpic_requirement : FpicRequirement = {
+    fpic_req_id         = "ALE-FPIC-WATER-INDIGENOUS-001"
+    label               = "FPIC for basin-scale canal reallocation"
+    description         = "Requires FPIC from the Indigenous water council for reallocation plans affecting this basin."
+
+    indigenous_body_id  = "INDIGENOUS-AKIMEL-OODHAM-COUNCIL"
+    geo_scope_ref       = "BIRTHSIGN-AKIMEL-OODHAM-BASIN"
+
+    valid_from          = "2020-01-01T00:00:00Z"
+    valid_until         = "9999-12-31T23:59:59Z"
+
+    required_for_domains = [WATER]
+    required_for_tags    = ["canal_reallocation"]
+
+    min_impact_score    = 0.05
+  }
+}
+
+// Example 2: EJ zone constraint for added air pollution
+
+record Example_Phoenix_EJ_AirBurdenCap {
+  rights_atom : RightsAtom = {
+    rights_atom_id      = "ALE-RIGHTS-AIR-EJ-CAP-001"
+    label               = "Cap additional air pollution burden in EJ zone"
+    description         = "Prohibits actions that increase pollution beyond EJ-defined thresholds in vulnerable neighborhoods."
+
+    domain              = AIR
+    modality            = PROHIBITION
+    enforcement_mode    = HARD_BLOCK
+    severity            = HIGH
+
+    geo_scope_ref       = "EJZONE-PHX-HEAT-POLLUTION-CLUSTER-001"
+    valid_from          = "2020-01-01T00:00:00Z"
+    valid_until         = "9999-12-31T23:59:59Z"
+
+    min_value           = null
+    max_value           = 5.0         // e.g., µg/m3 incremental PM limit
+    unit                = "ug/m3"
+
+    tags                = ["environmental_justice", "air_quality", "pollution_cap"]
+    source_uri          = "urn:phoenix:ej:air:policy:001"
+  }
+
+  ej_zone : EJZone = {
+    ej_zone_id          = "EJZONE-PHX-HEAT-POLLUTION-CLUSTER-001"
+    label               = "High-heat, high-pollution EJ neighborhood"
+    description         = "Neighborhood with high heat vulnerability and air pollution burden."
+
+    geo_scope_ref       = "GEO-PHX-EJ-NEIGHBORHOOD-001"
+    valid_from          = "2020-01-01T00:00:00Z"
+    valid_until         = "9999-12-31T23:59:59Z"
+
+    heat_vulnerability_index   = 0.85
+    pollution_burden_index     = 0.80
+    income_index               = 0.20
+    health_risk_index          = 0.75
+
+    max_additional_pollution   = 5.0
+    preferred_cooling_priority = true
+  }
+}
+
+// Example 3: BioticTreaty corridor for bats along a canal
+
+record Example_Phoenix_Biotic_BatCorridor {
+  biotic_treaty : BioticTreaty = {
+    biotic_treaty_id    = "ALE-BIOTIC-BAT-CANAL-CORRIDOR-001"
+    label               = "Dark riparian corridor for bat commuting"
+    description         = "Maintains a dark, low-noise, pesticide-bounded corridor for bat species along the canal."
+
+    species             = [{ species_agent_id = "SPECIES-MYOTIS-VELIFER" }]
+    geo_scope_ref       = "GEO-CANAL-RIPARIAN-CORRIDOR-001"
+    valid_from          = "2020-01-01T00:00:00Z"
+    valid_until         = "9999-12-31T23:59:59Z"
+
+    max_lux_corridor    = 3.0
+    max_lux_foraging    = 5.0
+    allowed_spectra     = ["amber", ">=560nm"]
+    dark_hours_start    = "18:00"
+    dark_hours_end      = "06:00"
+
+    max_db_night        = 45.0
+    max_db_day          = 60.0
+    impulsive_noise_penalty = 0.5
+
+    banned_pesticide_classes = ["NEONICOTINOID", "PYRETHROID"]
+    no_spray_buffer_m        = 50.0
+    no_spray_hours_before_activity = 12
+
+    min_native_plant_fraction = 0.6
+    min_canopy_cover          = 0.4
+    snag_or_cavity_required   = true
+
+    enforcement_mode    = HARD_BLOCK
+    severity            = CRITICAL
+    tags                = ["bats", "riparian", "aln", "pesticides", "dark_corridor"]
+    source_uri          = "urn:phoenix:biotic:bats:canal-corridor"
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 11. Treaty engine contracts (for Rust bindings; no Rust code here)
+// ---------------------------------------------------------------------------
+
+// These records define the boundary that Rust treaty modules must honor.
+// In Rust, each treaty module would expose a function equivalent to:
+//
+//   fn evaluate(context: ActionContext) -> TreatyModuleResult;
+//
+// An orchestrator composes multiple modules into a TreatyDecision and ensures
+// that any HARD_BLOCK or ALLOW_WITH_OVERRIDE decisions are enforced before
+// actuation and appended to Googolswarm provenance envelopes.
+
+record TreatyEngineContract {
+  module_id           : Id
+  description         : string
+  accepts_domains     : [Domain]
+  requires_birth_sign : Bool
+  requires_fpic       : Bool
+  requires_ej_zones   : Bool
+}
+
+record TreatyEngineRegistry {
+  modules             : [TreatyEngineContract]
+}
+
+// ---------------------------------------------------------------------------
+// End of Aletheion Treaty OS Grammar
+// ---------------------------------------------------------------------------
