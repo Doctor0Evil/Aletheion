@@ -1,0 +1,430 @@
+aln_treaty SonoranNeurobiomeTreaty_v0_1 {
+  meta {
+    treaty_id        = "SON_NEUROBIOME_TREATY_V0_1"
+    jurisdiction     = "PHOENIX_METRO_SONORAN_DESERT_BIOME"
+    version          = "0.1.0"
+    language         = "ALN"
+    issuing_body     = "Aletheion_GOD_City_Council"
+    erm_profile_ref  = "ERM_PHOENIX_V1"
+    corridor_profile = "PHX_3_TIER_CORRIDOR_V1"
+    effective_from   = "2026-01-01T00:00:00Z"
+    review_cycle     = "12_months"
+  }
+
+  scope {
+    applies_to_biomes = [
+      "SONORAN_RIPARIAN_CORRIDOR",
+      "SONORAN_URBAN_CANAL_EDGE",
+      "SONORAN_URBAN_TREE_ISLAND",
+      "SONORAN_MESQUITE_BOSQUE_RELIC"
+    ]
+
+    applies_to_species = [
+      "HOMO_SAPIENS_RESIDENT",
+      "HOMO_SAPIENS_VISITOR",
+      "CANIS_LATRANS",
+      "LEPUS_CALIFORNICUS",
+      "ZENAIDA_MACROURA",
+      "ANURA_GENERAL",
+      "XEROPHYTIC_FLORA_GENERAL",
+      "GALLERY_TREES_GENERAL"
+    ]
+
+    applies_to_workflows = [
+      "WF_HEAT_WATER_TREE_OPTIMIZATION",
+      "WF_CANAL_RECLAIMED_WATER_ROUTING",
+      "WF_BIODEGRADABLE_NODE_DEPLOYMENT",
+      "WF_SEWER_OVERFLOW_PROTECTION",
+      "WF_CITIZEN_AUGMENTED_INTERFACE"
+    ]
+
+    excluded_from_scope = [
+      "MILITARY_OPERATIONS",
+      "NON_LOCAL_EXTRACTIVE_INDUSTRY",
+      "CLASSIFIED_RESEARCH"
+    ]
+  }
+
+  metrics {
+    // Shared ERM / GOD-City metrics
+    metric K_knowledge_factor {
+      unit        = "0_1_SCALE"
+      min         = 0.0
+      max         = 1.0
+      description = "Degree of model and decision transparency, measurability, and interpretability for all affected species."
+    }
+
+    metric R_risk_of_harm {
+      unit        = "0_1_SCALE"
+      min         = 0.0
+      max         = 1.0
+      description = "Aggregated probability-weighted harm across humans, non-humans, and ecosystems per workflow step."
+    }
+
+    metric W_water_allocation {
+      unit        = "LITERS_PER_DAY"
+      min         = 0.0
+      max         = 1_000_000_000.0
+      description = "Total water allocation across corridors, tagged by source and use-type."
+    }
+
+    metric H_heat_stress_index {
+      unit        = "0_100_SCALE"
+      min         = 0.0
+      max         = 100.0
+      description = "Composite heat stress value combining air temp, radiant load, humidity, and exposure duration for sentient beings."
+    }
+
+    metric B_biome_integrity {
+      unit        = "0_1_SCALE"
+      min         = 0.0
+      max         = 1.0
+      description = "Integrity of Sonoran ecological processes, species networks, and soil-water cycles."
+    }
+
+    metric N_neuro_safety {
+      unit        = "0_1_SCALE"
+      min         = 0.0
+      max         = 1.0
+      description = "Safety of neurobiome and neurorights-respecting interfaces for humans and neuro-sensitive species."
+    }
+
+    metric C_corridor_pressure {
+      unit        = "0_1_SCALE"
+      min         = 0.0
+      max         = 1.0
+      description = "Utilization pressure on a corridor: traffic, interventions, monitoring load, and ecological disturbance."
+    }
+  }
+
+  thresholds {
+    // Global envelopes derived from ERM and ecosafety research
+    limit global_R_max {
+      R_risk_of_harm <= 0.15
+      rationale = "Maintain R in [0.12, 0.15] envelope for all automated steps affecting Sonoran biomes."
+      enforce_on = ["ALL_STEPS"]
+    }
+
+    limit biome_integrity_min {
+      B_biome_integrity >= 0.85
+      rationale = "Prevent long-term degradation of Sonoran biome under cumulative interventions."
+      enforce_on = ["DAILY_TOTAL", "MONTHLY_TREND"]
+    }
+
+    limit neuro_safety_min {
+      N_neuro_safety >= 0.92
+      rationale = "Respect neurorights and maintain high safety for augmented/non-augmented neurobiome states."
+      enforce_on = ["NEURO_INTERFACES", "SENSOR_NODES"]
+    }
+
+    limit heat_stress_humans {
+      H_heat_stress_index <= 75
+      rationale = "Cap cumulative human heat stress exposure in automated heat-mitigation workflows."
+      enforce_on = ["HUMAN_POPULATION_SEGMENTS"]
+    }
+
+    limit heat_stress_nonhuman {
+      H_heat_stress_index <= 70
+      rationale = "Conservatively cap non-human heat stress exposure around corridors and water features."
+      enforce_on = ["NON_HUMAN_SPECIES"]
+    }
+
+    limit corridor_pressure_cap {
+      C_corridor_pressure <= 0.8
+      rationale = "Avoid over-instrumentation and over-intervention in any corridor cell."
+      enforce_on = ["CORRIDOR_CELL"]
+    }
+
+    limit reclaimed_water_fraction {
+      W_water_allocation.source("RECLAIMED_AWP") / W_water_allocation.total <= 0.6
+      rationale = "Respect AWP and canal capacity while maintaining ecological flows."
+      enforce_on = ["CITY_DAY"]
+    }
+  }
+
+  neurorights {
+    principle cognitive_liberty {
+      description = "No workflow may coerce, nudge, or silently bias cognitive states beyond explicit, revocable consent."
+      constraints = [
+        "NO_DARK_PATTERNS_UI",
+        "NO_SUBLIMINAL_STIMULI",
+        "NO_UNLOGGED_COGNITIVE_TARGETING"
+      ]
+    }
+
+    principle mental_privacy {
+      description = "Neural and biosignal data remain under strict corridor-local control with differential release policies."
+      constraints = [
+        "NO_RAW_NEURAL_EXPORT",
+        "ONLY_AGGREGATED_ANALYTICS",
+        "LOCAL_FIRST_PROCESSING",
+        "RIGHT_TO_ERASE_WHERE_POSSIBLE"
+      ]
+    }
+
+    principle psychological_integrity {
+      description = "No interventions that create sustained distress, dependency, or identity erosion in humans or social species."
+      constraints = [
+        "NO_ADDICTIVE_FEEDBACK_LOOPS",
+        "NO_PERSISTENT_PERSONA_OVERRIDES",
+        "NO_SOCIAL_ISOLATION_VIA_AUTOMATION"
+      ]
+    }
+
+    principle equitable_access {
+      description = "Neuro-safe interfaces and cooling/relief interventions must prioritize vulnerable groups and non-human habitats."
+      constraints = [
+        "HEAT_RISK_WEIGHTING_FOR_VULNERABLE",
+        "ACCESSIBLE_CHANNELS_FOR_AUGMENTED_AND_NON_AUGMENTED",
+        "MULTILINGUAL_AND_LOW_BANDWIDTH_MODES"
+      ]
+    }
+  }
+
+  species_cells {
+    cell HUMANS_URBAN_RESIDENT {
+      species = "HOMO_SAPIENS_RESIDENT"
+      heat_risk_weight = 1.0
+      priority_class   = "HIGH"
+      neuro_interface_allowed = true
+      notes = "Includes elders, children, unhoused; subject to increased protection."
+    }
+
+    cell HUMANS_URBAN_WORKER {
+      species = "HOMO_SAPIENS_RESIDENT"
+      heat_risk_weight = 0.85
+      priority_class   = "MEDIUM"
+      neuro_interface_allowed = true
+      notes = "Outdoor workers under OSHA-like protections."
+    }
+
+    cell SONORAN_GALLERY_TREES {
+      species = "GALLERY_TREES_GENERAL"
+      heat_risk_weight = 0.9
+      priority_class   = "HIGH"
+      neuro_interface_allowed = false
+      notes = "Riparian and canal-adjacent tree clusters; key for shade and fauna habitat."
+    }
+
+    cell URBAN_MESQUITE_BOSQUE {
+      species = "XEROPHYTIC_FLORA_GENERAL"
+      heat_risk_weight = 0.8
+      priority_class   = "MEDIUM"
+      neuro_interface_allowed = false
+      notes = "Urban remnants of mesquite bosques; protected from soil moisture collapse."
+    }
+
+    cell NOCTURNAL_FAUNA_CORRIDOR {
+      species = ["CANIS_LATRANS", "LEPUS_CALIFORNICUS", "ZENAIDA_MACROURA"]
+      heat_risk_weight = 0.7
+      priority_class   = "MEDIUM"
+      neuro_interface_allowed = false
+      notes = "Night-time movement corridors around canals and washes."
+    }
+
+    cell AQUATIC_HERPS_EDGE {
+      species = "ANURA_GENERAL"
+      heat_risk_weight = 0.75
+      priority_class   = "HIGH"
+      neuro_interface_allowed = false
+      notes = "Edge habitats for amphibians near AWP outflows and riparian nodes."
+    }
+  }
+
+  permissions {
+    // WATER
+    permission water_diversion_canal_to_urban {
+      workflows = ["WF_CANAL_RECLAIMED_WATER_ROUTING", "WF_HEAT_WATER_TREE_OPTIMIZATION"]
+      allowed_if {
+        B_biome_integrity >= 0.9
+        R_risk_of_harm <= 0.12
+        W_water_allocation.source("CANAL_ECOLOGICAL_BASEFLOW") >= W_water_allocation.baseflow_min
+      }
+      denied_if {
+        C_corridor_pressure > 0.8
+        H_heat_stress_index_nonhuman > 70
+      }
+      max_daily_diversion_liters = 50_000_000
+      notes = "Diversions prioritize tree canopy cells and human heat refuge zones while preserving ecological baseflows."
+    }
+
+    permission water_diversion_awp_to_biotic_cells {
+      workflows = ["WF_CANAL_RECLAIMED_WATER_ROUTING"]
+      allowed_if {
+        W_water_allocation.source("RECLAIMED_AWP") <= 0.6 * W_water_allocation.total
+        B_biome_integrity >= 0.88
+        R_risk_of_harm <= 0.13
+      }
+      denied_if {
+        any_species_cell(priority_class="HIGH").soil_saturation > 0.95
+      }
+      max_daily_diversion_liters = 20_000_000
+      notes = "AWP flows may bolster riparian and bosque relic cells but avoid oversaturation and root hypoxia."
+    }
+
+    // HEAT INTERVENTIONS
+    permission deploy_cooling_infrastructure {
+      workflows = ["WF_HEAT_WATER_TREE_OPTIMIZATION"]
+      allowed_if {
+        H_heat_stress_index_humans > 55
+        K_knowledge_factor >= 0.9
+        corridor_has_emergency_clearance == false
+      }
+      denied_if {
+        B_biome_integrity < 0.85
+        R_risk_of_harm > 0.15
+      }
+      allowed_actions = [
+        "MISTING_STATION_ACTIVATION",
+        "HYDRATION_STATION_ACTIVATION",
+        "CANOPY_IRRIGATION_BOOST",
+        "ALBEDO_ADJUSTMENT_ACTIONS"
+      ]
+      notes = "Cooling infra deployments must balance human relief and biome protection, with transparent justifications."
+    }
+
+    permission schedule_tree_irrigation {
+      workflows = ["WF_HEAT_WATER_TREE_OPTIMIZATION", "WF_CANAL_RECLAIMED_WATER_ROUTING"]
+      allowed_if {
+        SONORAN_GALLERY_TREES.soil_moisture < 0.7
+        B_biome_integrity_trend >= 0.0
+        R_risk_of_harm <= 0.13
+      }
+      denied_if {
+        W_water_allocation.total < city_minimum_human_needs
+      }
+      max_irrigation_events_per_week = 3
+      notes = "Irrigation keeps gallery trees within safe moisture envelopes without compromising baseline human water needs."
+    }
+
+    // NEURO INTERFACES
+    permission augmented_citizen_interface_activation {
+      workflows = ["WF_CITIZEN_AUGMENTED_INTERFACE"]
+      allowed_if {
+        N_neuro_safety >= 0.95
+        cognitive_liberty_respected == true
+        mental_privacy_safeguards_active == true
+      }
+      denied_if {
+        pending_right_to_erase_request == true
+      }
+      allowed_actions = [
+        "CONSENT_DASHBOARD_DISPLAY",
+        "HEAT_RISK_ALERTS",
+        "CORRIDOR_STATE_SUMMARIES",
+        "WORKFLOW_OPT_IN_OUT"
+      ]
+      notes = "Interfaces provide explainable, reversible options; no high-pressure nudging or hidden incentives."
+    }
+  }
+
+  prohibitions {
+    prohibition biome_sacrifice_for_peak_cooling {
+      description = "No workflow may sacrifice long-term biome integrity for short-term cooling gains."
+      condition {
+        if H_heat_stress_index_reduction > 10 and B_biome_integrity_drop_30d > 0.03 {
+          action = "BLOCK_WORKFLOW_PLAN"
+        }
+      }
+    }
+
+    prohibition neuro_manipulative_advertising {
+      description = "No targeted advertising, persuasive computing, or commercial overlays through citizen neuro-interfaces."
+      condition {
+        if workflow_uses_neuro_channel == true and intent == "COMMERCIAL" {
+          action = "BLOCK_CHANNEL"
+        }
+      }
+    }
+
+    prohibition nonlocal_resource_extraction {
+      description = "No automated routing that transforms Sonoran corridors into throughput for nonlocal extraction industries."
+      condition {
+        if destination_jurisdiction != jurisdiction and usage_type == "EXTRACTIVE" {
+          action = "BLOCK_ALLOCATION"
+        }
+      }
+    }
+
+    prohibition sensor_overdensity {
+      description = "No corridor cell may exceed the sensor density compatible with species safety and privacy."
+      condition {
+        if sensor_count_per_cell > sensor_density_limit {
+          action = "REJECT_NEW_SENSORS"
+        }
+      }
+    }
+  }
+
+  emergency_modes {
+    mode heatwave_red {
+      trigger {
+        H_heat_stress_index_humans >= 80
+        duration_hours >= 24
+      }
+      overrides {
+        R_risk_of_harm_max = 0.17
+        W_water_allocation.source("RECLAIMED_AWP") / W_water_allocation.total <= 0.7
+      }
+      compensations {
+        post_event_window_days = 14
+        required_actions = [
+          "BIOME_RECOVERY_IRRIGATION_TUNING",
+          "ADDITIONAL_BIOME_MONITORING",
+          "PUBLIC_REPORT_ON_TRADEOFFS"
+        ]
+      }
+    }
+
+    mode flood_pulse {
+      trigger {
+        canal_flow_exceeds_design_capacity == true
+      }
+      overrides {
+        allow_temporary_water_diversion_to_low_risk_cells = true
+      }
+      protections {
+        never_route_to = ["AQUATIC_HERPS_EDGE", "URBAN_MESQUITE_BOSQUE"]
+      }
+    }
+  }
+
+  audit {
+    logging {
+      required_for = [
+        "ALL_PERMISSIONS",
+        "ALL_PROHIBITIONS",
+        "EMERGENCY_MODE_CHANGES"
+      ]
+      fields = [
+        "TIMESTAMP",
+        "WORKFLOW_ID",
+        "CORRIDOR_CELL_ID",
+        "METRICS_SNAPSHOT",
+        "JUSTIFICATION",
+        "CONSENT_STATE",
+        "TREATY_VERSION"
+      ]
+      retention_days = 365
+    }
+
+    explainability {
+      requirement {
+        any_decision_affecting_humans_or_high_priority_species == true
+      }
+      format = "NARRATIVE_AND_FORMAL"
+      delivery_channels = [
+        "CITIZEN_AUGMENTED_PANEL",
+        "PUBLIC_PORTAL",
+        "MACHINE_READABLE_LOG"
+      ]
+    }
+
+    revision {
+      review_interval_months = 12
+      public_input_required   = true
+      biome_scientist_review  = true
+      neuroethics_review      = true
+    }
+  }
+}
