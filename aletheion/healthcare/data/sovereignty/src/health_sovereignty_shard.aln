@@ -1,0 +1,327 @@
+@version 20260310
+@namespace aletheion.healthcare.sovereignty
+@license BioticTreaty_v3
+@compliance HIPAA_1996_GDPR_2018_Neurorights_v1_Arizona_Healthcare_Laws_2026
+
+shard HealthcareDataSovereigntyShard {
+    @id: u64,
+    @patient_did: string,
+    @provider_did: string,
+    @created_at_ns: u64,
+    @last_updated_ns: u64,
+    @data_classification: enum[phi, pii, clinical, biosignal, genetic, mental_health, substance_abuse],
+    
+    @consent: {
+        consent_id: u64,
+        consent_type: enum[treatment, payment, operations, research, commercial],
+        granted_at_ns: u64,
+        expires_at_ns: u64,
+        revoked: bool,
+        revocation_at_ns: u64,
+        purpose_limitations: [string],
+        data_categories_authorized: u64,
+        sharing_scope: enum[provider_only, network, regional, national, international],
+        neurorights_protected: bool,
+        genetic_data_included: bool,
+        mental_health_included: bool,
+    },
+    
+    @access_control: {
+        access_policy_id: u64,
+        minimum_clearance_level: u8,
+        require_explicit_consent: bool,
+        require_emergency_override: bool,
+        audit_all_access: bool,
+        encryption_required: bool,
+        zero_knowledge_verification: bool,
+        authorized_providers: [u64],
+        authorized_institutions: [u64],
+        blocked_entities: [u64],
+    },
+    
+    @data_record: {
+        record_id: u64,
+        record_type: enum[encounter, lab_result, imaging, prescription, biosignal, genomic],
+        created_by: u64,
+        created_at_ns: u64,
+        data_hash: [u8; 32],
+        encrypted_data_ptr: [u8; 64],
+        encryption_key_id: [u8; 16],
+        data_size_bytes: u64,
+        retention_until_ns: u64,
+        deletion_scheduled: bool,
+    },
+    
+    @audit: {
+        access_log: [(u64, u64, u64, string)],
+        access_count: u64,
+        unauthorized_attempts: u64,
+        consent_violations: u64,
+        last_audit_ns: u64,
+        audit_retention_days: u32,
+    },
+    
+    @emergency: {
+        emergency_override_active: bool,
+        emergency_override_at_ns: u64,
+        emergency_override_by: u64,
+        emergency_override_expires_ns: u64,
+        emergency_access_count: u64,
+    },
+    
+    @invariants: {
+        invariant neurorights_mandatory: self.consent.neurorights_protected == true,
+        invariant consent_required: self.access_control.require_explicit_consent == true,
+        invariant audit_all_access: self.access_control.audit_all_access == true,
+        invariant encryption_mandatory: self.access_control.encryption_required == true,
+        invariant phi_protection: self.data_classification == "phi" => self.access_control.minimum_clearance_level >= 4,
+        invariant genetic_protection: self.consent.genetic_data_included == true => self.consent.sharing_scope != "international",
+        invariant mental_health_protection: self.consent.mental_health_included == true => self.access_control.minimum_clearance_level >= 5,
+    },
+    
+    @methods: {
+        fn grant_consent(self, consent_type: string, purpose: string, expires_days: u32, now_ns: u64) -> Result<u64, string> {
+            if self.consent.revoked {
+                return Err("CONSENT_PREVIOUSLY_REVOKED");
+            }
+            if expires_days == 0 {
+                return Err("EXPIRATION_REQUIRED");
+            }
+            self.consent.consent_id = self.consent.consent_id + 1;
+            self.consent.consent_type = consent_type;
+            self.consent.granted_at_ns = now_ns;
+            self.consent.expires_at_ns = now_ns + (expires_days as u64 * 86400000000000);
+            self.consent.revoked = false;
+            self.append_audit_log("CONSENT_GRANTED", now_ns);
+            return Ok(self.consent.consent_id);
+        },
+        
+        fn revoke_consent(self, now_ns: u64) -> Result<(), string> {
+            if self.consent.revoked {
+                return Err("CONSENT_ALREADY_REVOKED");
+            }
+            self.consent.revoked = true;
+            self.consent.revocation_at_ns = now_ns;
+            self.append_audit_log("CONSENT_REVOKED", now_ns);
+            return Ok(());
+        },
+        
+        fn authorize_provider_access(self, provider_id: u64, now_ns: u64) -> Result<(), string> {
+            if !self.consent_is_valid(now_ns) {
+                return Err("CONSENT_NOT_VALID");
+            }
+            for authorized in self.access_control.authorized_providers {
+                if authorized == provider_id {
+                    return Err("PROVIDER_ALREADY_AUTHORIZED");
+                }
+            }
+            self.access_control.authorized_providers.append(provider_id);
+            self.append_audit_log("PROVIDER_AUTHORIZED", now_ns);
+            return Ok(());
+        },
+        
+        fn revoke_provider_access(self, provider_id: u64, now_ns: u64) -> Result<(), string> {
+            for (i, authorized) in self.access_control.authorized_providers.enumerate() {
+                if authorized == provider_id {
+                    self.access_control.authorized_providers.remove(i);
+                    self.append_audit_log("PROVIDER_ACCESS_REVOKED", now_ns);
+                    return Ok(());
+                }
+            }
+            return Err("PROVIDER_NOT_AUTHORIZED");
+        },
+        
+        fn record_data_access(self, accessor_id: u64, access_type: string, now_ns: u64) -> Result<(), string> {
+            if !self.consent_is_valid(now_ns) && !self.emergency.emergency_override_active {
+                self.audit.unauthorized_attempts += 1;
+                self.append_audit_log("UNAUTHORIZED_ACCESS_ATTEMPT", now_ns);
+                return Err("ACCESS_DENIED_NO_CONSENT");
+            }
+            self.audit.access_log.append((accessor_id, now_ns, self.data_record.record_id, access_type));
+            self.audit.access_count += 1;
+            self.append_audit_log("DATA_ACCESSED", now_ns);
+            return Ok(());
+        },
+        
+        fn activate_emergency_override(self, activated_by: u64, duration_hours: u8, now_ns: u64) -> Result<(), string> {
+            if duration_hours == 0 || duration_hours > 24 {
+                return Err("INVALID_EMERGENCY_DURATION");
+            }
+            self.emergency.emergency_override_active = true;
+            self.emergency.emergency_override_at_ns = now_ns;
+            self.emergency.emergency_override_by = activated_by;
+            self.emergency.emergency_override_expires_ns = now_ns + (duration_hours as u64 * 3600000000000);
+            self.emergency.emergency_access_count += 1;
+            self.append_audit_log("EMERGENCY_OVERRIDE_ACTIVATED", now_ns);
+            return Ok(());
+        },
+        
+        fn deactivate_emergency_override(self, now_ns: u64) -> Result<(), string> {
+            if !self.emergency.emergency_override_active {
+                return Err("EMERGENCY_OVERRIDE_NOT_ACTIVE");
+            }
+            self.emergency.emergency_override_active = false;
+            self.append_audit_log("EMERGENCY_OVERRIDE_DEACTIVATED", now_ns);
+            return Ok(());
+        },
+        
+        fn consent_is_valid(self, now_ns: u64) -> bool {
+            return !self.consent.revoked && 
+                   now_ns >= self.consent.granted_at_ns && 
+                   now_ns < self.consent.expires_at_ns;
+        },
+        
+        fn emergency_override_is_valid(self, now_ns: u64) -> bool {
+            return self.emergency.emergency_override_active && 
+                   now_ns < self.emergency.emergency_override_expires_ns;
+        },
+        
+        fn schedule_data_deletion(self, deletion_date_ns: u64) -> Result<(), string> {
+            if deletion_date_ns <= current_timestamp_ns() {
+                return Err("DELETION_DATE_MUST_BE_FUTURE");
+            }
+            self.data_record.deletion_scheduled = true;
+            self.data_record.retention_until_ns = deletion_date_ns;
+            self.append_audit_log("DELETION_SCHEDULED", deletion_date_ns);
+            return Ok(());
+        },
+        
+        fn compute_privacy_score(self, now_ns: u64) -> f64 {
+            let mut score = 1.0;
+            if !self.consent_is_valid(now_ns) && !self.emergency_override_is_valid(now_ns) {
+                score -= 0.3;
+            }
+            if self.audit.unauthorized_attempts > 0 {
+                score -= (self.audit.unauthorized_attempts as f64 * 0.05).min(0.3);
+            }
+            if self.consent.violations > 0 {
+                score -= (self.consent.violations as f64 * 0.1).min(0.4);
+            }
+            if !self.access_control.zero_knowledge_verification {
+                score -= 0.1;
+            }
+            return score.max(0.0);
+        },
+        
+        fn time_to_consent_expiration_days(self, now_ns: u64) -> u32 {
+            if self.consent.revoked {
+                return 0;
+            }
+            if now_ns >= self.consent.expires_at_ns {
+                return 0;
+            }
+            let remaining_ns = self.consent.expires_at_ns - now_ns;
+            return (remaining_ns / 86400000000000) as u32;
+        },
+    },
+    
+    @events: {
+        event ShardCreated { shard_id: u64, patient_did: string, timestamp_ns: u64 },
+        event ConsentGranted { shard_id: u64, consent_id: u64, consent_type: string, expires_ns: u64, timestamp_ns: u64 },
+        event ConsentRevoked { shard_id: u64, consent_id: u64, timestamp_ns: u64 },
+        event ProviderAuthorized { shard_id: u64, provider_id: u64, timestamp_ns: u64 },
+        event ProviderAccessRevoked { shard_id: u64, provider_id: u64, timestamp_ns: u64 },
+        event DataAccessed { shard_id: u64, accessor_id: u64, access_type: string, timestamp_ns: u64 },
+        event UnauthorizedAccessAttempt { shard_id: u64, accessor_id: u64, timestamp_ns: u64 },
+        event EmergencyOverrideActivated { shard_id: u64, activated_by: u64, expires_ns: u64, timestamp_ns: u64 },
+        event EmergencyOverrideDeactivated { shard_id: u64, timestamp_ns: u64 },
+        event DataDeletionScheduled { shard_id: u64, deletion_date_ns: u64, timestamp_ns: u64 },
+        event ConsentViolationDetected { shard_id: u64, violation_type: string, timestamp_ns: u64 },
+    },
+    
+    @audit: {
+        audit_log: [u8; 16384],
+        audit_pointer: u32,
+        fn append_audit_log(self, entry_type: string, timestamp_ns: u64) {
+            let entry = format!("{}|{}", entry_type, timestamp_ns);
+            if self.audit_pointer + entry.length() <= 16384 {
+                self.audit_log[self.audit_pointer..self.audit_pointer + entry.length()].copy_from_slice(entry.as_bytes());
+                self.audit_pointer += entry.length();
+            }
+        },
+    },
+}
+
+export HealthcareDataSovereigntyShard;
+
+shard BiosignalDataShard {
+    @id: u64,
+    @patient_did: string,
+    @collector_device_id: u64,
+    @signal_type: enum[eeg, ecg, emg, eog, gsr, ppg, bci_command, neural_pattern],
+    @sampling_rate_hz: u32,
+    @encryption_standard: string,
+    
+    @neurorights: {
+        mental_privacy_enabled: bool,
+        personal_identity_protected: bool,
+        free_will_preserved: bool,
+        protection_from_bias: bool,
+        commercial_use_prohibited: bool,
+        neural_data_sovereignty: bool,
+    },
+    
+    @data_retention: {
+        raw_data_retention_days: u32,
+        processed_data_retention_days: u32,
+        anonymized_data_retention_days: u32,
+        auto_deletion_enabled: bool,
+        export_on_request: bool,
+    },
+    
+    @access_log: {
+        total_accesses: u64,
+        research_accesses: u64,
+        clinical_accesses: u64,
+        commercial_accesses: u64,
+        last_access_ns: u64,
+    },
+    
+    @invariants: {
+        invariant mental_privacy_required: self.neurorights.mental_privacy_enabled == true,
+        invariant commercial_prohibition: self.neurorights.commercial_use_prohibited == true,
+        invariant sovereignty_required: self.neurorights.neural_data_sovereignty == true,
+        invariant encryption_mandatory: self.encryption_standard != "",
+    },
+    
+    @methods: {
+        fn validate_collection_consent(self, consent_shard_id: u64, now_ns: u64) -> Result<bool, string> {
+            if !self.neurorights.mental_privacy_enabled {
+                return Err("NEURORIGHTS_VIOLATION");
+            }
+            if self.neurorights.commercial_use_prohibited {
+                return Ok(true);
+            }
+            return Err("COMMERCIAL_USE_NOT_AUTHORIZED");
+        },
+        
+        fn record_data_access(self, access_type: string, accessor_id: u64, now_ns: u64) {
+            self.access_log.total_accesses += 1;
+            if access_type == "research" {
+                self.access_log.research_accesses += 1;
+            } else if access_type == "clinical" {
+                self.access_log.clinical_accesses += 1;
+            } else if access_type == "commercial" {
+                self.access_log.commercial_accesses += 1;
+            }
+            self.access_log.last_access_ns = now_ns;
+        },
+        
+        fn compute_data_sovereignty_score(self, now_ns: u64) -> f64 {
+            let mut score = 1.0;
+            if !self.neurorights.mental_privacy_enabled { score -= 0.3; }
+            if !self.neurorights.neural_data_sovereignty { score -= 0.3; }
+            if self.access_log.commercial_accesses > 0 { score -= 0.2; }
+            return score.max(0.0);
+        },
+    },
+    
+    @events: {
+        event BiosignalCollected { shard_id: u64, signal_type: string, sample_count: u64, timestamp_ns: u64 },
+        event BiosignalAccessed { shard_id: u64, access_type: string, accessor_id: u64, timestamp_ns: u64 },
+        event NeurorightsViolation { shard_id: u64, violation_type: string, timestamp_ns: u64 },
+        event DataExportRequested { shard_id: u64, patient_did: string, timestamp_ns: u64 },
+    },
+}
+
+export BiosignalDataShard;
