@@ -1,0 +1,370 @@
+name: Aletheion Environmental & Climate Resilience Workflow v001
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+      - env-*
+    paths:
+      - 'aletheion/environment/**'
+      - 'aletheion/rm/environment/**'
+  pull_request:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+      - env-*
+    paths:
+      - 'aletheion/environment/**'
+  workflow_dispatch:
+    inputs:
+      run_profile:
+        description: "Run profile (fast, full, domain-monsoon, domain-heat, domain-awg, domain-dust)"
+        required: false
+        default: "fast"
+
+env:
+  RUST_BACKTRACE: "1"
+  CARGO_TERM_COLOR: always
+  ALETHEION_ERM_PROFILE: "phoenix"
+  ALETHEION_ENV_MONSOON_SCHEMA: "aletheion/erm/environment/ALE-ENV-MONSOON-GRAMMAR-001.aln"
+  ALETHEION_CLIMATE_STATE_SCHEMA: "aletheion/erm/climate/ALE-CLIMATE-RESILIENCE-STATE-001.aln"
+  ALETHEION_ENV_COOL_PAVEMENT_KERNEL: "aletheion/infra/environment/heat/mitigation/ALE-ENV-HEAT-ALBEDO-KERNEL-001.cpp"
+  ALETHEION_ENV_NATIVE_SPECIES_PLANNER: "aletheion/environment/jobs/ALE-ENV-SONORAN-CONTINUITY-001.lua"
+
+jobs:
+  matrix-dispatch:
+    name: Compute Environmental Resilience Matrix
+    runs-on: ubuntu-latest
+    outputs:
+      run_fast: ${{ steps.profile.outputs.run_fast }}
+      run_full: ${{ steps.profile.outputs.run_full }}
+      run_monsoon: ${{ steps.profile.outputs.run_monsoon }}
+      run_heat: ${{ steps.profile.outputs.run_heat }}
+      run_awg: ${{ steps.profile.outputs.run_awg }}
+      run_dust: ${{ steps.profile.outputs.run_dust }}
+      run_ecosystem: ${{ steps.profile.outputs.run_ecosystem }}
+      run_circularity: ${{ steps.profile.outputs.run_circularity }}
+    steps:
+      - name: Resolve environmental profile
+        id: profile
+        run: |
+          profile="${{ github.event.inputs.run_profile || 'fast' }}"
+          echo "profile=${profile}"
+          case "${profile}" in
+            fast)
+              echo "run_fast=true" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_monsoon=true" >> $GITHUB_OUTPUT
+              echo "run_heat=true" >> $GITHUB_OUTPUT
+              echo "run_awg=true" >> $GITHUB_OUTPUT
+              echo "run_dust=true" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=false" >> $GITHUB_OUTPUT
+              echo "run_circularity=true" >> $GITHUB_OUTPUT
+              ;;
+            full)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=true" >> $GITHUB_OUTPUT
+              echo "run_monsoon=true" >> $GITHUB_OUTPUT
+              echo "run_heat=true" >> $GITHUB_OUTPUT
+              echo "run_awg=true" >> $GITHUB_OUTPUT
+              echo "run_dust=true" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=true" >> $GITHUB_OUTPUT
+              echo "run_circularity=true" >> $GITHUB_OUTPUT
+              ;;
+            domain-monsoon)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_monsoon=true" >> $GITHUB_OUTPUT
+              echo "run_heat=false" >> $GITHUB_OUTPUT
+              echo "run_awg=false" >> $GITHUB_OUTPUT
+              echo "run_dust=false" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=false" >> $GITHUB_OUTPUT
+              echo "run_circularity=false" >> $GITHUB_OUTPUT
+              ;;
+            domain-heat)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_monsoon=false" >> $GITHUB_OUTPUT
+              echo "run_heat=true" >> $GITHUB_OUTPUT
+              echo "run_awg=false" >> $GITHUB_OUTPUT
+              echo "run_dust=false" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=false" >> $GITHUB_OUTPUT
+              echo "run_circularity=false" >> $GITHUB_OUTPUT
+              ;;
+            domain-awg)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_monsoon=false" >> $GITHUB_OUTPUT
+              echo "run_heat=false" >> $GITHUB_OUTPUT
+              echo "run_awg=true" >> $GITHUB_OUTPUT
+              echo "run_dust=false" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=false" >> $GITHUB_OUTPUT
+              echo "run_circularity=false" >> $GITHUB_OUTPUT
+              ;;
+            domain-dust)
+              echo "run_fast=false" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_monsoon=false" >> $GITHUB_OUTPUT
+              echo "run_heat=false" >> $GITHUB_OUTPUT
+              echo "run_awg=false" >> $GITHUB_OUTPUT
+              echo "run_dust=true" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=false" >> $GITHUB_OUTPUT
+              echo "run_circularity=false" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "Unknown profile '${profile}', defaulting to fast"
+              echo "run_fast=true" >> $GITHUB_OUTPUT
+              echo "run_full=false" >> $GITHUB_OUTPUT
+              echo "run_monsoon=true" >> $GITHUB_OUTPUT
+              echo "run_heat=true" >> $GITHUB_OUTPUT
+              echo "run_awg=true" >> $GITHUB_OUTPUT
+              echo "run_dust=true" >> $GITHUB_OUTPUT
+              echo "run_ecosystem=false" >> $GITHUB_OUTPUT
+              echo "run_circularity=true" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+  compliance-preflight:
+    name: Environmental Compliance Preflight
+    runs-on: ubuntu-latest
+    needs: matrix-dispatch
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Build environmental compliance core
+        run: |
+          cargo build \
+            --manifest-path aletheion/environment/compliance/core/Cargo.toml \
+            --package alethion-env-compliance-core
+      - name: Run environmental scan
+        run: |
+          cargo run \
+            --manifest-path aletheion/environment/compliance/core/Cargo.toml \
+            --package alethion-env-compliance-core \
+            --bin alethion-env-compliance-scan \
+            -- \
+              --root aletheion/environment \
+              --enforce-reclamation 0.99 \
+              --forbid-term "digital twin" \
+              --forbid-language "Python"
+
+  governance-schema-preflight:
+    name: Environmental Governance & Birth-Sign Schema Preflight
+    runs-on: ubuntu-latest
+    needs: compliance-preflight
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Validate ALN environmental grammars
+        run: |
+          cargo run \
+            --manifest-path aletheion/governance/tools/Cargo.toml \
+            --package alethion-governance-schema-check \
+            -- \
+              --climate-schema "${ALETHEION_CLIMATE_STATE_SCHEMA}" \
+              --monsoon-schema "${ALETHEION_ENV_MONSOON_SCHEMA}" \
+              --require-ecology "sonoran-native"
+      - name: Enforce BirthSign usage in environmental domains
+        run: |
+          cargo run \
+            --manifest-path aletheion/governance/tools/Cargo.toml \
+            --package alethion-governance-schema-check \
+            -- \
+              verify-birthsign-hooks \
+              --root aletheion/environment \
+              --require-for-domains "monsoon,heat,awg,dust,ecosystem,circularity"
+
+  monsoon-suite:
+    name: Monsoon Flash-Flood & Stormwater Harvest Suite
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    if: needs.matrix-dispatch.outputs.run_monsoon == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run AWP monsoon ingestion tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/environment/Cargo.toml \
+            --package ALE-RM-MONSOON-INGEST-001 \
+            --features "phoenix-monsoon"
+      - name: Stormwater recharge calibration
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/environment/Cargo.toml \
+            --package ALE-RM-STORMWATER-STATE-001 \
+            --features "phoenix-recharge"
+      - name: Flash-flood allocation scenarios
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/environment/Cargo.toml \
+            --package ALE-RM-FLOOD-ALLOCATION-001
+
+  heat-mitigation-suite:
+    name: Urban Heat & Cool Pavement Mitigation Suite
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    if: needs.matrix-dispatch.outputs.run_heat == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Albedo optimization & thermal surface tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/thermal/Cargo.toml \
+            --package ALE-ENV-HEAT-ALBEDO-OPT-001
+      - name: Cool pavement kernel (C++)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential cmake
+          cmake -S aletheion/infra/environment/heat/mitigation -B aletheion/infra/environment/heat/mitigation/build
+          cmake --build aletheion/infra/environment/heat/mitigation/build --config Release
+          ctest --test-dir aletheion/infra/environment/heat/mitigation/build
+      - name: Heatwave co-optimization
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/environment/Cargo.toml \
+            --package ALE-RM-HEAT-MITIGATION-001
+
+  awg-harvest-suite:
+    name: Atmospheric Water Generation Harvest Suite
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    if: needs.matrix-dispatch.outputs.run_awg == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: MOF-based AWG efficiency calibration
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/water/Cargo.toml \
+            --package ALE-RM-AWG-HARVEST-001 \
+            --features "desert-mof"
+      - name: Desert humidity collection scenarios
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/environment/Cargo.toml \
+            --package ALE-RM-HUMIDITY-STATE-001
+
+  dust-haboob-suite:
+    name: Haboob Dust Storm Detection & Mitigation Suite
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    if: needs.matrix-dispatch.outputs.run_dust == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Particulate sensor ingestion & alert engine
+        run: |
+          cargo test \
+            --manifest-path aletheion/emergency/dust/Cargo.toml \
+            --all-targets
+      - name: Air filtration route isolation
+        run: |
+          cargo test \
+            --manifest-path aletheion/infra/environment/dust/Cargo.toml \
+            --all-targets
+
+  ecosystem-suite:
+    name: Sonoran Native Ecosystem Continuity Suite
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    if: needs.matrix-dispatch.outputs.run_ecosystem == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Validate ecosystem ALN models
+        run: |
+          cargo run \
+            --manifest-path aletheion/synthexis/tools/Cargo.toml \
+            --package alethion-ecosystem-aln-check \
+            -- \
+              --species aletheion/environment/model/SonoranAgent.aln
+      - name: Habitat corridor optimizer
+        run: |
+          cargo test \
+            --manifest-path aletheion/synthexis/engine/Cargo.toml \
+            --package ALE-ENV-HABITAT-CONTINUITY-001
+      - name: Native species planner sanity
+        run: |
+          luac -p "${ALETHEION_ENV_NATIVE_SPECIES_PLANNER}"
+
+  circularity-suite:
+    name: 99 Percent Diversion & Materials Closure Suite
+    runs-on: ubuntu-latest
+    needs: governance-schema-preflight
+    if: needs.matrix-dispatch.outputs.run_circularity == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      - name: Provenance & circularity kernel tests
+        run: |
+          cargo test \
+            --manifest-path aletheion/rm/materials/Cargo.toml \
+            --package ALE-ENV-CIRCULAR-STATE-001
+      - name: Demolition-to-resource pipeline
+        run: |
+          cargo test \
+            --manifest-path aletheion/infra/environment/materials/Cargo.toml \
+            --all-targets
+
+  citizen-climate-metrics:
+    name: Climate Citizen PM Metrics & Alerts
+    runs-on: ubuntu-latest
+    needs:
+      - monsoon-suite
+      - heat-mitigation-suite
+      - awg-harvest-suite
+      - dust-haboob-suite
+      - ecosystem-suite
+      - circularity-suite
+    if: needs.matrix-dispatch.outputs.run_full == 'true'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Climate dashboard integration tests
+        run: |
+          cd aletheion/citizen/web
+          npm ci
+          npm test -- --grep "climate-resilience"
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Kotlin citizen climate unit tests
+        run: |
+          cd aletheion/citizen/mobile
+          ./gradlew testDebugUnitTest --tests "*Climate*"
+      - name: Aggregate environmental PM metrics
+        run: |
+          cargo run \
+            --manifest-path aletheion/pm/metrics/Cargo.toml \
+            --package alethion-pm-metrics \
+            -- \
+              --profile "${ALETHEION_ERM_PROFILE}" \
+              --domain env-climate \
+              --emit-json pm-out/env-climate-metrics-${{ github.sha }}.json
+      - name: Upload climate metrics artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-climate-metrics-${{ github.sha }}
+          path: pm-out/
