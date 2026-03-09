@@ -1,0 +1,460 @@
+aln ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln
+Aletheion Governance Rights & Treaty Base Grammar
+
+Location
+  aletheion/governance/aln/ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln
+
+Purpose
+  Canonical ALN grammar for RightsAtom, BioticTreaty, MicroTreaty, FPIC atoms,
+  and related references. All governance modules (LexEthos, Synthexis, BirthSigns,
+  consent, ecosafety, emergency, mobility, labor, culture) MUST import this file
+  instead of redefining rights or treaty shapes locally.[file:2]
+
+namespace ALE.GOV.RIGHTS.TREATY.GRAMMAR.001
+
+# --------------------------------------------------------------------
+# 1. Core identifiers and enums
+# --------------------------------------------------------------------
+
+atom RightsId
+  doc Stable identifier for a rights atom (e.g. SHADE_MINIMUM_2H, QUIET_NIGHT_22_06).
+  field id string
+
+atom TreatyId
+  doc Stable identifier for a treaty or governance instrument (e.g. FPIC_TERRITORY_X_2024).
+  field id string
+
+atom MicroTreatyId
+  doc Stable identifier for a micro-treaty compiled by LexEthos (neighborhood/workplace/event).
+  field id string
+
+atom BioticTreatyId
+  doc Stable identifier for a cross-species treaty in Synthexis.[file:2]
+  field id string
+
+atom BirthSignId
+  doc Identifier for a territorial Birth-Sign, imported from Birth-Sign model.[file:2]
+  field id string
+
+atom Did
+  doc Decentralized identifier for person, group, device, or institution.
+  field id string
+
+atom GeoTileId
+  doc Spatial tile identifier, aligned with Birth-Signs and ERM geographies.[file:2]
+  field id string
+
+atom WorkflowId
+  doc Workflow identifier (e.g. AWP_WATER_ALLOCATION, SOMAPLEX_ROUTING).
+  field id string
+
+enum RightsDomain
+  doc High-level domain to which a right applies.
+  WATER
+  THERMAL
+  AIR
+  SOUND
+  LIGHT
+  MOBILITY
+  LAND_USE
+  HOUSING
+  LABOR
+  CARE
+  BIOSIGNALS
+  AUGMENTATION
+  DATA
+  CULTURE
+  GOVERNANCE
+  EDUCATION
+  SAFETY
+
+enum HolderKind
+  doc Type of rights holder.
+  HUMAN_INDIVIDUAL
+  HUMAN_GROUP
+  SPECIES
+  ECOSYSTEM
+  INDIGENOUS_TERRITORY
+  NEIGHBORHOOD
+  WORKPLACE
+  SCHOOL
+  FACILITY
+  CITY
+  FUTURE_GENERATIONS
+
+enum ObjectKind
+  doc Type of object on which the right is exercised.
+  SPACE
+  RESOURCE
+  SERVICE
+  INFRASTRUCTURE
+  DATA_STREAM
+  DEVICE
+  POLICY
+  PROCESS
+  SCHEDULE
+  ROUTE
+  SIGNAL
+  TREATY
+
+enum Modality
+  doc Deontic modality of a rights claim.
+  OBLIGATION       # must do
+  PROHIBITION      # must not do
+  PERMISSION       # may do
+  CLAIM_RIGHT      # holder is owed something
+  IMMUNITY         # shield against certain actions
+  POWER            # ability to change norms (e.g. vote)
+  LIABILITY        # subject to remedy if violated
+
+enum EnforcementMode
+  doc How violations must be treated by optimization and governance engines.[file:2]
+  HARD        # Violations cause immediate rejection.
+  HIGH_PENALTY  # Violations strongly penalized but may pass in emergency with audit.
+  SOFT        # Advisory; used for ranking and explanations, not hard gating.
+
+enum TemporalScope
+  doc Time structure of a right or treaty.
+  PERMANENT
+  SEASONAL
+  DAILY_WINDOW
+  EVENT_BOUND
+  EMERGENCY_BOUND
+  EXPERIMENTAL_PILOT
+
+enum ConditionKind
+  doc Condition category for activation of a right/treaty clause.
+  ALWAYS
+  TIME_OF_DAY
+  DAY_OF_WEEK
+  SEASON
+  WEATHER_EVENT
+  HEAT_INDEX
+  AIR_QUALITY_INDEX
+  EMERGENCY_STATUS
+  WORK_SHIFT
+  EDUCATION_TERM
+  FESTIVAL_OR_EVENT
+  FPIC_STATUS
+  BIRTHSIGN_DOMAIN
+
+enum RemedyKind
+  doc Preferred remedy style for violations.
+  MICRO_ADJUSTMENT       # small retimings, reroutes, dimming.
+  COMPENSATION           # credits, rebates, service priority.
+  STRUCTURAL_CHANGE      # change in policy/treaty or infrastructure config.
+  HUMAN_MEDIATION        # route to ombuds or assembly.
+  HALT_AND_REVIEW        # stop automation, require governance review.
+
+# --------------------------------------------------------------------
+# 2. Conditions, scopes, and quantitative envelopes
+# --------------------------------------------------------------------
+
+atom TimeWindow
+  doc Local time window constraint, used for daily/seasonal rights.
+  field start_local_time string  # "HH:MM"
+  field end_local_time   string  # "HH:MM"
+
+atom HeatEnvelope
+  doc Heat-exposure band used by Thermaphora/heat workflows.[file:2]
+  field max_daily_celsius float
+  field max_night_celsius  float
+  field chrono_equity_weight float
+
+atom NoiseEnvelope
+  doc Sound-pressure constraints in dBA, per context.
+  field max_db_day float
+  field max_db_night float
+
+atom LightEnvelope
+  doc Light constraints for species/humans, e.g. lux limits at night.
+  field max_lux_night float
+  field spectral_notes string
+
+atom QuantityEnvelope
+  doc Generic quantity bound (water, energy, mobility throughput).
+  field quantity_name string
+  field min_value float
+  field max_value float
+  field unit string
+
+atom ConditionAtom
+  doc Logical activation condition for a right or clause.
+  field kind ConditionKind
+  field expr string
+  # expr is evaluated by governance engines; examples:
+  # "HEAT_INDEX >= 38"
+  # "DAY_OF_WEEK in [SATURDAY,SUNDAY]"
+  # "FPIC_STATUS == GRANTED"
+  # "BIRTHSIGN_HAS_DOMAIN == WATER"
+
+atom ScopeAtom
+  doc Spatial and workflow scope of a right or treaty clause.
+  field tiles list GeoTileId
+  field workflows list WorkflowId
+
+# --------------------------------------------------------------------
+# 3. Rights atoms
+# --------------------------------------------------------------------
+
+atom RightsHolder
+  doc Who holds the right.
+  field kind HolderKind
+  field did optional Did
+  field label string
+
+atom RightsObject
+  doc Object over which the right is asserted.
+  field kind ObjectKind
+  field label string
+
+atom RightsEnvelope
+  doc Optional quantitative envelopes tied to a right.
+  field heat optional HeatEnvelope
+  field noise optional NoiseEnvelope
+  field light optional LightEnvelope
+  field quantity optional QuantityEnvelope
+
+atom RightsAtom
+  doc Canonical rights atom in Aletheion.[file:2]
+  field rights_id RightsId
+  field domain RightsDomain
+  field holder RightsHolder
+  field object RightsObject
+  field modality Modality
+  field enforcement EnforcementMode
+  field temporal TemporalScope
+  field conditions list ConditionAtom
+  field scope ScopeAtom
+  field envelope optional RightsEnvelope
+  field justification string   # plain-language rationale for citizen surfaces.
+  field source_treaties list TreatyId  # which treaties / laws ground this atom.
+
+# --------------------------------------------------------------------
+# 4. FPIC primitives
+# --------------------------------------------------------------------
+
+enum FpicRequirement
+  doc Required FPIC level for a spatial tile or action.[file:2]
+  NOT_APPLICABLE
+  REQUIRED_BEFORE_PLANNING
+  REQUIRED_BEFORE_EXECUTION
+  EMERGENCY_OVERRIDE_WITH_AUDIT
+
+enum FpicStatus
+  doc Evaluated FPIC status for a concrete decision.[file:2]
+  NOT_REQUIRED
+  PENDING
+  GRANTED
+  DENIED
+
+atom FpicRequirementAtom
+  doc FPIC requirement bound to an Indigenous territory, tile, or treaty.
+  field territory_id string       # aligns with IndigenousTerritoryId in Birth-Sign model.[file:2]
+  field birthsign_id BirthSignId
+  field requirement FpicRequirement
+  field treaties list TreatyId
+
+atom FpicGrantAtom
+  doc A concrete FPIC grant or denial decision.
+  field grant_id string
+  field territory_id string
+  field subject Did
+  field operator Did
+  field birthsign_id BirthSignId
+  field status FpicStatus
+  field granted_at string         # ISO-8601 timestamp
+  field expires_at optional string
+  field reference_treaties list TreatyId
+  field notes string
+
+# --------------------------------------------------------------------
+# 5. BioticTreaty and species envelopes
+# --------------------------------------------------------------------
+
+enum SpeciesRole
+  doc Role of a species in an ecosystem context.
+  KEYSTONE
+  INDICATOR
+  POLLINATOR
+  PREDATOR
+  PREY
+  HUMAN_COMPANION
+  MICROBIOME
+  VEGETATION
+  AQUATIC_SPECIES
+
+atom SpeciesRef
+  doc Species reference used in Synthexis and Neurobiome workflows.[file:2]
+  field scientific_name string
+  field common_name string
+  field role SpeciesRole
+
+atom HabitatCorridorRef
+  doc Reference to a habitat corridor that must not be broken.
+  field corridor_id string
+  field description string
+
+atom BioticConstraint
+  doc Constraint on light, noise, chemicals, water for a species or corridor.[file:2]
+  field light optional LightEnvelope
+  field noise optional NoiseEnvelope
+  field chemical_envelope optional QuantityEnvelope
+  field water_envelope optional QuantityEnvelope
+
+atom BioticTreatyClause
+  doc Single clause in a BioticTreaty, linking species and constraints.
+  field species SpeciesRef
+  field habitats list HabitatCorridorRef
+  field conditions list ConditionAtom
+  field constraints BioticConstraint
+  field enforcement EnforcementMode
+  field remedies list RemedyKind
+
+atom BioticTreaty
+  doc Canonical cross-species treaty structure used by Synthexis.[file:2]
+  field biotic_treaty_id BioticTreatyId
+  field label string
+  field description string
+  field birthsign_ids list BirthSignId
+  field clauses list BioticTreatyClause
+  field temporal TemporalScope
+  field source_laws list TreatyId
+
+# --------------------------------------------------------------------
+# 6. MicroTreaty (LexEthos) structures
+# --------------------------------------------------------------------
+
+enum MicroTreatyScopeKind
+  NEIGHBORHOOD
+  WORKPLACE
+  SCHOOL_OR_CAMPUS
+  FACILITY
+  EVENT
+  PLATFORM
+
+atom MicroTreatyScope
+  doc Where this micro-treaty applies.
+  field kind MicroTreatyScopeKind
+  field label string
+  field tiles list GeoTileId
+
+atom MicroTreatyClause
+  doc Clause linking one or more RightsAtom to local context.[file:2][file:5]
+  field clause_id string
+  field rights list RightsId
+  field extra_conditions list ConditionAtom
+  field local_enforcement EnforcementMode
+  field local_remedies list RemedyKind
+
+atom MicroTreaty
+  doc Machine-compiled local treaty from LexEthos grammars.[file:5]
+  field micro_treaty_id MicroTreatyId
+  field label string
+  field description string
+  field scope MicroTreatyScope
+  field clauses list MicroTreatyClause
+  field source_grammar_version string
+  field compiled_at string  # ISO-8601
+
+# --------------------------------------------------------------------
+# 7. Governance references for Birth-Signs & decisions
+# --------------------------------------------------------------------
+
+atom RightsRef
+  doc Reference to a RightsAtom by id and optional weight.
+  field rights_id RightsId
+  field weight float
+
+atom BioticTreatyRef
+  doc Reference wrapper for BioticTreatyId used in Birth-Sign bundles.[file:2]
+  field id BioticTreatyId
+
+atom MicroTreatyRef
+  doc Reference wrapper for MicroTreatyId used in Birth-Sign bundles.[file:2]
+  field id MicroTreatyId
+
+atom GovernanceBundle
+  doc Bundle attached to a Birth-Sign tile or a governed decision.[file:2]
+  field birthsign_id BirthSignId
+  field rights list RightsRef
+  field biotic_treaties list BioticTreatyRef
+  field micro_treaties list MicroTreatyRef
+  field fpic_requirements list FpicRequirementAtom
+
+# --------------------------------------------------------------------
+# 8. Minimal canonical rights examples (Phoenix-aligned)
+# --------------------------------------------------------------------
+
+# Example shade right for humans in Downtown Phoenix (for reuse).
+const RIGHTS_SHADE_MIN_2H_SUMMER
+  RightsAtom
+  rights_id RightsId id "RIGHTS_SHADE_MIN_2H_SUMMER"
+  domain THERMAL
+  holder RightsHolder
+    kind HUMAN_INDIVIDUAL
+    did none
+    label "Any resident within Downtown Phoenix heat-vulnerable tiles"
+  object RightsObject
+    kind SPACE
+    label "Public right-of-way and common outdoor areas"
+  modality CLAIM_RIGHT
+  enforcement HIGH_PENALTY
+  temporal SEASONAL
+  conditions
+    ConditionAtom
+      kind HEAT_INDEX
+      expr "HEAT_INDEX >= 38"
+  scope
+    ScopeAtom
+      tiles [ GeoTileId id "REGION_DOWNTOWN_CORE" ]
+      workflows [ WorkflowId id "ALE-EM-HEAT-MONSOON-PLAYBOOK-001" ]
+  envelope
+    RightsEnvelope
+      heat
+        HeatEnvelope
+          max_daily_celsius 35.0
+          max_night_celsius 28.0
+          chrono_equity_weight 1.0
+      noise none
+      light none
+      quantity none
+  justification "Guarantee minimum shade/cooling interventions for residents during extreme heat periods."
+  source_treaties [ TreatyId id "PHX_HEAT_ACTION_PLAN_2050" ]
+
+# Example quiet-night right for LexEthos micro-treaties.
+const RIGHTS_QUIET_NIGHT_22_06
+  RightsAtom
+  rights_id RightsId id "RIGHTS_QUIET_NIGHT_22_06"
+  domain SOUND
+  holder RightsHolder
+    kind NEIGHBORHOOD
+    did none
+    label "Neighborhood collective within specified tiles"
+  object RightsObject
+    kind SPACE
+    label "Residential soundscape"
+  modality CLAIM_RIGHT
+  enforcement HIGH_PENALTY
+  temporal DAILY_WINDOW
+  conditions
+    ConditionAtom
+      kind TIME_OF_DAY
+      expr "LOCAL_TIME in [22:00,06:00)"
+  scope
+    ScopeAtom
+      tiles [ GeoTileId id "REGION_DOWNTOWN_CORE" ]
+      workflows [ WorkflowId id "ALE-LEX-MICROTREATY-ENGINE" ]
+  envelope
+    RightsEnvelope
+      noise
+        NoiseEnvelope
+          max_db_day 65.0
+          max_db_night 45.0
+      heat none
+      light none
+      quantity none
+  justification "Protect residents from excessive nighttime noise to support rest and health."
+  source_treaties [ TreatyId id "LOCAL_NOISE_ORDINANCE_PHOENIX" ]
+
+end namespace
