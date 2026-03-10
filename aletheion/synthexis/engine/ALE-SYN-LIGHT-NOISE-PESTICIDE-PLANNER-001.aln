@@ -1,0 +1,164 @@
+// Placement:
+//   aletheion/synthexis/engine/ALE-SYN-LIGHT-NOISE-PESTICIDE-PLANNER-001.aln
+//
+// Purpose:
+//   Bind Synthexis planner inputs (SpeciesAgent, BioticTreaty, human comfort targets,
+//   base infrastructure state, species-activity forecasts) to the Rust planner engine
+//   ALE-SYN-LIGHT-NOISE-PESTICIDE-PLANNER-001.rs. [file:5][file:6]
+
+namespace Aletheion.Synthexis.LightNoisePesticidePlanner.v1
+
+type SpeciesId  = String
+type TreatyId   = String
+type SegmentId  = String
+type ZoneId     = String
+type Score      = Float // 0–1, enforced below
+
+extern type SpeciesAgentRef {
+  id        : SpeciesId
+  modelPath : String
+}
+
+extern type BioticTreatyRef {
+  id        : TreatyId
+  modelPath : String
+}
+
+// ---- Human comfort and safety targets per zone ----
+
+type HumanComfortTargets {
+  minIlluminanceLux : Float
+  maxNightDba       : Float
+  maxPestPressure   : Score
+}
+
+// ---- Treaties projected into LNP space ----
+
+type BioticTreatyEnv {
+  treatyId               : TreatyId
+  speciesIds             : List<SpeciesId>
+  maxCorridorLux         : Float
+  maxNightDba            : Float
+  pesticideRestrictive   : Bool
+}
+
+// ---- Species-activity forecasts ----
+
+type SpeciesActivity {
+  speciesId   : SpeciesId
+  timeBand    : String // "18-22", "22-06", etc.
+  segmentId   : SegmentId
+  activityProb: Score
+}
+
+// ---- Base infrastructure state per segment ----
+
+type SegmentBaseState {
+  segmentId             : SegmentId
+  zoneId                : ZoneId
+  currentLux            : Float
+  spectrum              : String
+  dimmable              : Bool
+  shieldable            : Bool
+  currentNightDba       : Float
+  hasImpulsiveSources   : Bool
+  pesticideRegime       : String
+  nearPollinatorCorridor: Bool
+}
+
+// ---- Engine configuration ----
+
+type LightNoisePesticidePlannerConfig {
+  safetyLuxFloor               : Float
+  minQuietHoursHighActivity    : Float
+  pesticideWindowHours         : Float
+}
+
+// ---- Outputs ----
+
+type OperatingEnvelope {
+  segmentId        : SegmentId
+  timeBand         : String
+  maxLux           : Float
+  allowedSpectra   : List<String>
+  fullOffWindows   : List<(String, String)>
+  shieldingRequired: Bool
+  maxDba           : Float
+  quietHours       : List<(String, String)>
+  allowedWindows   : List<(String, String)>
+  noSprayZones     : List<String>
+}
+
+type ViolationReport {
+  segmentId       : SegmentId
+  timeBand        : String
+  treatyId        : TreatyId
+  violationType   : String
+  magnitude       : Float
+  suggestedChange : String
+}
+
+type PlannerMeta = Map<String, String>
+
+type PlannerOutput {
+  envelopes : List<OperatingEnvelope>
+  violations: List<ViolationReport>
+  meta      : PlannerMeta
+}
+
+// ---- Core engine contract ----
+
+contract LightNoisePesticidePlanner {
+  import RustEngine from "aletheion/synthexis/engine/impl/rust/ALE-SYN-LIGHT-NOISE-PESTICIDE-PLANNER-001.rs"
+
+  fn compute(
+    dateIso              : String,
+    segments             : List<SegmentBaseState>,
+    treaties             : List<BioticTreatyEnv>,
+    humanTargetsByZone   : Map<ZoneId, HumanComfortTargets>,
+    speciesActivity      : List<SpeciesActivity>,
+    cfg                  : LightNoisePesticidePlannerConfig
+  ) -> PlannerOutput
+}
+
+// ---- Safety & coherence constraints ----
+
+// Scores must be within [0,1]. [file:6]
+constraint ScoreRanges {
+  forAll a in LightNoisePesticidePlanner.speciesActivity {
+    a.activityProb >= 0.0 && a.activityProb <= 1.0
+  }
+  forAll z in LightNoisePesticidePlanner.humanTargetsByZone.values {
+    z.maxPestPressure >= 0.0 && z.maxPestPressure <= 1.0
+  }
+}
+
+// Envelopes must reference known segments. [file:5][file:6]
+constraint EnvelopeSegmentBinding {
+  forAll e in PlannerOutput.envelopes {
+    exists s in LightNoisePesticidePlanner.segments . where s.segmentId == e.segmentId
+  }
+}
+
+// Lighting and noise thresholds should not exceed declared human safety ceilings. [file:5]
+constraint EnvelopeWithinHumanCeilings {
+  forAll e in PlannerOutput.envelopes {
+    let z = first(LightNoisePesticidePlanner.segments where _.segmentId == e.segmentId).zoneId
+    let ht = LightNoisePesticidePlanner.humanTargetsByZone[z]
+    e.maxLux >= LightNoisePesticidePlanner.cfg.safetyLuxFloor &&
+    e.maxDba <= ht.maxNightDba
+  }
+}
+
+// BioticTreaty hard enforcement linkage (paired with HabitatContinuityEngine). [file:5][file:8]
+rule lnp_must_respect_biotic_treaties {
+  forAll v in PlannerOutput.violations {
+    when v.violationType == "LightingLuxExceedsEnvelope" ||
+         v.violationType == "NoiseExceedsEnvelope"       ||
+         v.violationType == "PesticideRegimeTooBroad"
+    then log "BioticTreaty-related LNP violation on " + v.segmentId + " at " + v.timeBand
+}
+
+// Integration hint: NeighborhoodBioticState / neighborhoodbiotictreatyenvelope
+// should depend on both HabitatContinuityEngine and LightNoisePesticidePlanner
+// outputs before any neighborhood-level plan is marked actuation-safe. [file:8]
