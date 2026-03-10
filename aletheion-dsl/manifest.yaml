@@ -1,0 +1,173 @@
+# Aletheion Data Sovereignty Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer 2 (DSL)
+# Status: Canonical Reference for Data Sovereignty Enforcement
+
+layer_id: "aletheion-dsl-phoenix-001"
+version: "1.0.0"
+description: "Data Sovereignty Layer for Phoenix Aletheion smart city. All identity, encryption, and data residency operations must comply with this manifest."
+erm_layer: "DSL"
+
+decentralized_identity:
+  did_method: "did:aletheion"
+  w3c_compliance: "DID_Spec_v1.0"
+  key_algorithms:
+    - "CRYSTALS-Dilithium"
+    - "FALCON"
+    - "SPHINCS+"
+  blacklisted_algorithms:
+    - "SHA-256"
+    - "BLAKE"
+    - "KECCAK_256"
+    - "RIPEMD160"
+    - "SHA3-256"
+  biometric_binding:
+    enabled: true
+    privacy_preserving: true
+    raw_biometrics_stored: false
+    secure_enclave_required: true
+  key_rotation:
+    enabled: true
+    rotation_period_days: 90
+    forward_compatible_only: true
+    rollback_prohibited: true
+
+post_quantum_cryptography:
+  approved_algorithms:
+    signatures:
+      - name: "CRYSTALS-Dilithium"
+        nist_level: 3
+        key_size_bytes: 1312
+        signature_size_bytes: 2420
+      - name: "FALCON"
+        nist_level: 5
+        key_size_bytes: 897
+        signature_size_bytes: 666
+      - name: "SPHINCS+"
+        nist_level: 3
+        key_size_bytes: 32
+        signature_size_bytes: 8192
+    key_encapsulation:
+      - name: "CRYSTALS-Kyber"
+        nist_level: 3
+        public_key_bytes: 800
+        ciphertext_bytes: 768
+  encryption_at_rest:
+    algorithm: "AES-256-GCM"
+    key_exchange: "CRYSTALS-Kyber"
+    nonce_size_bytes: 12
+    auth_tag_bytes: 16
+  encryption_in_transit:
+    protocol: "TLS_1.3_PQ_HYBRID"
+    pq_key_exchange: "CRYSTALS-Kyber"
+    certificate_signature: "CRYSTALS-Dilithium"
+
+data_residency:
+  jurisdiction: "Arizona, USA"
+  approved_zones:
+    - zone_id: "ARIZONA_STATE"
+      jurisdiction: "ARIZONA"
+      allowed_classifications: ["PUBLIC", "INTERNAL"]
+    - zone_id: "PHOENIX_METRO"
+      jurisdiction: "MARICOPA_COUNTY"
+      allowed_classifications: ["PUBLIC", "INTERNAL", "CONFIDENTIAL"]
+    - zone_id: "AKIMEL_OODHAM_TERRITORY"
+      jurisdiction: "INDIGENOUS_SOVEREIGN"
+      allowed_classifications: ["PUBLIC", "INDIGENOUS"]
+      fpic_required: true
+    - zone_id: "CITIZEN_CONTROLLED"
+      jurisdiction: "SELF_SOVEREIGN"
+      allowed_classifications: ["RESTRICTED", "NEURAL"]
+  data_classifications:
+    - name: "PUBLIC"
+      residency_restriction: "NONE"
+    - name: "INTERNAL"
+      residency_restriction: "ARIZONA_JURISDICTION"
+    - name: "CONFIDENTIAL"
+      residency_restriction: "PHOENIX_METRO_ONLY"
+    - name: "RESTRICTED"
+      residency_restriction: "CITIZEN_CONTROLLED_STORAGE"
+    - name: "INDIGENOUS"
+      residency_restriction: "INDIGENOUS_TERRITORY"
+      fpic_required: true
+    - name: "NEURAL"
+      residency_restriction: "CITIZEN_CONTROLLED_STORAGE"
+      neurorights_protected: true
+  cross_border_transfer:
+    allowed: false
+    exception_process: "GOVERNANCE_APPROVAL_REQUIRED"
+    audit_required: true
+
+homomorphic_encryption:
+  enabled: true
+  schemes:
+    - name: "CKKS"
+      purpose: "Approximate arithmetic on real numbers"
+      use_cases: ["Analytics", "Machine Learning", "Statistical Aggregation"]
+    - name: "BFV"
+      purpose: "Exact arithmetic on integers"
+      use_cases: ["Counting", "Voting", "Secure Multiparty Computation"]
+  neurorights_compliance:
+    raw_data_never_decrypted: true
+    computation_on_encrypted_only: true
+    citizen_consent_required: true
+    decryption_authorization_audit: true
+  performance_parameters:
+    polynomial_modulus_degree: 16384
+    coefficient_modulus_bits: 60
+    security_level: 128
+
+offline_capability:
+  minimum_offline_hours: 72
+  local_key_storage: "SECURE_ENCLAVE"
+  encrypted_local_cache: true
+  sync_on_reconnect: true
+  conflict_resolution: "CITIZEN_AUTHORITY"
+
+indigenous_sovereignty:
+  recognized_territories:
+    - nation: "Akimel O'odham (Pima)"
+      territory_id: "AKIMEL_OODHAM_TERRITORY"
+      data_sovereignty: true
+      fpic_required: true
+      contact_did: "did:aletheion:akimel-council"
+    - nation: "Piipaash (Maricopa)"
+      territory_id: "PIIPAASH_TERRITORY"
+      data_sovereignty: true
+      fpic_required: true
+      contact_did: "did:aletheion:piipaash-council"
+  indigenous_data_protocols:
+    community_controlled: true
+    commercial_use_prohibited: true
+    cultural_sensitivity_review: true
+
+audit_requirements:
+  immutable_logs: true
+  cryptographic_proofs: true
+  birth_sign_propagation: true
+  public_verifiability: true
+  retention_period_years: 7
+  encryption_key_audit_frequency_days: 30
+
+ci_cd_requirements:
+  preflight_checks:
+    - "verify-pq-algorithm-approval"
+    - "validate-data-residency-zone"
+    - "check-indigenous-fpic-status"
+    - "verify-birthsign-propagation"
+    - "audit-homomorphic-encryption-params"
+    - "neurorights-compliance-check"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  security_audit_frequency: "MONTHLY"
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  did_wallet_manager: "/aletheion-dsl/identity/did_wallet_manager.rs"
+  pq_crypto_wrapper: "/aletheion-dsl/encryption/pq_crypto_wrapper.rs"
+  data_residency_enforcer: "/aletheion-dsl/residency/data_residency_enforcer.rs"
+  homomorphic_analytics: "/aletheion-dsl/analytics/homomorphic_analytics.cpp"
+  neurorights_framework: "/aletheion-gtl/neurorights/framework.md"
+
+# END OF DSL MANIFEST
