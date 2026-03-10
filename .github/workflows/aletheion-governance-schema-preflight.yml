@@ -1,21 +1,52 @@
-# Purpose:
-#   Central governance schema preflight for Aletheion.[file:2][file:5]
-#   Fails PRs that emit governed decision records unless they:
-#     - Import ALE-TRUST-GOVERNED-DECISION-TX-001.aln for provenance.[file:2]
-#     - Use ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln as the canonical rights/treaty base.[file:2]
-#   Enforced on all repos that participate in governed decisions (ERM, trust, governance)."[file:2][file:5]
+# =============================================================================
+# Aletheion Governance Schema Preflight CI Workflow
+# Validates ALN schemas, enforces governed-decision transaction structure,
+# and blocks ad-hoc treaty structures outside shared grammars.
+#
+# File: .github/workflows/aletheion-governance-schema-preflight.yml
+# Domain: Governance / CI-CD / Schema Validation
+# Compliance: BioticTreaties, Indigenous FPIC, EJ Zones, SMART Chain
+# Blacklist: No Python, no SHA-256, no SHA-3, no BLAKE, no external APIs
+# =============================================================================
 
 name: Aletheion Governance Schema Preflight
 
 on:
   pull_request:
     branches: [ main, dev, phoenix-* ]
+    paths:
+      - '**/*.aln'
+      - 'aletheion/governance/**/*'
+      - 'aletheion/trust/schemas/**/*'
+      - 'aletheion/erm/**/*'
   push:
     branches: [ main, dev, phoenix-* ]
+    paths:
+      - '**/*.aln'
+      - 'aletheion/governance/**/*'
+      - 'aletheion/trust/schemas/**/*'
+
+env:
+  RUST_VERSION: '1.75.0'
+  ALN_VALIDATOR_VERSION: '1.0.0'
+  GOOGOLSWARM_CLI_VERSION: '0.9.0'
+  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+  GOOGOLSWARM_ENDPOINT: ${{ secrets.GOOGOLSWARM_ENDPOINT }}
+  GOOGOLSWARM_API_KEY: ${{ secrets.GOOGOLSWARM_API_KEY }}
+
+# ===========================================================================
+# Job 0: Lightweight governed-decision emitter detection and schema link
+# This is your original ripgrep-based enforcement, kept as a fast front gate.
+# ===========================================================================
 
 jobs:
-  governance-schema-preflight:
+  governance-emitter-detection:
+    name: Detect Governed-Decision Emitters
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    outputs:
+      emitter_files: ${{ steps.detect_emitters.outputs.emitter_files }}
 
     steps:
       - name: Checkout repository
@@ -39,18 +70,18 @@ jobs:
         id: detect_emitters
         run: |
           echo "Scanning for governed decision emitters..."
-          # Any ALN schema or Rust module under trust / governance that mentions
-          # 'GovernedDecisionEnvelope' or 'GovernedDecision' is treated as an emitter.[file:2]
+          # Any ALN schema or Rust module under trust / governance / ERM that mentions
+          # 'GovernedDecisionEnvelope' or 'GovernedDecision' is treated as an emitter.
           EMITTER_FILES=$(rg -n "GovernedDecisionEnvelope|GovernedDecision" \
             aletheion/trust aletheion/governance aletheion/erm \
             --glob "*.rs" --glob "*.aln" || true)
 
-          echo "emitter_files<<EOF" >> $GITHUB_OUTPUT
-          echo "$EMITTER_FILES" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
+          echo "emitter_files<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$EMITTER_FILES" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
           if [ -z "$EMITTER_FILES" ]; then
-            echo "No governed decision emitters detected; governance schema checks will be skipped."
+            echo "No governed decision emitters detected; governance schema checks will be limited."
           else
             echo "Governed decision emitters detected:"
             echo "$EMITTER_FILES"
@@ -60,22 +91,19 @@ jobs:
         if: steps.detect_emitters.outputs.emitter_files != ''
         run: |
           echo "Enforcing ALE-TRUST-GOVERNED-DECISION-TX-001.aln import for emitters..."
-          # For each file that references governed decisions, ensure it also references
-          # the canonical transaction schema by name.[file:2]
           FAILED=0
 
-          # Collect unique file paths from ripgrep output.
           FILES=$(echo "${{ steps.detect_emitters.outputs.emitter_files }}" | cut -d: -f1 | sort -u)
 
           for f in $FILES; do
             if echo "$f" | grep -qE "\.aln$"; then
-              # ALN schemas must include or reference ALE-TRUST-GOVERNED-DECISION-TX-001.[file:2]
+              # ALN schemas must include or reference ALE-TRUST-GOVERNED-DECISION-TX-001.
               if ! rg -q "ALE-TRUST-GOVERNED-DECISION-TX-001" "$f"; then
                 echo "::error file=$f::Governed decision ALN schema must import ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
                 FAILED=1
               fi
             elif echo "$f" | grep -qE "\.rs$"; then
-              # Rust emitters must mention the canonical schema ID in comments or type mapping.[file:2]
+              # Rust emitters must mention the canonical schema ID in comments or type mapping.
               if ! rg -q "ALE-TRUST-GOVERNED-DECISION-TX-001" "$f"; then
                 echo "::error file=$f::Rust governed decision emitter must be wired to ALE-TRUST-GOVERNED-DECISION-TX-001"
                 FAILED=1
@@ -84,16 +112,540 @@ jobs:
           done
 
           if [ "$FAILED" -ne 0 ]; then
-            echo "Governed decision schema import enforcement failed."
+            echo "::error::Governed decision schema import enforcement failed."
             exit 1
           fi
+
+  # ===========================================================================
+  # Job 1: ALN Schema Syntax Validation
+  # ===========================================================================
+
+  aln-syntax-validation:
+    name: Validate ALN Schema Syntax
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: governance-emitter-detection
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt, clippy
+          target: wasm32-wasip1
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+          shared-key: aln-validator-${{ env.ALN_VALIDATOR_VERSION }}
+
+      - name: Install ALN Validator CLI
+        run: |
+          cargo install aln-validator-cli --version ${{ env.ALN_VALIDATOR_VERSION }}
+          aln-validator --version
+
+      - name: Discover ALN Files
+        id: discover
+        run: |
+          find . -name '*.aln' -type f > aln_files.txt
+          echo "total_files=$(wc -l < aln_files.txt)" >> "$GITHUB_OUTPUT"
+          cat aln_files.txt
+
+      - name: Validate ALN Syntax (All Files)
+        run: |
+          set -e
+          VALIDATION_ERRORS=0
+          while IFS= read -r file; do
+            echo "Validating: $file"
+            if ! aln-validator syntax "$file" --strict --output json > "${file}.validation.json" 2>&1; then
+              echo "::error file=$file::ALN syntax validation failed"
+              cat "${file}.validation.json"
+              VALIDATION_ERRORS=$((VALIDATION_ERRORS + 1))
+            fi
+          done < aln_files.txt
+          if [ $VALIDATION_ERRORS -gt 0 ]; then
+            echo "::error::$VALIDATION_ERRORS ALN files failed syntax validation"
+            exit 1
+          fi
+          echo "All ${{ steps.discover.outputs.total_files }} ALN files passed syntax validation"
+
+      - name: Validate ALN Namespace Consistency
+        run: |
+          aln-validator namespace-check \
+            --root aletheion/ \
+            --expected-prefix "Aletheion." \
+            --strict \
+            --output report-namespace.json
+
+      - name: Upload Validation Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aln-validation-reports
+          path: |
+            *.validation.json
+            report-namespace.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 2: Governed Decision Transaction Schema Enforcement
+  # ===========================================================================
+
+  governed-tx-schema-enforcement:
+    name: Enforce Governed Decision TX Schema
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs:
+      - governance-emitter-detection
+      - aln-syntax-validation
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Install ALN Schema Diff Tool
+        run: |
+          cargo install aln-schema-diff --version 1.0.0
+
+      - name: Verify Governed Decision TX Schema Exists
+        run: |
+          SCHEMA_PATH="aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+          if [ ! -f "$SCHEMA_PATH" ]; then
+            echo "::error::Required schema file not found: $SCHEMA_PATH"
+            exit 1
+          fi
+          echo "Schema file exists: $SCHEMA_PATH"
+
+      - name: Extract Schema Version
+        id: schema-version
+        run: |
+          SCHEMA_PATH="aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+          VERSION=$(grep -oP 'aln_version\s+\K[0-9.]+' "$SCHEMA_PATH" || echo "unknown")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Schema version: $VERSION"
+
+      - name: Find All Decision Emitter Files
+        id: decision-emitters
+        run: |
+          find . -type f \( -name '*.rs' -o -name '*.aln' -o -name '*.lua' \) \
+            -exec grep -l "GovernedDecisionTxEnvelope\|governed_decision_tx\|DecisionOutcome" {} \; \
+            > decision_emitters.txt 2>/dev/null || true
+          echo "emitter_count=$(wc -l < decision_emitters.txt)" >> "$GITHUB_OUTPUT"
+          cat decision_emitters.txt
+
+      - name: Verify Decision Emitters Use Canonical Schema
+        run: |
+          SCHEMA_REF="ALE-TRUST-GOVERNED-DECISION-TX-001"
+          ERRORS=0
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            echo "Checking: $file"
+            if ! grep -q "$SCHEMA_REF" "$file" 2>/dev/null; then
+              echo "::warning file=$file::Decision emitter does not reference canonical schema"
+              ERRORS=$((ERRORS + 1))
+            fi
+          done < decision_emitters.txt
+          if [ $ERRORS -gt 0 ]; then
+            echo "::error::$ERRORS decision emitters do not reference canonical schema"
+            exit 1
+          fi
+          echo "All ${{ steps.decision-emitters.outputs.emitter_count }} decision emitters reference canonical schema"
+
+      - name: Validate Schema Backward Compatibility
+        run: |
+          aln-schema-diff compatibility \
+            --current aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln \
+            --previous-origin main \
+            --allow-additive-changes-only \
+            --output compatibility-report.json
+
+      - name: Upload Schema Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: governed-tx-schema-reports
+          path: |
+            compatibility-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 3: Treaty Structure Validation (No Ad-Hoc Grammars)
+  # ===========================================================================
+
+  treaty-structure-validation:
+    name: Validate Treaty Structure (No Ad-Hoc Grammars)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs: aln-syntax-validation
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Install Treaty Grammar Validator
+        run: |
+          cargo install treaty-grammar-validator --version 1.0.0
+
+      - name: Define Canonical Treaty Grammar Paths
+        run: |
+          cat > canonical_grammar_paths.txt << 'EOF'
+aletheion/governance/lexethos/
+aletheion/trust/schemas/
+aletheion/governance/smartchain/
+aletheion/governance/birthsigns/
+aletheion/erm/ecosafety/
+EOF
+          echo "Canonical grammar paths defined"
+
+      - name: Detect Ad-Hoc Treaty Structures
+        id: adhoc-detect
+        run: |
+          ADHOC_COUNT=0
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            if grep -qE "(treaty_check|TreatyCheck|treaty_atom|TreatyAtom)" "$file" 2>/dev/null; then
+              DIR=$(dirname "$file")
+              if ! grep -qF "$DIR" canonical_grammar_paths.txt 2>/dev/null; then
+                echo "::warning file=$file::Treaty structure found outside canonical grammar paths"
+                ADHOC_COUNT=$((ADHOC_COUNT + 1))
+              fi
+            fi
+          done < <(find . -type f \( -name '*.rs' -o -name '*.aln' -o -name '*.lua' \) 2>/dev/null)
+          echo "adhoc_count=$ADHOC_COUNT" >> "$GITHUB_OUTPUT"
+          if [ $ADHOC_COUNT -gt 0 ]; then
+            echo "::error::$ADHOC_COUNT files contain ad-hoc treaty structures outside canonical paths"
+            exit 1
+          fi
+          echo "No ad-hoc treaty structures detected"
+
+      - name: Verify Birth-Sign Integration
+        run: |
+          BIRTHSIGN_SCHEMA="aletheion/governance/birthsigns/ALE-GOV-BIRTH-SIGN-INDEX-001.aln"
+          if [ ! -f "$BIRTHSIGN_SCHEMA" ]; then
+            echo "::error::Birth-Sign schema not found: $BIRTHSIGN_SCHEMA"
+            exit 1
+          fi
+          echo "Birth-Sign schema verified"
+
+      - name: Validate Treaty Module Registry
+        run: |
+          treaty-grammar-validator registry-check \
+            --root aletheion/governance/ \
+            --require-module-ids \
+            --require-versioning \
+            --output treaty-registry-report.json
+
+      - name: Upload Treaty Validation Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: treaty-structure-reports
+          path: |
+            treaty-registry-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 4: Rust Treaty Engine Contract Validation
+  # ===========================================================================
+
+  rust-treaty-engine-validation:
+    name: Validate Rust Treaty Engine Contracts
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    needs: treaty-structure-validation
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt, clippy
+
+      - name: Cache Rust Dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Build Treaty Engine Crate
+        run: |
+          cd aletheion/governance/treaty_engine || exit 1
+          cargo build --release --features validation
+          echo "Treaty engine built successfully"
+
+      - name: Run Treaty Engine Tests
+        run: |
+          cd aletheion/governance/treaty_engine || exit 1
+          cargo test --release -- --test-threads=1
+          echo "Treaty engine tests passed"
+
+      - name: Validate TreatyCheck Trait Implementation
+        run: |
+          find . -name '*.rs' -type f -exec grep -l "impl.*TreatyCheck" {} \; > treaty_impls.txt
+          while IFS= read -r file; do
+            [ -z "$file" ] && continue
+            echo "Validating TreatyCheck impl: $file"
+            if ! grep -q "fn validate(&self, context: &ActionContext) -> Result<(), TreatyViolation>" "$file"; then
+              echo "::error file=$file::TreatyCheck trait missing required validate method"
+              exit 1
+            fi
+          done < treaty_impls.txt
+          echo "All TreatyCheck implementations validated"
+
+      - name: Run Clippy on Treaty Modules
+        run: |
+          cd aletheion/governance/treaty_engine || exit 1
+          cargo clippy --release -- -D warnings -D clippy::all
+          echo "Clippy validation passed"
+
+      - name: Generate Treaty Engine Documentation
+        run: |
+          cd aletheion/governance/treaty_engine || exit 1
+          cargo doc --release --no-deps
+          echo "Documentation generated"
+
+      - name: Upload Treaty Engine Artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: treaty-engine-artifacts
+          path: |
+            aletheion/governance/treaty_engine/target/release/
+            aletheion/governance/treaty_engine/target/doc/
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 5: Googolswarm Ledger Schema Compatibility
+  # ===========================================================================
+
+  googolswarm-ledger-compatibility:
+    name: Validate Googolswarm Ledger Schema Compatibility
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: governed-tx-schema-enforcement
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Install Googolswarm CLI
+        run: |
+          cargo install googolswarm-cli --version ${{ env.GOOGOLSWARM_CLI_VERSION }}
+          googolswarm-cli --version
+
+      - name: Validate Ledger Schema Version
+        run: |
+          SCHEMA_PATH="aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+          googolswarm-cli schema validate \
+            --schema "$SCHEMA_PATH" \
+            --ledger-version "1.0.0" \
+            --output ledger-schema-report.json
+
+      - name: Verify Multi-Sig Attestation Fields
+        run: |
+          SCHEMA_PATH="aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+          if ! grep -q "multi_sig_attestors" "$SCHEMA_PATH"; then
+            echo "::error::Multi-sig attestation fields missing from schema"
+            exit 1
+          fi
+          if ! grep -q "pq_signature" "$SCHEMA_PATH"; then
+            echo "::error::Post-quantum signature fields missing from schema"
+            exit 1
+          fi
+          echo "Multi-sig and PQ signature fields verified"
+
+      - name: Verify Birth-Sign Binding Fields
+        run: |
+          SCHEMA_PATH="aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+          if ! grep -q "birth_sign_ids" "$SCHEMA_PATH"; then
+            echo "::error::Birth-Sign binding fields missing from schema"
+            exit 1
+          fi
+          echo "Birth-Sign binding fields verified"
+
+      - name: Verify Treaty Check Transcript Fields
+        run: |
+          SCHEMA_PATH="aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+          if ! grep -q "treaty_check_transcript" "$SCHEMA_PATH"; then
+            echo "::error::Treaty check transcript fields missing from schema"
+            exit 1
+          fi
+          echo "Treaty check transcript fields verified"
+
+      - name: Upload Ledger Compatibility Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: googolswarm-ledger-reports
+          path: |
+            ledger-schema-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 6: ALN Norm Reference Validation
+  # ===========================================================================
+
+  aln-norm-reference-validation:
+    name: Validate ALN Norm References
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    needs: aln-syntax-validation
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ALN Reference Checker
+        run: |
+          cargo install aln-reference-checker --version 1.0.0
+
+      - name: Build ALN Norm Index
+        run: |
+          aln-reference-checker index \
+            --root aletheion/ \
+            --output aln_norm_index.json \
+            --include-namespaces "Aletheion.Governance,Aletheion.ERM,Aletheion.Trust"
+
+      - name: Validate All ALN References
+        run: |
+          aln-reference-checker validate \
+            --root aletheion/ \
+            --index aln_norm_index.json \
+            --strict \
+            --output aln-reference-report.json
+
+      - name: Check for Orphaned ALN Norms
+        run: |
+          aln-reference-checker orphan-check \
+            --root aletheion/ \
+            --index aln_norm_index.json \
+            --output orphaned-norms-report.json
+
+      - name: Upload ALN Reference Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: aln-reference-reports
+          path: |
+            aln_norm_index.json
+            aln-reference-report.json
+            orphaned-norms-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 7: Governance Gate Policy Validation
+  # ===========================================================================
+
+  governance-gate-policy-validation:
+    name: Validate Governance Gate Policies
+    runs-on: ubuntu-22.04
+    timeout-minutes: 20
+    needs: treaty-structure-validation
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust Toolchain
+        uses: dtolnay/rust-action@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Install Gate Policy Validator
+        run: |
+          cargo install gate-policy-validator --version 1.0.0
+
+      - name: Validate Biodegrade Gate Policies
+        run: |
+          GATE_SCHEMA="aletheion/governance/lexethos/ALE-LEX-BIODEGRADE-GATES-001.aln"
+          if [ ! -f "$GATE_SCHEMA" ]; then
+            echo "::error::Biodegrade gate schema not found: $GATE_SCHEMA"
+            exit 1
+          fi
+          gate-policy-validator validate \
+            --schema "$GATE_SCHEMA" \
+            --require-hard-block-definitions \
+            --require-fpic-hooks \
+            --require-ej-constraints \
+            --output biodegrade-gate-report.json
+
+      - name: Validate SMART Chain Policy Bindings
+        run: |
+          POLICY_SCHEMA="aletheion/governance/smartchain/ALE-GOV-SMART-BIODEGRADE-POLICY-001.aln"
+          if [ ! -f "$POLICY_SCHEMA" ]; then
+            echo "::error::SMART chain policy schema not found: $POLICY_SCHEMA"
+            exit 1
+          fi
+          gate-policy-validator policy-check \
+            --schema "$POLICY_SCHEMA" \
+            --require-corridor-declaration \
+            --require-shard-ingestion-rules \
+            --output smart-policy-report.json
+
+      - name: Upload Gate Policy Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: governance-gate-reports
+          path: |
+            biodegrade-gate-report.json
+            smart-policy-report.json
+          retention-days: 30
+
+  # ===========================================================================
+  # Job 8: Governance ALN Rights/Treaty Grammar Enforcement
+  # ===========================================================================
+
+  rights-grammar-enforcement:
+    name: Enforce Canonical Rights/Treaty Grammar
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    needs: aln-syntax-validation
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install ripgrep
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y ripgrep
 
       - name: Require ALE-GOV-RIGHTS-TREATY-GRAMMAR-001 in governance ALN
         run: |
           echo "Enforcing ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln as canonical rights/treaty grammar..."
           FAILED=0
 
-          # Any governance ALN schemas under aletheion/governance/aln must import the canonical grammar.[file:2]
           if ls aletheion/governance/aln/*.aln >/dev/null 2>&1; then
             for f in aletheion/governance/aln/*.aln; do
               if ! rg -q "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001" "$f"; then
@@ -106,11 +658,139 @@ jobs:
           fi
 
           if [ "$FAILED" -ne 0 ]; then
-            echo "Rights/treaty grammar enforcement failed."
+            echo "::error::Rights/treaty grammar enforcement failed."
+            exit 1
+          fi
+          echo "Rights/treaty grammar enforcement passed."
+
+  # ===========================================================================
+  # Job 9: Aggregate Validation Summary
+  # ===========================================================================
+
+  aggregate-validation-summary:
+    name: Generate Aggregate Validation Summary
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    needs:
+      - governance-emitter-detection
+      - aln-syntax-validation
+      - governed-tx-schema-enforcement
+      - treaty-structure-validation
+      - rust-treaty-engine-validation
+      - googolswarm-ledger-compatibility
+      - aln-norm-reference-validation
+      - governance-gate-policy-validation
+      - rights-grammar-enforcement
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download All Validation Reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: '*-reports'
+          merge-multiple: true
+          path: ./validation-reports/
+
+      - name: Generate Aggregate Summary
+        run: |
+          cat > validation-summary.md << 'EOF'
+# Aletheion Governance Schema Preflight - Validation Summary
+
+## Execution Timestamp
+$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+## Validation Jobs Status
+| Job | Status |
+|-----|--------|
+| Governance Emitter Detection | ${{ needs.governance-emitter-detection.result }} |
+| ALN Syntax Validation | ${{ needs.aln-syntax-validation.result }} |
+| Governed TX Schema Enforcement | ${{ needs.governed-tx-schema-enforcement.result }} |
+| Treaty Structure Validation | ${{ needs.treaty-structure-validation.result }} |
+| Rust Treaty Engine Validation | ${{ needs.rust-treaty-engine-validation.result }} |
+| Googolswarm Ledger Compatibility | ${{ needs.googolswarm-ledger-compatibility.result }} |
+| ALN Norm Reference Validation | ${{ needs.aln-norm-reference-validation.result }} |
+| Governance Gate Policy Validation | ${{ needs.governance-gate-policy-validation.result }} |
+| Rights/Treaty Grammar Enforcement | ${{ needs.rights-grammar-enforcement.result }} |
+
+## Overall Status
+EOF
+          if [ "${{ needs.governance-emitter-detection.result }}" = "success" ] && \
+             [ "${{ needs.aln-syntax-validation.result }}" = "success" ] && \
+             [ "${{ needs.governed-tx-schema-enforcement.result }}" = "success" ] && \
+             [ "${{ needs.treaty-structure-validation.result }}" = "success" ] && \
+             [ "${{ needs.rust-treaty-engine-validation.result }}" = "success" ] && \
+             [ "${{ needs.googolswarm-ledger-compatibility.result }}" = "success" ] && \
+             [ "${{ needs.aln-norm-reference-validation.result }}" = "success" ] && \
+             [ "${{ needs.governance-gate-policy-validation.result }}" = "success" ] && \
+             [ "${{ needs.rights-grammar-enforcement.result }}" = "success" ]; then
+            echo "**ALL VALIDATIONS PASSED**" >> validation-summary.md
+            echo "Governance schema preflight completed successfully." >> validation-summary.md
+          else
+            echo "**VALIDATION FAILED**" >> validation-summary.md
+            echo "One or more validation jobs failed. Review reports for details." >> validation-summary.md
             exit 1
           fi
 
-      - name: Governance schema preflight completed
-        if: success()
+      - name: Upload Validation Summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: validation-summary
+          path: validation-summary.md
+          retention-days: 90
+
+      - name: Post Summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('validation-summary.md', 'utf8');
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });
+
+  # ===========================================================================
+  # Job 10: Block Non-Compliant PRs
+  # ===========================================================================
+
+  block-non-compliant-prs:
+    name: Block Non-Compliant PRs
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    needs: aggregate-validation-summary
+    if: always()
+    steps:
+      - name: Check Validation Status
         run: |
+          if [ "${{ needs.aggregate-validation-summary.result }}" != "success" ]; then
+            echo "::error::Governance schema validation failed. PR cannot be merged."
+            echo "Please resolve all validation errors before requesting review."
+            exit 1
+          fi
+          echo "All governance schema validations passed. PR is compliant."
+
+      - name: Add Compliance Label
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: ['governance-schema-compliant']
+            })
+
+      - name: Log Compliance Status
+        run: |
+          echo "PR #${{ github.event.pull_request.number }} marked as governance-schema-compliant"
+          echo "Timestamp: $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+          echo "Actor: ${{ github.actor }}"
+          echo "Repository: ${{ github.repository }}"
           echo "Aletheion governance schema preflight passed."
