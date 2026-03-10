@@ -1,0 +1,299 @@
+# Aletheion CI/CD: ALE-COMP-CORE Preflight Validation
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Architecture Enforcement
+# Purpose: Automated compliance checks before any code merge
+
+name: ALE-COMP-CORE Preflight
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [main]
+
+env:
+  RUST_VERSION: '1.75.0'
+  ALN_VERSION: '1.0.0'
+  COMPLIANCE_STRICTNESS: 'CRITICAL'
+
+jobs:
+  # ============================================
+  # NEURORIGHTS COMPLIANCE CHECK
+  # ============================================
+  neurorights-check:
+    name: Neurorights Compliance Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Rust Environment
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+          components: rustfmt, clippy
+      
+      - name: Run Neurorights Validation Script
+        run: |
+          ./scripts/ale_comp_core/neurorights_check.sh \
+            --repository ${{ github.repository }} \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --strictness ${{ env.COMPLIANCE_STRICTNESS }}
+      
+      - name: Check for Subliminal Stimuli
+        run: |
+          grep -r "subliminal\|manipulative\|coercive" \
+            --include="*.rs" --include="*.aln" --include="*.kt" \
+            . && exit 1 || exit 0
+      
+      - name: Verify Consent Pathways
+        run: |
+          ./scripts/ale_comp_core/consent_pathway_audit.sh \
+            --target-dir aletheion-cil/ \
+            --require-opt-in true
+      
+      - name: Upload Neurorights Compliance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: neurorights-compliance-report
+          path: ./compliance_reports/neurorights_*.json
+
+  # ============================================
+  # BIOTIC TREATY COMPLIANCE CHECK
+  # ============================================
+  biotic-treaty-check:
+    name: BioticTreaty Compliance Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run BioticTreaty Validation Script
+        run: |
+          ./scripts/ale_comp_core/biotic_treaty_check.sh \
+            --repository ${{ github.repository }} \
+            --bee-corridor-min-width 50 \
+            --tree-root-zone-min 3.0 \
+            --canopy-preservation-min 80
+      
+      - name: Verify Eco-Impact Delta Logging
+        run: |
+          grep -r "eco_impact_delta\|EcoImpactDelta" \
+            --include="*.rs" --include="*.cpp" --include="*.aln" \
+            . | wc -l | awk '{if ($1 == 0) exit 1}'
+      
+      - name: Check Biotic Corridor Geospatial Data
+        run: |
+          ./scripts/ale_comp_core/geospatial_biotic_check.sh \
+            --geojson-dir aletheion-env/biotic_corridors/ \
+            --min-width-meters 50
+      
+      - name: Upload BioticTreaty Compliance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: biotic-treaty-compliance-report
+          path: ./compliance_reports/biotic_treaty_*.json
+
+  # ============================================
+  # INDIGENOUS FPIC COMPLIANCE CHECK
+  # ============================================
+  fpic-check:
+    name: Indigenous FPIC Compliance Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Run FPIC Validation Script
+        run: |
+          ./scripts/ale_comp_core/fpic_check.sh \
+            --territories "Akimel_Oodham,Piipaash" \
+            --require-community-consent true \
+            --verification-method "COMMUNITY_CONSENT"
+      
+      - name: Verify Indigenous Territory Overlays
+        run: |
+          ./scripts/ale_comp_core/territory_overlay_check.sh \
+            --geojson-dir aletheion-gtl/fpic/territories/ \
+            --tribes "Akimel_Oodham,Piipaash"
+      
+      - name: Check Data Sovereignty Compliance
+        run: |
+          grep -r "indigenous_data_sovereignty\|data_residency" \
+            --include="*.rs" --include="*.aln" \
+            . | wc -l | awk '{if ($1 == 0) exit 1}'
+      
+      - name: Upload FPIC Compliance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: fpic-compliance-report
+          path: ./compliance_reports/fpic_*.json
+
+  # ============================================
+  # ARCHITECTURAL INTEGRITY CHECK
+  # ============================================
+  architecture-check:
+    name: ERM Architecture Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Validate Directory Structure
+        run: |
+          ./scripts/ale_comp_core/directory_structure_check.sh \
+            --allowed-prefixes "aletheion-phy/,aletheion-dsl/,aletheion-wol/,aletheion-gtl/,aletheion-cil/" \
+            --reject-invalid-paths true
+      
+      - name: Validate Language Compliance
+        run: |
+          ./scripts/ale_comp_core/language_compliance_check.sh \
+            --allowed-extensions ".rs,.cpp,.aln,.lua,.js,.kt" \
+            --reject-python true \
+            --reject-blacklisted true
+      
+      - name: Validate Workflow Manifest Presence
+        run: |
+          find aletheion-wol/ -type d -maxdepth 2 | while read dir; do
+            if [ -d "$dir/s1_sense" ]; then
+              if [ ! -f "$dir/manifest.yaml" ]; then
+                echo "ERROR: Missing manifest.yaml in $dir"
+                exit 1
+              fi
+            fi
+          done
+      
+      - name: Validate Seven-Stage Spine Completeness
+        run: |
+          ./scripts/ale_comp_core/workflow_spine_check.sh \
+            --require-stages "S1,S2,S3,S4,S5,S6,S7" \
+            --workflow-dir aletheion-wol/
+      
+      - name: Upload Architecture Compliance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: architecture-compliance-report
+          path: ./compliance_reports/architecture_*.json
+
+  # ============================================
+  # DIGITAL TWIN EXCLUSION CHECK
+  # ============================================
+  twin-exclusion-check:
+    name: Digital Twin Exclusion Protocol
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Scan for Forbidden Keywords
+        run: |
+          ./scripts/ale_comp_core/twin_exclusion_scan.sh \
+            --forbidden-words "digital-twin,simulation,predictive-model,simulator" \
+            --allowed-exceptions "state-mirror,operational-mirror,physics-informed" \
+            --strictness CRITICAL
+      
+      - name: Verify Model Type Declarations
+        run: |
+          grep -r "model_type" --include="*.rs" --include="*.cpp" --include="*.aln" \
+            . | grep -v "STATE_MIRROR" && exit 1 || exit 0
+      
+      - name: Check Data Source Audit Trail
+        run: |
+          grep -r "physical_sensor\|verified_citizen_input" \
+            --include="*.rs" --include="*.cpp" \
+            . | wc -l | awk '{if ($1 == 0) exit 1}'
+      
+      - name: Upload Twin Exclusion Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: twin-exclusion-report
+          path: ./compliance_reports/twin_exclusion_*.json
+
+  # ============================================
+  # BIRTHSIGN PROPAGATION CHECK
+  # ============================================
+  birthsign-propagation-check:
+    name: BirthSignId Propagation Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Verify BirthSign Import in All Workflows
+        run: |
+          find aletheion-wol/ -name "*.rs" -o -name "*.cpp" -o -name "*.aln" | while read file; do
+            if ! grep -q "aletheion_gtl_birthsign" "$file"; then
+              echo "WARNING: $file does not import BirthSign module"
+            fi
+          done
+      
+      - name: Check BirthSign Chain Completeness
+        run: |
+          ./scripts/ale_comp_core/birthsign_chain_check.sh \
+            --require-chain "S1,S2,S3,S4,S5,S6,S7" \
+            --workflow-dir aletheion-wol/water-thermal/
+      
+      - name: Upload BirthSign Propagation Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: birthsign-propagation-report
+          path: ./compliance_reports/birthsign_*.json
+
+  # ============================================
+  # POST-QUANTUM CRYPTOGRAPHY CHECK
+  # ============================================
+  pq-crypto-check:
+    name: Post-Quantum Cryptography Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Verify Approved Algorithms Only
+        run: |
+          ./scripts/ale_comp_core/pq_crypto_check.sh \
+            --approved-algorithms "CRYSTALS-Dilithium,FALCON,SPHINCS+" \
+            --blacklisted-algorithms "SHA-256,BLAKE,SHA3-256,KECCAK_256,RIPEMD160" \
+            --strictness CRITICAL
+      
+      - name: Scan for Blacklisted Cryptographic Functions
+        run: |
+          grep -r "sha256\|blake\|sha3\|keccak\|ripemd" \
+            --include="*.rs" --include="*.cpp" --include="*.aln" \
+            . && exit 1 || exit 0
+      
+      - name: Upload PQ Crypto Compliance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: pq-crypto-compliance-report
+          path: ./compliance_reports/pq_crypto_*.json
+
+  # ============================================
+  # AGGREGATE COMPLIANCE REPORT
+  # ============================================
+  aggregate-compliance-report:
+    name: Aggregate Compliance Summary
+    runs-on: ubuntu-latest
+    needs: [neurorights-check, biotic-treaty-check, fpic-check, architecture-check, twin-exclusion-check, birthsign-propagation-check, pq-crypto-check]
+    if: always()
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Download All Compliance Reports
+        uses: actions/download-artifact@v3
+        with:
+          path: ./all_compliance_reports/
+      
+      - name: Generate Aggregate Report
+        run: |
+          ./scripts/ale_comp_core/aggregate_report.sh \
+            --input-dir ./all_compliance_reports/ \
+            --output-file ./compliance_reports/aggregate_compliance_summary.json \
+            --github-pr ${{ github.event.pull_request.number }}
+      
+      - name: Upload Aggregate Compliance Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: aggregate-compliance-summary
+          path: ./compliance_reports/aggregate_compliance_summary.json
+      
+      - name: Post Compliance Status to PR
+        if: github.event_name == 'pull_request'
+        run: |
+          ./scripts/ale_comp_core/post_pr_comment.sh \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --report-file ./compliance_reports/aggregate_compliance_summary.json \
+            --token ${{ secrets.GITHUB_TOKEN }}
