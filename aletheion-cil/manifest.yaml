@@ -1,0 +1,176 @@
+# Aletheion Citizen Interface Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer 5 (CIL)
+# Status: Canonical Reference for Citizen-Facing Applications
+
+layer_id: "aletheion-cil-phoenix-001"
+version: "1.0.0"
+description: "Citizen Interface Layer for Phoenix Aletheion smart city. All citizen-facing applications must comply with this manifest."
+erm_layer: "CIL"
+
+accessibility_requirements:
+  wcag_level: "2.2_AAA"
+  mandatory_checks:
+    - text_contrast_ratio_min: 7.0
+    - touch_target_size_dp_min: 44
+    - keyboard_navigation: true
+    - screen_reader_labels: true
+    - focus_indicator_visible: true
+    - no_timing_pressure: true
+    - language_declaration: true
+    - high_contrast_mode: true
+    - text_spacing_adjustable: true
+    - animation_disable_option: true
+  audit_frequency: "EVERY_DEPLOYMENT"
+  block_on_critical_violations: true
+
+multilingual_support:
+  supported_languages:
+    - code: "en"
+      name: "English"
+      font_stack: "Roboto, Arial, sans-serif"
+      certified_translators_required: false
+    - code: "es"
+      name: "Spanish"
+      font_stack: "Roboto, Arial, sans-serif"
+      certified_translators_required: false
+    - code: "ood"
+      name: "O'odham"
+      native_name: "O'odham Ñiʼok"
+      font_stack: "Noto Sans O'odham, Roboto, sans-serif"
+      certified_translators_required: true
+      community_review_mandatory: true
+      indigenous_nations:
+        - "Akimel O'odham (Pima)"
+        - "Piipaash (Maricopa)"
+  fallback_language: "en"
+  language_change_audit: true
+
+consent_management:
+  neurorights_compliance:
+    user_initiated_only: true
+    no_pre_checked_boxes: true
+    no_manipulative_timing: true
+    withdrawable_anytime: true
+    no_commercialization: true
+  consent_types:
+    - type: "NEURAL_DATA"
+      renewable: true
+      expiry_days: 365
+      emergency_override: false
+    - type: "WATER_USAGE"
+      renewable: true
+      expiry_days: null
+      emergency_override: false
+    - type: "EMERGENCY_ALERTS"
+      renewable: false
+      expiry_days: null
+      emergency_override: true
+      conditions:
+        - "120°F+ extreme heat"
+        - "Monsoon flash flood"
+    - type: "INDIGENOUS_DATA"
+      renewable: false
+      expiry_days: null
+      emergency_override: false
+      fpic_required: true
+  cryptographic_signature: "CRYSTALS-Dilithium"
+  birth_sign_propagation: true
+
+offline_capability:
+  minimum_offline_hours: 72
+  max_queue_size: 1000
+  max_storage_mb: 500
+  priority_levels:
+    - CRITICAL
+    - HIGH
+    - NORMAL
+    - LOW
+  sync_protocol: "POST_QUANTUM_ENCRYPTED"
+  data_residency:
+    jurisdiction: "Arizona, USA"
+    allowed_zones:
+      - "PHOENIX_LOCAL"
+      - "ARIZONA_STATE"
+      - "SALT_RIVER_VALLEY"
+  mesh_network_fallback: true
+
+emergency_protocols:
+  extreme_heat:
+    threshold_fahrenheit: 120
+    threshold_celsius: 48.9
+    mandatory_alerts: true
+    cooling_shelter_locator: true
+    water_distribution_priority: true
+  monsoon_flood:
+    season: "August-September"
+    flash_flood_detection: true
+    mandatory_evacuation_alerts: true
+    shelter_routing: true
+  dust_storm:
+    haboob_detection: true
+    air_quality_alerts: true
+    travel_advisory: true
+
+citizen_grievance_system:
+  submission_channels:
+    - mobile_app
+    - web_dashboard
+    - sms
+    - voice_call
+  tracking_required: true
+  resolution_timeline_days: 30
+  escalation_tiers:
+    - tier: 1
+      handler: "AI_MEDIATION"
+      timeline_days: 7
+    - tier: 2
+      handler: "CITIZEN_JURY"
+      timeline_days: 14
+    - tier: 3
+      handler: "EXPERT_ARBITRATION"
+      timeline_days: 21
+    - tier: 4
+      handler: "COMMUNITY_REFERENDUM"
+      timeline_days: 30
+  immutable_audit_log: true
+  birth_sign_tracking: true
+
+mobile_platforms:
+  android:
+    min_sdk: 29
+    target_sdk: 34
+    kotlin_version: "1.9.0"
+    accessibility_suite: "Android Accessibility Scanner"
+  ios:
+    min_version: "15.0"
+    target_version: "17.0"
+    swift_version: "5.9"
+    accessibility_suite: "Xcode Accessibility Inspector"
+  web:
+    frameworks: ["React", "Vue", "Vanilla JS"]
+    pwa_required: true
+    offline_storage: "IndexedDB"
+
+ci_cd_requirements:
+  preflight_checks:
+    - "wcag-aaa-validation"
+    - "multilingual-completeness"
+    - "consent-flow-audit"
+    - "offline-sync-test"
+    - "emergency-protocol-verification"
+    - "birthsign-propagation-check"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  accessibility_test_frequency: "EVERY_COMMIT"
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  consent_manager: "/aletheion-cil/mobile/android/consent/ConsentManager.kt"
+  accessibility_engine: "/aletheion-cil/accessibility/engine/WCAGAccessibilityEngine.kt"
+  multilingual_handler: "/aletheion-cil/web/i18n/multilingual_handler.js"
+  offline_sync: "/aletheion-cil/offline/sync_protocol.rs"
+  neurorights_framework: "/aletheion-gtl/neurorights/framework.md"
+
+# END OF CIL MANIFEST
