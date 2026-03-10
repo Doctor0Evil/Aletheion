@@ -1,0 +1,149 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Doctor0Evil/Aletheion/aletheion-infra/security/profiles/node_security_profile.schema.json",
+  "title": "Aletheion Node Security Profile",
+  "description": "Immutable, versioned security configuration for all Aletheion infrastructure nodes. Enforced by ALE-COMP-CORE at provisioning and runtime.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "profile_id",
+    "profile_version",
+    "erm_layer",
+    "node_type",
+    "firewall_rules",
+    "user_permissions",
+    "installed_packages",
+    "kernel_parameters",
+    "cryptographic_configuration",
+    "compliance_hashes"
+  ],
+  "properties": {
+    "profile_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this security profile",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "profile_version": {
+      "type": "string",
+      "description": "Semantic version of this profile (MAJOR.MINOR.PATCH)",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "erm_layer": {
+      "type": "string",
+      "enum": ["PIL", "DSL", "WOL", "GTL", "CIL"],
+      "description": "ERM layer this profile applies to"
+    },
+    "node_type": {
+      "type": "string",
+      "enum": [
+        "EDGE_SENSOR_NODE",
+        "EDGE_ACTUATOR_NODE",
+        "GATEWAY_NODE",
+        "WORKFLOW_ENGINE",
+        "GOVERNANCE_NODE",
+        "CITIZEN_INTERFACE",
+        "STORAGE_NODE"
+      ],
+      "description": "Type of infrastructure node"
+    },
+    "firewall_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["direction", "port", "protocol", "action", "source", "destination"],
+        "properties": {
+          "direction": { "type": "string", "enum": ["INGRESS", "EGRESS"] },
+          "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+          "protocol": { "type": "string", "enum": ["TCP", "UDP", "ICMP"] },
+          "action": { "type": "string", "enum": ["ALLOW", "DENY", "RATE_LIMIT"] },
+          "source": { "type": "string", "description": "CIDR notation or 'ANY'" },
+          "destination": { "type": "string", "description": "CIDR notation or 'ANY'" },
+          "rate_limit_pps": { "type": "integer", "description": "Packets per second limit (if RATE_LIMIT)" }
+        }
+      },
+      "minItems": 1,
+      "description": "Firewall rules for network traffic control"
+    },
+    "user_permissions": {
+      "type": "object",
+      "required": ["root_access", "sudo_users", "service_accounts"],
+      "properties": {
+        "root_access": { "type": "boolean", "const": false, "description": "Root login MUST be disabled" },
+        "sudo_users": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of DIDs authorized for sudo access"
+        },
+        "service_accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["account_name", "permissions", "birth_sign_id"],
+            "properties": {
+              "account_name": { "type": "string" },
+              "permissions": { "type": "array", "items": { "type": "string" } },
+              "birth_sign_id": { "type": "string", "format": "uuid" }
+            }
+          }
+        }
+      }
+    },
+    "installed_packages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["package_name", "version", "signature_hash", "approved"],
+        "properties": {
+          "package_name": { "type": "string" },
+          "version": { "type": "string" },
+          "signature_hash": { "type": "string", "minLength": 64, "description": "Post-quantum signature hash" },
+          "approved": { "type": "boolean", "description": "Must be approved by ALE-COMP-CORE" }
+        }
+      },
+      "description": "Whitelist of approved software packages"
+    },
+    "kernel_parameters": {
+      "type": "object",
+      "properties": {
+        "max_open_files": { "type": "integer", "minimum": 1024 },
+        "network_buffer_size_mb": { "type": "integer", "minimum": 64 },
+        "heat_shutdown_threshold_c": { "type": "number", "minimum": 50, "maximum": 85, "description": "Phoenix extreme heat protection" },
+        "offline_mode_timeout_hours": { "type": "integer", "minimum": 72, "description": "Offline operation capability" }
+      }
+    },
+    "cryptographic_configuration": {
+      "type": "object",
+      "required": ["algorithm", "key_rotation_days", "pq_ready"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["CRYSTALS-Dilithium", "FALCON", "SPHINCS+"],
+          "description": "Post-quantum secure algorithm (blacklisted: SHA-256, BLAKE, KECCAK)"
+        },
+        "key_rotation_days": { "type": "integer", "minimum": 30, "maximum": 90 },
+        "pq_ready": { "type": "boolean", "const": true, "description": "Must be post-quantum ready" }
+      }
+    },
+    "compliance_hashes": {
+      "type": "object",
+      "required": ["profile_hash", "ale_comp_core_verification", "birth_sign_id"],
+      "properties": {
+        "profile_hash": { "type": "string", "minLength": 64, "description": "Hash of entire profile for integrity verification" },
+        "ale_comp_core_verification": { "type": "string", "minLength": 64, "description": "ALE-COMP-CORE verification hash" },
+        "birth_sign_id": { "type": "string", "format": "uuid", "description": "BirthSignId of profile creator" }
+      }
+    },
+    "phoenix_specific": {
+      "type": "object",
+      "properties": {
+        "extreme_heat_protocol": { "type": "boolean", "const": true, "description": "120°F+ operational continuity" },
+        "monsoon_flood_protection": { "type": "boolean", "description": "Flash flood resilience" },
+        "dust_storm_hardening": { "type": "boolean", "description": "Haboob dust protection" },
+        "indigenous_territory_aware": { "type": "boolean", "description": "FPIC compliance for Akimel O'odham/Piipaash lands" }
+      }
+    }
+  },
+  "additionalProperties": false,
+  "$comment": "This schema is enforced by ALE-COMP-CORE. Any node provisioned without a valid security profile will be rejected. Profiles are immutable once deployed (forward-compatible upgrades only)."
+}
