@@ -1,0 +1,45 @@
+# Trust Governed-Decision Preflight v1
+# Ensures all ALN schemas under aletheion/trust/**
+# reference the canonical GovernedDecisionTxEnvelope
+# defined in ALE-TRUST-GOVERNED-DECISION-TX-001.aln.
+
+name: Aletheion Trust Governed-Decision Preflight v1
+
+on:
+  pull_request:
+    paths:
+      - "aletheion/trust/**/*.aln"
+      - "aletheion/compliance/trust/ALE-COMP-TRUST-GOVTX-LINTER-001.rs"
+      - ".github/workflows/aletheion-trust-governed-decision-preflight-001.yml"
+  push:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+
+jobs:
+  trust-governed-decision-preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build trust governance linter
+        run: |
+          cargo build \
+            --manifest-path aletheion/Cargo.toml \
+            --bin alethion-trust-govtx-linter
+
+      - name: Run trust governance preflight
+        run: |
+          cargo run \
+            --manifest-path aletheion/Cargo.toml \
+            --bin alethion-trust-govtx-linter \
+            -- \
+            --root aletheion/trust \
+            --envelope-id "GovernedDecisionTxEnvelope" \
+            --schema-ref "ALE-TRUST-GOVERNED-DECISION-TX-001"
