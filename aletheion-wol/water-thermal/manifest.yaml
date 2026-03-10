@@ -1,0 +1,60 @@
+# Aletheion Workflow Manifest: Water/Thermal Management
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer 3 (WOL)
+# Status: Canonical Skeleton
+
+module_id: "aletheion-wol-water-thermal"
+version: "1.0.0"
+description: "Seven-stage workflow spine for Phoenix water reclamation and thermal network regulation."
+architecture:
+  erm_layer: "WOL"
+  directory_prefix: "aletheion-wol/water-thermal"
+  workflow_spine: ["S1", "S2", "S3", "S4", "S5", "S6", "S7"]
+
+dependencies:
+  shared_primitives:
+    birth_sign_propagation: "aletheion-gtl/birthsign/v1.0"
+    aln_grammar_core: "aletheion-gtl/grammar/v1.0"
+    decision_envelope_schema: "aletheion-gtl/envelope/v1.0"
+  compliance_layer: "aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  environmental_specs: "aletheion-env/climate/integration_specs.md"
+
+contracts:
+  implemented_traits:
+    - "SenseStage"
+    - "ModelStage"
+    - "AllocateStage"
+    - "RuleCheckStage"
+    - "ActuateStage"
+    - "RecordStage"
+    - "TalkBackStage"
+  enforced_protocols:
+    - "SMART-Chain"
+    - "BirthSignId_Propagation"
+    - "Post-Quantum-Security"
+
+compliance_hooks:
+  neurorights: "S4_RULECHECK"
+  biotic_treaty: "S4_RULECHECK"
+  fpic_indigenous: "S4_RULECHECK"
+  digital_twin_exclusion: "S2_MODEL_STATE_MIRROR_ONLY"
+
+ci_requirements:
+  preflight_checks:
+    - "validate-schema-dependencies"
+    - "run-linter-rust"
+    - "run-linter-aln"
+    - "check-fpic-compliance"
+    - "verify-birthsign-propagation"
+  test_coverage_min: 0.85
+  documentation_ratio_min: 0.33
+
+operational_constraints:
+  offline_capable: true
+  latency_max_ms: 50
+  energy_profile: "LOW_POWER_EDGE"
+  temperature_range_c: [-20, 125]
+  water_quality_standard: "EPA_SAFE_DRINKING_WATER_ACT"
+  thermal_efficiency_target: 0.99
+
+# END OF MANIFEST
