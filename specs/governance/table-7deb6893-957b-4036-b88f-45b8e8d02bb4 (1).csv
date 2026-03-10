@@ -1,0 +1,8 @@
+﻿Remedy Code,Execution Protocol,Authority Required,Verification Method
+Monetary_Compensation,"Direct transfer to citizen DID wallet, auto-calculated based on harm severity",Finance_Director + Civil_Rights_Office,Blockchain transaction hash
+Policy_Amendment,"Git-style policy versioning, public comment period (7 days), ratification vote",City_Council + Tribal_Representatives,Policy document hash + vote record
+Public_Apology,"Published on city portal, signed by responsible authority, 30-day visibility",Department_Director + City_Manager,Digital signature + publication log
+System_Halt,"Immediate optimizer suspension, manual override required for restart",AI_Oversight_Board + Chief_Algorithm_Officer,System state log + restart authorization
+Data_Deletion,"Cryptographic erasure, key invalidation, audit log entry",Data_Protection_Officer,Deletion certificate + hash verification
+Service_Restoration,"Priority queue insertion, SLA guarantee (24-72 hours)",Infrastructure_Director,Service status monitor + citizen confirmation
+Tribal_Consultation,"Formal consultation process initiated, 90-day timeline, FPIC re-activation",Tribal_Council + City_Liaison,Consultation minutes + consent record
