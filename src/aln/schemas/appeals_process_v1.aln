@@ -1,0 +1,13 @@
+// ALN Schema: AppealsProcess v1
+
+struct AppealsRecord {
+    appeal_id: UUID_v7,
+    original_grievance_id: UUID_v7,
+    appellant_did: DID_URI,
+    appeal_grounds: Enum { Procedural_Error, New_Evidence, Remedy_Inadequate, Bias_Conflict, Treaty_Misinterpretation },
+    appeal_timestamp: UnixTimestamp_Nano,
+    review_body: Enum { Department_Director, Citizen_Jury, Expert_Arbitration, Community_Referendum },
+    jury_selection_method: Option<Enum { Random, Expert, Stakeholder, Hybrid }>,
+    decision_deadline: UnixTimestamp_Nano,
+    final_binding: bool, // True for Community_Referendum
+};
