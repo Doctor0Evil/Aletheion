@@ -1,0 +1,103 @@
+(* Aletheion Water/Thermal Workflow: Stage 4 (Rule-Check) *)
+(* Module: s4_rulecheck *)
+(* Language: ALN (Aletheion Language) *)
+(* Compliance: ALE-COMP-CORE v1.0, BioticTreaties, FPIC, Neurorights *)
+(* Constraint: Hard Block on Compliance Failure *)
+
+(* ============================================ *)
+(* IMPORTS AND CONTEXT                          *)
+(* ============================================ *)
+
+IMPORT aletheion_gtl_grammar.aln_rights_grammar;
+IMPORT aletheion_gtl_birthsign.birth_sign_model;
+IMPORT aletheion_core_compliance.ALE_COMP_CORE_SPEC;
+
+(* ============================================ *)
+(* RULE CHECK TRIGGER                           *)
+(* ============================================ *)
+
+RULE_CHECK_TRIGGER water_thermal_allocation_check {
+    INPUT: AllocationDecision;
+    OUTPUT: RuleResult;
+    CONTEXT: WorkflowContext;
+    
+    (* ============================================ *)
+    (* NEURORIGHTS COMPLIANCE                       *)
+    (* ============================================ *)
+    
+    CHECK neurorights_water_access {
+        CONDITION: AllocationDecision.affects_citizen_access == TRUE;
+        REQUIREMENT: NeurorightsExtension.NEURAL_PRIVACY == "CONSENT_GATED";
+        ACTION: IF consent_verified == FALSE THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, DECISION, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* BIOTIC TREATY COMPLIANCE                     *)
+    (* ============================================ *)
+    
+    CHECK biotic_treaty_water_usage {
+        CONDITION: AllocationDecision.water_volume_m3 > 100.0;
+        REQUIREMENT: BioticExtension.MARINE_PROTECTION.HABITAT_BUFFER >= 50.0;
+        REQUIREMENT: BioticExtension.BEE_CORRIDOR.PESTICIDE_FREE == TRUE;
+        ACTION: IF eco_impact_delta > 0.0 THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { TREATY_PROOF, DECISION, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK biotic_treaty_thermal_discharge {
+        CONDITION: AllocationDecision.thermal_discharge_c > 30.0;
+        REQUIREMENT: BioticExtension.MARINE_PROTECTION.POLLUTION_LIMIT >= 0.0;
+        ACTION: IF temperature_delta > 2.0 THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { TREATY_PROOF, DECISION, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* INDIGENOUS FPIC COMPLIANCE                   *)
+    (* ============================================ *)
+    
+    CHECK fpic_land_usage {
+        CONDITION: WorkflowContext.location IN IndigenousTerritory(Akimel_Oodham, Piipaash);
+        REQUIREMENT: FPICExtension.FPIC_REQUIRED_FOR == "RESOURCE_EXTRACTION";
+        REQUIREMENT: FPICExtension.VERIFICATION == "COMMUNITY_CONSENT";
+        ACTION: IF fpic_status != "VERIFIED" THEN HARD_BLOCK_UNTIL_CONSENT;
+        PROOF: GENERATE_PROOF { CONSENT_PROOF, DECISION, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK fpic_data_sovereignty {
+        CONDITION: AllocationDecision.involves_indigenous_data == TRUE;
+        REQUIREMENT: FPICExtension.ENFORCEMENT == "HARD_BLOCK_UNTIL_CONSENT";
+        ACTION: IF data_sovereignty_check == FALSE THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { CONSENT_PROOF, DECISION, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* ARCHITECTURAL INTEGRITY                      *)
+    (* ============================================ *)
+    
+    CHECK birth_sign_propagation {
+        CONDITION: ALWAYS;
+        REQUIREMENT: AllocationDecision.birth_sign_id IS VALID;
+        ACTION: IF birth_sign_id IS MISSING THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, WORKFLOW, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK digital_twin_exclusion {
+        CONDITION: ALWAYS;
+        REQUIREMENT: AllocationDecision.model_type != "SIMULATION";
+        REQUIREMENT: AllocationDecision.model_type == "STATE_MIRROR";
+        ACTION: IF model_type == "SIMULATION" THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, WORKFLOW, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* FINAL RULE RESULT                            *)
+    (* ============================================ *)
+    
+    RESULT {
+        IF ALL_CHECKS_PASS THEN RuleResult = "APPROVED";
+        ELSE RuleResult = "BLOCKED";
+        LOG: AuditLogEntry(RuleResult, Timestamp, BirthSignId);
+    }
+}
+
+(* END OF S4 RULE CHECK MODULE *)
