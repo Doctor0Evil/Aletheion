@@ -1,0 +1,131 @@
+# Aletheion Infrastructure Master Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layers 1-3 (PIL, DSL, WOL)
+# Status: Canonical Reference for Infrastructure Provisioning
+
+infrastructure_id: "aletheion-infra-phoenix-001"
+version: "1.0.0"
+description: "Infrastructure orchestration for Phoenix Aletheion smart city deployment."
+geographic_scope:
+  primary_city: "Phoenix, Arizona"
+  coordinates:
+    latitude: 33.4484
+    longitude: -112.0740
+  indigenous_territories:
+    - "Akimel O'odham (Pima)"
+    - "Piipaash (Maricopa)"
+    - "Salt River Pima-Maricopa Indian Community"
+
+architecture:
+  erm_layers: ["PIL", "DSL", "WOL"]
+  orchestration_pattern: "SMART-Chain"
+  deployment_model: "Edge-First, Offline-Capable"
+
+environmental_constraints:
+  extreme_heat_protocol:
+    enabled: true
+    threshold_celsius: 48.9 # 120°F
+    hardware_limit_celsius: 55.0 # 131°F
+    mandatory_cooling_allocation: true
+  monsoon_resilience:
+    enabled: true
+    season: "August-September"
+    flash_flood_protection: true
+    stormwater_harvesting: true
+  dust_storm_hardening:
+    enabled: true
+    haboob_detection: true
+    air_filtration_required: true
+  water_accounting:
+    per_capita_target_gallons_day: 50
+    phoenix_average_gallons_day: 146
+    reclamation_efficiency_target: 0.99
+
+energy_profile:
+  solar_microgrid_priority: true
+  battery_storage_distribution: true
+  peer_to_peer_trading: true
+  carbon_intensity_tracking: true
+  arizona_grid_mix_awareness: true
+
+security_requirements:
+  post_quantum_cryptography:
+    algorithm: "CRYSTALS-Dilithium"
+    key_rotation_days: 30
+    blacklisted_algorithms: ["SHA-256", "BLAKE", "KECCAK_256", "RIPEMD160"]
+  node_security_profiles:
+    root_access_disabled: true
+    sudo_did_bound: true
+    package_whitelist_enforced: true
+  firmware_signing:
+    required: true
+    rollback_prohibited: true
+    birth_sign_required: true
+
+compliance_hooks:
+  ale_comp_core:
+    neurorights: "S4_RULECHECK"
+    biotic_treaty: "S4_RULECHECK"
+    fpic_indigenous: "S4_RULECHECK"
+    digital_twin_exclusion: "STATE_MIRROR_ONLY"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    birth_sign_propagation: true
+
+node_types:
+  edge_sensor_node:
+    count_target: 10000
+    power_budget_watts: 50
+    offline_capable_hours: 72
+    heat_tolerance_celsius: 55.0
+  edge_actuator_node:
+    count_target: 5000
+    power_budget_watts: 200
+    offline_capable_hours: 72
+    heat_tolerance_celsius: 55.0
+  gateway_node:
+    count_target: 500
+    power_budget_watts: 500
+    offline_capable_hours: 168
+    heat_tolerance_celsius: 50.0
+  workflow_engine:
+    count_target: 100
+    power_budget_watts: 1000
+    offline_capable_hours: 72
+    heat_tolerance_celsius: 45.0
+
+deployment_phases:
+  phase_1:
+    name: "Core Infrastructure"
+    duration_weeks: 12
+    node_types: ["gateway_node", "workflow_engine"]
+    geographic_zones: ["PHOENIX_CENTRAL", "SALT_RIVER_VALLEY"]
+  phase_2:
+    name: "Edge Sensor Network"
+    duration_weeks: 24
+    node_types: ["edge_sensor_node"]
+    geographic_zones: ["ALL_ZONES"]
+  phase_3:
+    name: "Actuator Deployment"
+    duration_weeks: 36
+    node_types: ["edge_actuator_node"]
+    geographic_zones: ["ALL_ZONES"]
+
+ci_cd_requirements:
+  preflight_checks:
+    - "validate-security-profiles"
+    - "verify-pq-cryptography"
+    - "check-heat-certification"
+    - "validate-fpic-compliance"
+    - "verify-birthsign-propagation"
+  test_coverage_min: 0.85
+  documentation_ratio_min: 0.33
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  birth_sign_schema: "/aletheion-gtl/birthsign/birth_sign_model.schema.json"
+  environmental_spec: "/aletheion-env/climate/integration_specs.md"
+
+# END OF INFRASTRUCTURE MANIFEST
