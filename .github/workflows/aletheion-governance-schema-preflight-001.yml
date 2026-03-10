@@ -1,0 +1,55 @@
+# Aletheion Governance Schema Preflight v1
+# Ensures ALN governance schemas and governed-decision records
+# follow canonical patterns before merge.
+
+name: Aletheion Governance Schema Preflight v1
+
+on:
+  pull_request:
+    paths:
+      - "aletheion/**/*.aln"
+      - ".github/workflows/aletheion-governance-schema-preflight-001.yml"
+  push:
+    branches:
+      - main
+      - dev
+      - phoenix-*
+
+jobs:
+  governance-schema-preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (for internal ALN validator)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build ALN validator
+        run: |
+          cargo build \
+            --manifest-path aletheion/compliance/core/Cargo.toml \
+            --package aletheion-compliance-core
+
+      - name: Run ALN schema validation
+        run: |
+          cargo run \
+            --manifest-path aletheion/compliance/core/Cargo.toml \
+            --package aletheion-compliance-core \
+            --bin aletheion-aln-validate \
+            -- \
+            --root aletheion \
+            --require-schema aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln
+
+      - name: Enforce governed-decision usage
+        run: |
+          cargo run \
+            --manifest-path aletheion/compliance/core/Cargo.toml \
+            --package aletheion-compliance-core \
+            --bin aletheion-governed-decision-lint \
+            -- \
+            --root aletheion \
+            --schema ALE-TRUST-GOVERNED-DECISION-TX-001 \
+            --require-birthsign \
+            --require-aln-norm
