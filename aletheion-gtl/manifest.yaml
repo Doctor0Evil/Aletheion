@@ -1,0 +1,93 @@
+# Aletheion Governance/Treaty Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer 4 (GTL)
+# Status: Canonical Reference for Governance Enforcement
+
+layer_id: "aletheion-gtl-phoenix-001"
+version: "1.0.0"
+description: "Governance and Treaty enforcement layer for Phoenix Aletheion smart city."
+erm_layer: "GTL"
+
+indigenous_sovereignty:
+  recognized_nations:
+    - name: "Akimel O'odham (Pima)"
+      territory_id: "AKIMEL_OODHAM_TERRITORY"
+      contact_did: "did:aletheion:akimel-council"
+      fpic_required: true
+    - name: "Piipaash (Maricopa)"
+      territory_id: "PIIPAASH_TERRITORY"
+      contact_did: "did:aletheion:piipaash-council"
+      fpic_required: true
+  consent_database: "aletheion-dsl/consent/fpic_consent_records"
+  verification_method: "COMMUNITY_CONSENT"
+  hard_block_on_missing: true
+
+biotic_treaties:
+  protected_corridors:
+    - type: "BEE_POLLINATOR"
+      min_width_meters: 50.0
+      pesticide_free: true
+      flora_requirements: ["DesertWillow", "PaloVerde", "Ocotillo"]
+    - type: "WILDLIFE_MOVEMENT"
+      min_width_meters: 100.0
+      pesticide_free: true
+  tree_protection:
+    - species: "Saguaro"
+      min_root_zone_radius_m: 5.0
+      canopy_preservation_percent: 90.0
+    - species: "Palo Verde"
+      min_root_zone_radius_m: 3.0
+      canopy_preservation_percent: 80.0
+  eco_impact_accounting: "CEIM_NANO_KARMA_STYLE"
+  max_eco_delta_per_action: 0.01
+
+neurorights_framework:
+  protection_level: "INVOLABLE"
+  consent_gated_data: ["NEURAL_SIGNALS", "BIOSIGNALS", "COGNITIVE_STATE"]
+  prohibited_actions: ["SUBLIMINAL_STIMULI", "MANIPULATIVE_TIMING", "FORCED_CONSENT"]
+  commercialization: "PROHIBITED"
+  encryption_required: true
+
+birth_sign_propagation:
+  algorithm: "CRYSTALS-Dilithium"
+  chain_depth_max: 1000
+  stage_sequence_enforced: true
+  spoofing_detection: true
+  audit_ledger: "aletheion-dsl/audit/birthsign_chains"
+
+decision_envelopes:
+  schema_version: "1.0.0"
+  style: "Googolswarm"
+  required_fields: ["envelope_version", "decision_id", "birth_sign_id", "governance_footprint"]
+  cryptographic_signature: "POST_QUANTUM"
+  digital_twin_exclusion: "STATE_MIRROR_ONLY"
+
+compliance_hooks:
+  ale_comp_core:
+    fpic_verification: "S4_RULECHECK"
+    biotic_treaty_check: "S4_RULECHECK"
+    neurorights_check: "S4_RULECHECK"
+    envelope_validation: "PRE_S4"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    public_verifiability: true
+
+ci_cd_requirements:
+  preflight_checks:
+    - "validate-fpic-territory-maps"
+    - "verify-biotic-corridor-widths"
+    - "check-neurorights-grammar"
+    - "validate-envelope-schema"
+    - "verify-pq-signatures"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  birth_sign_schema: "/aletheion-gtl/birthsign/birth_sign_model.schema.json"
+  envelope_schema: "/aletheion-gtl/envelope/decision_envelope.schema.json"
+  environmental_spec: "/aletheion-env/climate/integration_specs.md"
+
+# END OF GTL MANIFEST
