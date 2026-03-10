@@ -1,0 +1,26 @@
+﻿ID,Title,ERM,Languages,Treaties,CI Jobs (Composite),Repo Paths,Status
+ALE-WF-001,ERM State-Model Sync Orchestrator,L1-L3,"Rust, ALN",Data_Sovereignty,ci-erm-sync.yml", "ci-compliance-preflight.yml,/src/rust/erm/sync_orchestrator.rs,Ready
+ALE-WF-002,Centralized Compliance Preflight Pipeline,L1-L5,"Rust, Lua",All_Treaties,ci-compliance-preflight.yml,/src/lua/automation/compliance_preflight.lua,Ready
+ALE-WF-003,Neurorights Envelope Guardrail Runner,L2-L4,"Rust, ALN",Neurorights,ci-neuro-guard.yml", "ci-compliance-preflight.yml,/src/rust/governance/neuro_guardrail.rs,Ready
+ALE-WF-004,Data Provenance and Blockchain Append,L1-L3,"Rust, C++",Data_Sovereignty,ci-ledger-append.yml,/src/cpp/ledger/provenance_engine.cpp,Ready
+ALE-WF-005,Citywide Metrics and Progress Tracker,L3-L5,"JS, Rust",Transparency,ci-metrics-update.yml,/src/js/dashboards/metrics_tracker.js,Ready
+ALE-WF-006,AWP Plant Telemetry Ingestion,L1-L2,"Rust, C++",Water_Rights,ci-water-ingest.yml", "ci-compliance-preflight.yml,/src/rust/water/awp_telemetry.rs,Ready
+ALE-WF-007,Groundwater Recharge and Aquifer Monitoring,L1-L3,"Rust, ALN",Tribal_Water,ci-aquifer-monitor.yml,/src/rust/water/aquifer_monitor.rs,Ready
+ALE-WF-008,Water Allocation Optimization (AWP),L2-L4,"Rust, Lua","FPIC, Water_Rights",ci-water-optimize.yml", "ci-fpic-check.yml,/src/lua/automation/water_allocation.lua,Ready
+ALE-WF-009,Drought Alert and Demand-Curtailment,L3-L5,"Kotlin, Lua",Emergency_Powers,ci-drought-alert.yml,/src/kotlin/android/drought_alerts.kt,Ready
+ALE-WF-010,Integrated Water–Thermal Co-optimization,L2-L4,"Rust, ALN",BioticTreaty,ci-thermal-water-opt.yml,/src/rust/environment/thermal_water_opt.rs,Ready
+ALE-WF-011,Solar and Grid Telemetry Ingestion,L1-L2,"Rust, C++",Energy_Rights,ci-energy-ingest.yml,/src/rust/energy/grid_telemetry.rs,Ready
+ALE-WF-012,Microgrid Balancing and P2P Settlement,L2-L4,"Rust, ALN",Economic_Rights,ci-microgrid-settle.yml,/src/rust/energy/p2p_settlement.rs,Ready
+ALE-WF-013,Embodied Carbon and Material Provenance,L1-L3,"Rust, C++",Climate_Action,ci-carbon-track.yml,/src/cpp/materials/carbon_tracker.cpp,Ready
+ALE-WF-014,Circular Construction and Demolition Recovery,L2-L4,"Lua, Rust",Zero_Waste,ci-circular-recovery.yml,/src/lua/automation/demolition_recovery.lua,Ready
+ALE-WF-015,Urban Heatwave Early Warning and Cooling,L3-L5,"Kotlin, JS",Health_Rights,ci-heatwave-warning.yml,/src/kotlin/android/heatwave_warning.kt,Ready
+ALE-WF-016,Cool Pavement and Shade Asset Lifecycle,L2-L4,"Rust, ALN",Infrastructure,ci-asset-lifecycle.yml,/src/rust/infrastructure/cool_pavement.rs,Ready
+ALE-WF-017,Dust-Storm (Haboob) Detection and Mode-Shift,L1-L3,"Rust, C++",Safety_Rights,ci-haboob-detect.yml,/src/rust/environment/haboob_detection.rs,Ready
+ALE-WF-018,LexEthos Governance and Policy Engine,L4-L5,"ALN, Rust",All_Treaties,ci-lexethos-engine.yml,/src/aln/policies/lexethos_engine.aln,Ready
+ALE-WF-019,Citizen Consent Management Interface,L3-L5,"Kotlin, JS","FPIC, Neurorights",ci-consent-ui.yml", "ci-compliance-preflight.yml,/src/kotlin/android/consent_interface/,Ready
+ALE-WF-020,Indigenous Data Sovereignty Gateway,L2-L4,"Rust, ALN","UNDRIP, FPIC",ci-ids-gateway.yml,/src/rust/governance/ids_gateway.rs,Ready
+ALE-WF-021,BioticTreaty Species Habitat Monitor,L2-L4,"Rust, ALN",BioticTreaty,ci-habitat-monitor.yml,/src/rust/environment/species_monitor.rs,Ready
+ALE-WF-022,Neurobiome Mesh and Ferment Loop,L2-L4,"Rust, Lua",Health_Rights,ci-neurobiome-mesh.yml,/src/lua/automation/neurobiome_loop.lua,Ready
+ALE-WF-023,Somaplex Movement MicroRoute Engine,L2-L4,"Rust, JS",Mobility_Rights,ci-microroute-engine.yml,/src/rust/movement/microroute_engine.rs,Ready
+ALE-WF-024,Incident & Grievance Filing System,L3-L5,"Kotlin, Rust",Redress_Rights,ci-grievance-file.yml", "ci-compliance-preflight.yml,/src/kotlin/android/grievance_interface/,Ready
+ALE-WF-025,Cooling-Resolution and Appeals Orchestrator,L4-L5,"Lua, ALN",Justice_Rights,ci-appeals-orchestrator.yml,/src/lua/automation/appeals_orchestrator.lua,Ready
