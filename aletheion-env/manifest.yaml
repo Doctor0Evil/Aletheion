@@ -1,0 +1,173 @@
+# Aletheion Environmental/Climate Integration Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer (ENV)
+# Status: Canonical Reference for Phoenix Environmental Systems
+
+layer_id: "aletheion-env-phoenix-001"
+version: "1.0.0"
+description: "Environmental/Climate Integration Layer for Phoenix Aletheion smart city. All water, thermal, air quality, and monsoon systems must comply with this manifest."
+erm_layer: "ENV"
+
+water_management:
+  reclamation_efficiency_target: 0.99
+  per_capita_target_gallons_day: 50
+  phoenix_average_gallons_day: 146
+  sources:
+    - type: "MUNICIPAL_RECLAIMED"
+      purification_standard: "Pure_Water_Phoenix"
+      efficiency: 0.98
+    - type: "STORMWATER_HARVESTED"
+      capture_efficiency: 0.85
+      season: "August-September"
+    - type: "ATMOSPHERIC_GENERATED"
+      technology: "MOF-based"
+      yield_l_per_kg_mof_day: 1.0
+    - type: "GRAYWATER_RECYCLED"
+      building_level: true
+  quality_standards:
+    epa_compliant: true
+    phoenix_standard: true
+    turbidity_ntu_max: 0.1
+    ph_range: [6.5, 8.5]
+    tds_ppm_max: 100
+  fpic_required_zones:
+    - "AKIMEL_OODHAM_TERRITORY"
+    - "PIIPAASH_TERRITORY"
+    - "SALT_RIVER_RESERVATION"
+
+thermal_management:
+  extreme_heat_threshold_c: 48.9 # 120°F
+  critical_heat_threshold_c: 51.7 # 125°F
+  cool_pavement_reduction_f: 11.0 # 10.5-12°F range
+  cooling_systems:
+    - type: "MISTING_STATIONS"
+      auto_activate_temp_c: 48.9
+      water_source: "RECLAIMED"
+    - type: "COOL_PAVEMENT"
+      miles_deployed: 140
+      albedo_min: 0.30
+    - type: "EMERGENCY_SHELTER"
+      mandatory_access: true
+      activation_temp_c: 48.9
+  protocol:
+    cooling_shutoff_prohibited_during_extreme_heat: true
+    cooling_center_capacity_monitoring: true
+    citizen_notification_required: true
+
+air_quality:
+  epa_standards:
+    pm2_5_annual_ugm3: 12.0
+    pm10_24hr_ugm3: 50.0
+    ozone_8hr_ppb: 70.0
+  haboob_detection:
+    pm10_threshold_ugm3: 500.0
+    visibility_critical_m: 100.0
+    adot_sensor_network: true
+  alert_levels:
+    - level: "GOOD"
+      aqi_range: [0, 50]
+    - level: "MODERATE"
+      aqi_range: [51, 100]
+    - level: "UNHEALTHY_SENSITIVE"
+      aqi_range: [101, 150]
+    - level: "UNHEALTHY"
+      aqi_range: [151, 200]
+    - level: "VERY_UNHEALTHY"
+      aqi_range: [201, 300]
+    - level: "HAZARDOUS"
+      aqi_range: [301, 500]
+  ozone_action_day:
+    threshold_ppb: 70.0
+    season: "May-September"
+    public_advisory_required: true
+
+monsoon_flood:
+  season:
+    start: "06-15"
+    end: "09-30"
+    peak: "August-September"
+  rainfall_thresholds:
+    average_mm: 68.8
+    extreme_event_mm: 41.7
+    emergency_intensity_mm_hr: 50.0
+  stormwater_harvesting:
+    capture_efficiency_target: 0.85
+    basin_capacity_monitoring: true
+    recharge_integration: true
+  flood_detection:
+    wash_level_warning_m: 2.0
+    wash_level_emergency_m: 3.5
+    flow_rate_warning_m3s: 100.0
+    flow_rate_emergency_m3s: 500.0
+  evacuation_protocol:
+    priority_zones:
+      - "WASH_ADJACENT_RESIDENTIAL"
+      - "LOW_LYING_AREAS"
+      - "UNDERGROUND_PARKING"
+    evacuation_time_target_min: 30
+    shelter_activation_required: true
+
+native_ecosystem:
+  protected_species:
+    - name: "Saguaro"
+      scientific_name: "Carnegiea gigantea"
+      root_zone_min_m: 5.0
+      canopy_preservation_percent: 90.0
+    - name: "Palo Verde"
+      scientific_name: "Parkinsonia florida"
+      root_zone_min_m: 3.0
+      canopy_preservation_percent: 80.0
+    - name: "Ocotillo"
+      scientific_name: "Fouquieria splendens"
+      protected: true
+  bee_corridors:
+    min_width_m: 50.0
+    pesticide_free: true
+    flora_requirements: ["DesertWillow", "PaloVerde", "Ocotillo"]
+  urban_heat_island_reduction:
+    albedo_optimization: true
+    green_roof_incentives: true
+    tree_canopy_target_percent: 25.0
+
+zero_waste:
+  material_recovery_target: 0.99
+  construction_waste_diversion: true
+  organic_waste_to_energy: true
+  demolition_to_resource_pipeline: true
+  circular_economy_tracking: true
+
+compliance_hooks:
+  ale_comp_core:
+    water_quality_verification: "CONTINUOUS"
+    extreme_heat_protocol: "S4_RULECHECK"
+    air_quality_standards: "EPA_COMPLIANCE"
+    monsoon_flood_detection: "REAL_TIME"
+    fpic_indigenous_territories: "ALL_WATER_ACTIONS"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    birth_sign_propagation: true
+    public_dashboards: true
+
+ci_cd_requirements:
+  preflight_checks:
+    - "verify-water-quality-standards"
+    - "verify-extreme-heat-protocol"
+    - "verify-air-quality-epa-compliance"
+    - "verify-monsoon-detection-system"
+    - "verify-fpic-territory-overlays"
+    - "verify-birthsign-propagation"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  environmental_stress_testing: true
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  water_reclamation: "/aletheion-env/water/reclamation_engine.rs"
+  thermal_management: "/aletheion-env/thermal/thermal_management_system.cpp"
+  air_quality: "/aletheion-env/air/quality_dust_detection.rs"
+  monsoon_flood: "/aletheion-env/monsoon/flood_detection.aln"
+  environmental_spec: "/aletheion-env/climate/integration_specs.md"
+
+# END OF ENVIRONMENTAL LAYER MANIFEST
