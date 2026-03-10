@@ -1,85 +1,869 @@
-namespace ALE.TRUST.BIODEGRADE.QPUDATASHARD.001
+// Aletheion Trust Schemas Biodegrade QPU Data Shard
+// File: ALE-TRUST-BIODEGRADE-QPUDATASHARD-001.aln
+// Domain: Trust / Googolswarm / Biodegrade Data Provenance
+// Compliance: BioticTreaties, Indigenous FPIC, EJ Zones, SMART Chain
 
-atom DidId
-  field id string
+aln_version 1.0
+namespace Aletheion.Trust.Schemas.Biodegrade
 
-atom ShardId
-  field id string
+import Aletheion.ERM.Ecosafety.Biodegrade
+import Aletheion.Governance.Lexethos.Biodegrade
+import Aletheion.TreatyOS
 
-atom MaterialId
-  field id string
+// =============================================================================
+// 1. Core Shard Identifiers
+// =============================================================================
 
-atom NodeId
-  field id string
+type ShardId = string
+type MaterialId = string
+type CorridorId = string
+type ProtocolId = string
+type NodeId = string
+type DID = string
+type BirthSignId = string
+type IsoTimestamp = string
+type Decimal = number
+type Int = integer
+type Bool = boolean
+type GeoHash = string
+type PQSignature = string
 
-atom CorridorId
-  field id string
+enum ShardStatus {
+    PENDING
+    VALIDATED
+    APPENDED
+    REJECTED
+    FLAGGED
+}
 
-atom GeographyId
-  field id string
+enum DecompositionPhase {
+    INITIAL
+    ACTIVE
+    DECLINING
+    COMPLETE
+    STALLED
+}
 
-atom BirthSignId
-  field id string
+enum LeachateRiskLevel {
+    NONE
+    LOW
+    MEDIUM
+    HIGH
+    CRITICAL
+}
 
-atom TimePoint
-  field t_seconds float
-  field rdegrade float
-  field rresidualmass float
-  field rmicroplastics float
-  field rtoxacute float
-  field rtoxchronic float
-  field vt float
+enum ExperimentType {
+    FIELD_DEPLOYMENT
+    CONTROLLED_TEST
+    MONSOON_EXPOSURE
+    DROUGHT_STRESS
+    HABITAT_INTERACTION
+    EJ_ZONE_MONITORING
+}
 
-atom KerMetrics
-  field k float
-  field e float
-  field r float
+// =============================================================================
+// 2. Material Provenance Records
+// =============================================================================
 
-atom BiodegradeExperimentMeta
-  field protocol MaterialId
-  field lab_id string
-  field environment string
-  field notes string
+record BiodegradeMaterialProvenance {
+    material_id             : MaterialId
+    manufacturer_did        : DID
+    batch_id                : string
+    certification_ids       : [string]
+    composition_hash        : string
+    mass_initial_grams      : Decimal
+    installation_timestamp  : IsoTimestamp
+    expected_lifetime_days  : Int
+    geo_hash                : GeoHash
+    corridor_id             : CorridorId
+    birth_sign_id           : BirthSignId
+}
 
-atom BiodegradeShardHeader
-  field shard_id ShardId
-  field issuer DidId
-  field material MaterialId
-  field node NodeId
-  field corridor CorridorId
-  field geography GeographyId
-  field birthsign BirthSignId
-  field started_at_utc string
-  field ended_at_utc string
+record MaterialCertification {
+    certification_id        : string
+    certifying_body_did     : DID
+    certification_type      : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    scope                   : [string]
+    audit_trail_refs        : [string]
+}
 
-atom BiodegradeShardBody
-  field time_series list TimePoint
-  field ker KerMetrics
-  field meta BiodegradeExperimentMeta
+// =============================================================================
+// 3. Decomposition Experiment Records
+// =============================================================================
 
-atom BiodegradeShardSignature
-  field signer DidId
-  field sig_alg string
-  field sig_bytes string
-  field multisig_threshold int
-  field multisig_signers list DidId
+record DecompositionExperiment {
+    experiment_id           : ShardId
+    experiment_type         : ExperimentType
+    material_id             : MaterialId
+    node_id                 : NodeId
+    corridor_id             : CorridorId
+    birth_sign_id           : BirthSignId
+    start_timestamp         : IsoTimestamp
+    end_timestamp           : IsoTimestamp?
+    status                  : ShardStatus
+    protocol_ids            : [ProtocolId]
+    principal_investigator  : DID
+    collaborating_bodies    : [DID]
+    indigenous_consultation : Bool
+    fpic_grant_id           : string?
+    ej_zone_flag            : Bool
+    biotic_corridor_flag    : Bool
+}
 
-atom BiodegradeQpuDataShard
-  field header BiodegradeShardHeader
-  field body BiodegradeShardBody
-  field signature BiodegradeShardSignature
+record DecompositionMeasurement {
+    measurement_id          : string
+    experiment_id           : ShardId
+    timestamp               : IsoTimestamp
+    phase                   : DecompositionPhase
+    mass_remaining_grams    : Decimal
+    mass_loss_rate          : Decimal
+    r_micro                 : Decimal
+    r_tox                   : Decimal
+    temperature_celsius     : Decimal
+    ph_level                : Decimal
+    moisture_fraction       : Decimal
+    microbial_activity_index : Decimal
+    lyapunov_residual       : Decimal
+    lyapunov_derivative     : Decimal
+    sensor_calibration_ref  : string
+    operator_did            : DID
+}
 
-rule shard_must_have_points
-  when s BiodegradeQpuDataShard
-  then require size s.body.time_series > 0
-  else error BIODEGRADE_SHARD_EMPTY s.header.shard_id.id
+record DecompositionAggregate {
+    aggregate_id            : string
+    experiment_id           : ShardId
+    period_start            : IsoTimestamp
+    period_end              : IsoTimestamp
+    total_measurements      : Int
+    avg_mass_loss_rate      : Decimal
+    max_mass_loss_rate      : Decimal
+    avg_r_micro             : Decimal
+    avg_r_tox               : Decimal
+    phase_transitions       : [DecompositionPhase]
+    lyapunov_stable_fraction : Decimal
+    intervention_events     : Int
+    treaty_violations       : Int
+    data_quality_score      : Decimal
+}
 
-rule shard_ker_bounds
-  when s BiodegradeQpuDataShard
-  then
-    require 0.0 <= s.body.ker.k && s.body.ker.k <= 1.0
-    else error BIODEGRADE_K_OUT_OF_RANGE s.header.shard_id.id
-    require 0.0 <= s.body.ker.r && s.body.ker.r <= 1.0
-    else error BIODEGRADE_R_OUT_OF_RANGE s.header.shard_id.id
+// =============================================================================
+// 4. Leachate Monitoring Records
+// =============================================================================
 
-end namespace
+record LeachateSample {
+    sample_id               : string
+    experiment_id           : ShardId
+    node_id                 : NodeId
+    timestamp               : IsoTimestamp
+    sample_depth_cm         : Decimal
+    sample_volume_ml        : Decimal
+    collection_method       : string
+    collector_did           : DID
+    chain_of_custody_sig    : PQSignature
+}
+
+record LeachateAnalysis {
+    analysis_id             : string
+    sample_id               : string
+    lab_did                 : DID
+    analysis_timestamp      : IsoTimestamp
+    heavy_metals_ppm        : Decimal
+    organic_toxins_ppb      : Decimal
+    nitrogen_mgl            : Decimal
+    phosphorus_mgl          : Decimal
+    ph_level                : Decimal
+    conductivity_us_cm      : Decimal
+    dissolved_oxygen_mgl    : Decimal
+    bioaccumulation_factor  : Decimal
+    risk_level              : LeachateRiskLevel
+    epa_method_refs         : [string]
+    quality_control_flags   : [string]
+}
+
+record LeachateThresholdViolation {
+    violation_id            : string
+    analysis_id             : string
+    experiment_id           : ShardId
+    timestamp               : IsoTimestamp
+    violated_parameter      : string
+    measured_value          : Decimal
+    threshold_value         : Decimal
+    exceedance_factor       : Decimal
+    risk_level              : LeachateRiskLevel
+    notification_sent       : Bool
+    remediation_required    : Bool
+    remediation_deadline    : IsoTimestamp?
+    ledger_reference        : string
+}
+
+record LeachateRiskAssessment {
+    assessment_id           : string
+    experiment_id           : ShardId
+    assessment_timestamp    : IsoTimestamp
+    overall_risk_level      : LeachateRiskLevel
+    groundwater_risk        : LeachateRiskLevel
+    surface_water_risk      : LeachateRiskLevel
+    soil_contamination_risk : LeachateRiskLevel
+    biotic_exposure_risk    : LeachateRiskLevel
+    ej_zone_amplifier       : Decimal
+    indigenous_territory_risk : LeachateRiskLevel
+    recommended_actions     : [string]
+    assessor_did            : DID
+}
+
+// =============================================================================
+// 5. Lyapunov Trace Records
+// =============================================================================
+
+record LyapunovTracePoint {
+    trace_point_id          : string
+    experiment_id           : ShardId
+    timestamp               : IsoTimestamp
+    residual_value          : Decimal
+    derivative_value        : Decimal
+    threshold               : Decimal
+    convergent              : Bool
+    stable                  : Bool
+    intervention_flag       : Bool
+    node_state_hash         : string
+}
+
+record LyapunovTraceSummary {
+    summary_id              : string
+    experiment_id           : ShardId
+    period_start            : IsoTimestamp
+    period_end              : IsoTimestamp
+    total_points            : Int
+    stable_fraction         : Decimal
+    convergent_fraction     : Decimal
+    avg_residual            : Decimal
+    max_residual            : Decimal
+    min_derivative          : Decimal
+    intervention_count      : Int
+    system_health_score     : Decimal
+    treaty_compliance_score : Decimal
+}
+
+record LyapunovIntervention {
+    intervention_id         : string
+    trace_point_id          : string
+    experiment_id           : ShardId
+    timestamp               : IsoTimestamp
+    intervention_type       : string
+    trigger_reason          : string
+    action_taken            : string
+    actor_did               : DID
+    treaty_atom_refs        : [string]
+    outcome                 : string
+    follow_up_required      : Bool
+}
+
+// =============================================================================
+// 6. Corridor Update Records
+// =============================================================================
+
+record CorridorUpdate {
+    update_id               : string
+    corridor_id             : CorridorId
+    update_timestamp        : IsoTimestamp
+    update_type             : string
+    previous_status         : string
+    new_status              : string
+    integrity_score_before  : Decimal
+    integrity_score_after   : Decimal
+    node_count_before       : Int
+    node_count_after        : Int
+    violation_count_before  : Int
+    violation_count_after   : Int
+    authorized_by_did       : DID
+    treaty_atom_refs        : [string]
+    birth_sign_id           : BirthSignId
+    ledger_reference        : string
+}
+
+record CorridorIntegritySnapshot {
+    snapshot_id             : string
+    corridor_id             : CorridorId
+    snapshot_timestamp      : IsoTimestamp
+    total_nodes             : Int
+    active_nodes            : Int
+    inactive_nodes          : Int
+    violation_nodes         : Int
+    avg_integrity_score     : Decimal
+    min_integrity_score     : Decimal
+    max_integrity_score     : Decimal
+    lyapunov_stable_nodes   : Int
+    toxicity_compliant_nodes : Int
+    fpic_compliant_nodes    : Int
+    ej_compliant_nodes      : Int
+    biotic_compliant_nodes  : Int
+    overall_health_score    : Decimal
+}
+
+// =============================================================================
+// 7. DID & Identity Bindings
+// =============================================================================
+
+record DIDBinding {
+    binding_id              : string
+    did                     : DID
+    entity_type             : string
+    entity_name             : string
+    jurisdiction            : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    public_key_ref          : string
+    signature_algorithm     : string
+    pq_compliant            : Bool
+    verification_method     : string
+    service_endpoints       : [string]
+}
+
+record MultiSigAttestation {
+    attestation_id          : string
+    shard_id                : ShardId
+    timestamp               : IsoTimestamp
+    required_signatures     : Int
+    collected_signatures    : Int
+    signers                 : [DID]
+    signature_refs          : [PQSignature]
+    threshold_met           : Bool
+    ledger_reference        : string
+}
+
+record IndigenousBodyAttestation {
+    attestation_id          : string
+    indigenous_body_id      : string
+    indigenous_body_name    : string
+    territory_id            : string
+    fpic_grant_id           : string?
+    consultation_timestamp  : IsoTimestamp
+    consent_status          : string
+    conditions              : [string]
+    authorized_representative : DID
+    signature_ref           : PQSignature
+    ledger_reference        : string
+}
+
+// =============================================================================
+// 8. Birth-Sign Bindings
+// =============================================================================
+
+record BirthSignBinding {
+    binding_id              : string
+    birth_sign_id           : BirthSignId
+    tile_id                 : string
+    domain                  : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    constraint_bundle_refs  : [string]
+    treaty_atom_refs        : [string]
+    indigenous_territory_id : string?
+    ej_zone_id              : string?
+    biotic_corridor_id      : string?
+    version                 : Int
+    signature_ref           : PQSignature
+}
+
+record BirthSignConstraintBundle {
+    bundle_id               : string
+    birth_sign_id           : BirthSignId
+    constraint_count        : Int
+    hard_constraints        : [string]
+    soft_constraints        : [string]
+    advisory_constraints    : [string]
+    fpic_required           : Bool
+    ej_enhanced_review      : Bool
+    biotic_treaty_required  : Bool
+    audit_frequency_hours   : Int
+}
+
+// =============================================================================
+// 9. Googolswarm Shard Envelope
+// =============================================================================
+
+record BiodegradeShardEnvelope {
+    shard_id                : ShardId
+    shard_type              : string
+    version                 : Int
+    created_timestamp       : IsoTimestamp
+    appended_timestamp      : IsoTimestamp?
+    status                  : ShardStatus
+    // Core data references
+    material_provenance_ref : string?
+    experiment_ref          : string?
+    measurement_refs        : [string]
+    aggregate_ref           : string?
+    leachate_sample_refs    : [string]
+    leachate_analysis_refs  : [string]
+    lyapunov_trace_refs     : [string]
+    lyapunov_summary_ref    : string?
+    corridor_update_refs    : [string]
+    corridor_snapshot_ref   : string?
+    // Governance bindings
+    birth_sign_binding_ref  : string?
+    fpic_attestation_ref    : string?
+    indigenous_attestation_ref : string?
+    multi_sig_attestation_ref : string?
+    // Treaty compliance
+    treaty_check_refs       : [string]
+    violated_atom_refs      : [string]
+    applied_norm_refs       : [string]
+    // Cryptographic integrity
+    data_hash               : string
+    pq_signature            : PQSignature
+    ledger_transaction_id   : string?
+    ledger_block_height     : Int?
+    // Access control
+    public_readable         : Bool
+    citizen_accessible      : Bool
+    researcher_accessible   : Bool
+    indigenous_body_accessible : Bool
+    encryption_ref          : string?
+}
+
+// =============================================================================
+// 10. Query & Index Schemas
+// =============================================================================
+
+record BiodegradeShardIndex {
+    index_id                : string
+    shard_id                : ShardId
+    material_id             : MaterialId
+    corridor_id             : CorridorId
+    birth_sign_id           : BirthSignId
+    experiment_type         : ExperimentType
+    status                  : ShardStatus
+    start_timestamp         : IsoTimestamp
+    end_timestamp           : IsoTimestamp?
+    risk_level              : LeachateRiskLevel
+    lyapunov_stable         : Bool
+    treaty_compliant        : Bool
+    ej_zone_flag            : Bool
+    indigenous_territory_flag : Bool
+    biotic_corridor_flag    : Bool
+    ledger_transaction_id   : string
+    search_tags             : [string]
+}
+
+record BiodegradeShardQuery {
+    query_id                : string
+    query_timestamp         : IsoTimestamp
+    requester_did           : DID
+    query_type              : string
+    filters                 : [string]
+    shard_ids               : [ShardId]?
+    material_ids            : [MaterialId]?
+    corridor_ids            : [CorridorId]?
+    birth_sign_ids          : [BirthSignId]?
+    experiment_types        : [ExperimentType]?
+    status_filter           : [ShardStatus]?
+    risk_level_filter       : [LeachateRiskLevel]?
+    date_range_start        : IsoTimestamp?
+    date_range_end          : IsoTimestamp?
+    treaty_compliant_only   : Bool
+    indigenous_accessible_only : Bool
+    result_count            : Int
+    result_shard_ids        : [ShardId]
+    query_signature         : PQSignature
+}
+
+// =============================================================================
+// 11. Audit & Compliance Records
+// =============================================================================
+
+record BiodegradeShardAudit {
+    audit_id                : string
+    shard_id                : ShardId
+    audit_timestamp         : IsoTimestamp
+    auditor_did             : DID
+    audit_type              : string
+    data_integrity_verified : Bool
+    treaty_compliance_verified : Bool
+    fpic_verified           : Bool
+    ej_compliance_verified  : Bool
+    biotic_compliance_verified : Bool
+    indigenous_rights_verified : Bool
+    violations_found        : Int
+    violations_refs         : [string]
+    remediation_required    : Bool
+    remediation_deadline    : IsoTimestamp?
+    audit_signature         : PQSignature
+    ledger_reference        : string
+}
+
+record TreatyComplianceTranscript {
+    transcript_id           : string
+    shard_id                : ShardId
+    timestamp               : IsoTimestamp
+    treaty_modules_evaluated : [string]
+    indigenous_rights_result : string
+    biotic_treaty_result    : string
+    ej_zone_result          : string
+    water_compact_result    : string
+    neurorights_result      : string
+    municipal_code_result   : string
+    overall_compliance      : Bool
+    violated_atoms          : [string]
+    applied_norms           : [string]
+    explanation             : string
+    grievance_reference     : string
+}
+
+// =============================================================================
+// 12. Citizen Access & Grievance Records
+// =============================================================================
+
+record CitizenShardAccess {
+    access_id               : string
+    shard_id                : ShardId
+    citizen_did             : DID
+    access_timestamp        : IsoTimestamp
+    access_type             : string
+    data_fields_accessed    : [string]
+    purpose                 : string
+    consent_verified        : Bool
+    access_signature        : PQSignature
+}
+
+record BiodegradeGrievance {
+    grievance_id            : string
+    shard_id                : ShardId
+    filed_by_did            : DID
+    filed_timestamp         : IsoTimestamp
+    grievance_type          : string
+    description             : string
+    affected_rights         : [string]
+    affected_treaties       : [string]
+    evidence_refs           : [string]
+    status                  : string
+    assigned_reviewer_did   : DID?
+    hearing_scheduled       : IsoTimestamp?
+    decision                : string?
+    decided_timestamp       : IsoTimestamp?
+    remediation_ordered     : string?
+    ledger_reference        : string
+}
+
+// =============================================================================
+// 13. Protocol & Method Records
+// =============================================================================
+
+record BiodegradeProtocol {
+    protocol_id             : ProtocolId
+    protocol_name           : string
+    protocol_version        : string
+    description             : string
+    experiment_types        : [ExperimentType]
+    required_measurements   : [string]
+    measurement_frequency_hours : Int
+    quality_control_steps   : [string]
+    treaty_requirements     : [string]
+    fpic_required           : Bool
+    indigenous_consultation_required : Bool
+    ej_enhanced_monitoring  : Bool
+    biotic_monitoring_required : Bool
+    approved_by_body_did    : DID
+    approved_timestamp      : IsoTimestamp
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    revision_history        : [string]
+}
+
+record EPAMethodReference {
+    method_id               : string
+    epa_method_code         : string
+    method_name             : string
+    analytes                : [string]
+    detection_limits        : [string]
+    quality_control_requirements : [string]
+    approved_labs           : [DID]
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+}
+
+// =============================================================================
+// 14. Shard Lifecycle & Retention
+// =============================================================================
+
+record ShardLifecycle {
+    lifecycle_id            : string
+    shard_id                : ShardId
+    created_timestamp       : IsoTimestamp
+    validated_timestamp     : IsoTimestamp?
+    appended_timestamp      : IsoTimestamp?
+    last_accessed_timestamp : IsoTimestamp?
+    retention_period_days   : Int
+    retention_expiry        : IsoTimestamp
+    archival_status         : string
+    deletion_eligible       : Bool
+    deletion_timestamp      : IsoTimestamp?
+    deletion_authorized_by  : DID?
+    ledger_deletion_proof   : string?
+}
+
+record ShardRetentionRule {
+    rule_id                 : string
+    shard_type              : string
+    experiment_type         : ExperimentType?
+    risk_level              : LeachateRiskLevel?
+    retention_period_days   : Int
+    archival_required       : Bool
+    indigenous_body_copy_required : Bool
+    regulatory_body_copy_required : Bool
+    public_access_after_days : Int
+    deletion_conditions     : [string]
+    approved_by_did         : DID
+}
+
+// =============================================================================
+// 15. Canonical Shard Examples
+// =============================================================================
+
+// Example 1: Field Deployment in EJ Zone
+record Example_EJZone_FieldDeployment_Shard {
+    envelope : BiodegradeShardEnvelope = {
+        shard_id                    = "SHARD-BIOD-EJ-PHX-001"
+        shard_type                  = "field_deployment"
+        version                     = 1
+        created_timestamp           = "2025-03-15T08:00:00Z"
+        status                      = APPENDED
+        material_provenance_ref     = "MATPROV-ORGANIC-FAST-001"
+        experiment_ref              = "EXP-FIELD-EJ-001"
+        birth_sign_binding_ref      = "BIRTHSIGN-EJ-SOUTHMTN-001"
+        fpic_attestation_ref        = null
+        indigenous_attestation_ref  = null
+        multi_sig_attestation_ref   = "MULTISIG-ATTEST-001"
+        treaty_check_refs           = ["TREATY-CHECK-EJ-001", "TREATY-CHECK-BIOTIC-001"]
+        violated_atom_refs          = []
+        applied_norm_refs           = ["ALE-RIGHTS-AIR-EJ-CAP-001"]
+        data_hash                   = "pq-hash-0x7f8a9b..."
+        pq_signature                = "pq-sig-0x3c4d5e..."
+        ledger_transaction_id       = "TX-GOOGOL-001234"
+        public_readable             = true
+        citizen_accessible          = true
+        researcher_accessible       = true
+        indigenous_body_accessible  = false
+    }
+}
+
+// Example 2: Indigenous Territory Deployment with FPIC
+record Example_IndigenousTerritory_FPIC_Shard {
+    envelope : BiodegradeShardEnvelope = {
+        shard_id                    = "SHARD-BIOD-IND-AKIMEL-001"
+        shard_type                  = "controlled_test"
+        version                     = 1
+        created_timestamp           = "2025-04-01T10:00:00Z"
+        status                      = APPENDED
+        material_provenance_ref     = "MATPROV-ORGANIC-SLOW-002"
+        experiment_ref              = "EXP-INDIGENOUS-001"
+        birth_sign_binding_ref      = "BIRTHSIGN-AKIMEL-OODHAM-001"
+        fpic_attestation_ref        = "FPIC-GRANT-AKIMEL-001"
+        indigenous_attestation_ref  = "INDIGENOUS-ATTEST-AKIMEL-001"
+        multi_sig_attestation_ref   = "MULTISIG-ATTEST-002"
+        treaty_check_refs           = ["TREATY-CHECK-INDIGENOUS-001", "TREATY-CHECK-WATER-001"]
+        violated_atom_refs          = []
+        applied_norm_refs           = ["ALE-RIGHTS-WATER-INDIGENOUS-001", "ALE-FPIC-WATER-INDIGENOUS-001"]
+        data_hash                   = "pq-hash-0x9a8b7c..."
+        pq_signature                = "pq-sig-0x6f5e4d..."
+        ledger_transaction_id       = "TX-GOOGOL-001235"
+        public_readable             = false
+        citizen_accessible          = true
+        researcher_accessible       = true
+        indigenous_body_accessible  = true
+    }
+}
+
+// Example 3: Biotic Corridor Monitoring Shard
+record Example_BioticCorridor_Monitoring_Shard {
+    envelope : BiodegradeShardEnvelope = {
+        shard_id                    = "SHARD-BIOD-BIOTIC-CANAL-001"
+        shard_type                  = "habitat_interaction"
+        version                     = 1
+        created_timestamp           = "2025-05-10T14:00:00Z"
+        status                      = APPENDED
+        material_provenance_ref     = "MATPROV-COMPOSITE-SAFE-003"
+        experiment_ref              = "EXP-BIOTIC-BAT-001"
+        birth_sign_binding_ref      = "BIRTHSIGN-CANAL-RIPARIAN-001"
+        fpic_attestation_ref        = null
+        indigenous_attestation_ref  = null
+        multi_sig_attestation_ref   = "MULTISIG-ATTEST-003"
+        treaty_check_refs           = ["TREATY-CHECK-BIOTIC-002", "TREATY-CHECK-DARKNESS-001"]
+        violated_atom_refs          = []
+        applied_norm_refs           = ["ALE-BIOTIC-BAT-CANAL-CORRIDOR-001"]
+        data_hash                   = "pq-hash-0x1b2c3d..."
+        pq_signature                = "pq-sig-0x8e7f6a..."
+        ledger_transaction_id       = "TX-GOOGOL-001236"
+        public_readable             = true
+        citizen_accessible          = true
+        researcher_accessible       = true
+        indigenous_body_accessible  = false
+    }
+}
+
+// =============================================================================
+// 16. Shard Validation Contracts
+// =============================================================================
+
+record ShardValidationContract {
+    validator_id            : string
+    description             : string
+    accepts_shard_types     : [string]
+    required_fields         : [string]
+    optional_fields         : [string]
+    treaty_checks_required  : [string]
+    signature_verification  : Bool
+    multi_sig_threshold     : Int
+    indigenous_attestation_required_for : [string]
+    fpic_required_for       : [string]
+    ej_enhanced_review_for  : [string]
+}
+
+record ShardValidationResult {
+    validation_id           : string
+    shard_id                : ShardId
+    validator_id            : string
+    timestamp               : IsoTimestamp
+    validation_passed       : Bool
+    required_fields_present : Bool
+    treaty_checks_passed    : Bool
+    signature_verified      : Bool
+    multi_sig_threshold_met : Bool
+    violations_found        : [string]
+    warnings                : [string]
+    validator_signature     : PQSignature
+    ledger_reference        : string
+}
+
+// =============================================================================
+// 17. Data Quality & Integrity Records
+// =============================================================================
+
+record DataQualityScore {
+    score_id                : string
+    shard_id                : ShardId
+    timestamp               : IsoTimestamp
+    completeness_score      : Decimal
+    accuracy_score          : Decimal
+    consistency_score       : Decimal
+    timeliness_score        : Decimal
+    validity_score          : Decimal
+    overall_quality_score   : Decimal
+    quality_tier            : string
+    assessor_did            : DID
+}
+
+record DataIntegrityProof {
+    proof_id                : string
+    shard_id                : ShardId
+    timestamp               : IsoTimestamp
+    merkle_root             : string
+    data_hash               : string
+    signature_algorithm     : string
+    pq_signature            : PQSignature
+    verifier_did            : DID
+    verification_timestamp  : IsoTimestamp
+    ledger_reference        : string
+}
+
+// =============================================================================
+// 18. Cross-Shard Linking & References
+// =============================================================================
+
+record ShardCrossReference {
+    reference_id            : string
+    source_shard_id         : ShardId
+    target_shard_id         : ShardId
+    reference_type          : string
+    relationship            : string
+    created_timestamp       : IsoTimestamp
+    created_by_did          : DID
+    ledger_reference        : string
+}
+
+record ShardLineage {
+    lineage_id              : string
+    root_shard_id           : ShardId
+    descendant_shard_ids    : [ShardId]
+    lineage_type            : string
+    experiment_chain        : [string]
+    material_chain          : [string]
+    corridor_chain          : [string]
+    birth_sign_chain        : [BirthSignId]
+    created_timestamp       : IsoTimestamp
+    updated_timestamp       : IsoTimestamp
+}
+
+// =============================================================================
+// 19. Export & Interoperability Schemas
+// =============================================================================
+
+record ShardExportPackage {
+    package_id              : string
+    shard_ids               : [ShardId]
+    export_timestamp        : IsoTimestamp
+    exported_by_did         : DID
+    export_format           : string
+    export_purpose          : string
+    recipient_did           : DID
+    encryption_applied      : Bool
+    access_expiry           : IsoTimestamp?
+    usage_restrictions      : [string]
+    treaty_compliance_attached : Bool
+    ledger_reference        : string
+}
+
+record InteroperabilityMapping {
+    mapping_id              : string
+    aletheion_schema_ref    : string
+    external_schema_name    : string
+    external_schema_version : string
+    field_mappings          : [string]
+    transformation_rules    : [string]
+    lossless_conversion     : Bool
+    treaty_preservation     : Bool
+    created_timestamp       : IsoTimestamp
+    created_by_did          : DID
+}
+
+// =============================================================================
+// 20. Shard Registry & Discovery
+// =============================================================================
+
+record BiodegradeShardRegistry {
+    registry_id             : string
+    version                 : string
+    total_shards            : Int
+    shards_by_type          : [string]
+    shards_by_status        : [string]
+    shards_by_risk_level    : [string]
+    shards_by_experiment_type : [string]
+    treaty_compliant_shards : Int
+    fpic_bound_shards       : Int
+    indigenous_accessible_shards : Int
+    ej_zone_shards          : Int
+    biotic_corridor_shards  : Int
+    last_updated_timestamp  : IsoTimestamp
+    registry_signature      : PQSignature
+    ledger_reference        : string
+}
+
+record ShardDiscoveryIndex {
+    index_id                : string
+    shard_id                : ShardId
+    searchable_fields       : [string]
+    geo_hash                : GeoHash
+    birth_sign_id           : BirthSignId
+    corridor_id             : CorridorId
+    experiment_type         : ExperimentType
+    status                  : ShardStatus
+    risk_level              : LeachateRiskLevel
+    treaty_compliant        : Bool
+    created_timestamp       : IsoTimestamp
+    appended_timestamp      : IsoTimestamp
+    ledger_transaction_id   : string
+}
+
+// End of Aletheion Trust Schemas Biodegrade QPU Data Shard
