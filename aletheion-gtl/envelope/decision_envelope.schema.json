@@ -1,0 +1,135 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Doctor0Evil/Aletheion/aletheion-gtl/envelope/decision_envelope.schema.json",
+  "title": "Aletheion Googolswarm Decision Envelope",
+  "description": "Standardized payload format for all inter-layer and inter-stage communication. Contains operational data, governance footprint, and BirthSignId propagation.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "envelope_version",
+    "decision_id",
+    "birth_sign_id",
+    "source_layer",
+    "target_layer",
+    "workflow_stage",
+    "payload",
+    "governance_footprint",
+    "timestamp",
+    "cryptographic_signature"
+  ],
+  "properties": {
+    "envelope_version": {
+      "type": "string",
+      "const": "1.0.0",
+      "description": "Envelope schema version"
+    },
+    "decision_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this decision transaction",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "birth_sign_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "BirthSignId of the entity initiating this decision. Must propagate through all stages.",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "source_layer": {
+      "type": "string",
+      "enum": ["PIL", "DSL", "WOL", "GTL", "CIL"],
+      "description": "ERM layer where this envelope originated"
+    },
+    "target_layer": {
+      "type": "string",
+      "enum": ["PIL", "DSL", "WOL", "GTL", "CIL"],
+      "description": "ERM layer this envelope is destined for"
+    },
+    "workflow_stage": {
+      "type": "string",
+      "enum": ["S1", "S2", "S3", "S4", "S5", "S6", "S7"],
+      "description": "Current stage in the seven-stage workflow spine"
+    },
+    "payload": {
+      "type": "object",
+      "required": ["payload_type", "payload_version", "data"],
+      "properties": {
+        "payload_type": {
+          "type": "string",
+          "description": "Type of payload (workflow-specific)"
+        },
+        "payload_version": {
+          "type": "string",
+          "description": "Version of payload schema"
+        },
+        "data": {
+          "type": "object",
+          "description": "Actual operational data (structure varies by workflow)"
+        }
+      },
+      "additionalProperties": false
+    },
+    "governance_footprint": {
+      "type": "object",
+      "required": [
+        "neurorights_compliance",
+        "biotic_treaty_check",
+        "fpic_consent",
+        "ale_comp_core_hash"
+      ],
+      "properties": {
+        "neurorights_compliance": {
+          "type": "string",
+          "enum": ["verified", "pending", "failed", "not_applicable"],
+          "description": "Neurorights compliance status"
+        },
+        "biotic_treaty_check": {
+          "type": "string",
+          "enum": ["verified", "pending", "failed", "not_applicable"],
+          "description": "BioticTreaty compliance status"
+        },
+        "fpic_consent": {
+          "type": "string",
+          "enum": ["verified", "pending", "not_applicable", "consent_denied"],
+          "description": "Free, Prior, and Informed Consent status"
+        },
+        "ale_comp_core_hash": {
+          "type": "string",
+          "description": "Cryptographic hash of ALE-COMP-CORE validation result",
+          "minLength": 64,
+          "pattern": "^[a-f0-9]{64,128}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp with microsecond precision",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+    },
+    "cryptographic_signature": {
+      "type": "object",
+      "required": ["algorithm", "signature", "public_key_id"],
+      "properties": {
+        "algorithm": {
+          "type": "string",
+          "enum": ["CRYSTALS-Dilithium", "FALCON", "SPHINCS+"],
+          "description": "Post-quantum secure signature algorithm (non-blacklisted)"
+        },
+        "signature": {
+          "type": "string",
+          "minLength": 64,
+          "description": "Cryptographic signature value"
+        },
+        "public_key_id": {
+          "type": "string",
+          "description": "Identifier of the public key used for verification"
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$comment": "This envelope schema is mandatory for all inter-layer communication. CI/CD will reject any module that produces envelopes not conforming to this schema."
+}
