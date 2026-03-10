@@ -1,0 +1,736 @@
+// Aletheion Governance Lexethos Biodegrade Gates
+// File: ALE-LEX-BIODEGRADE-GATES-001.aln
+// Domain: Governance / Lexethos / Biodegrade Treaty Enforcement
+// Compliance: BioticTreaties, Indigenous FPIC, EJ Zones, SMART Chain
+
+aln_version 1.0
+namespace Aletheion.Governance.Lexethos.Biodegrade
+
+import Aletheion.ERM.Ecosafety.Biodegrade
+import Aletheion.TreatyOS
+
+// =============================================================================
+// 1. Biodegrade-Specific Treaty Gates
+// =============================================================================
+
+enum BiodegradeGateType {
+    HABITAT_BUFFER
+    SEWER_OUTFALL_RESTRICTION
+    WETLAND_PROTECTION
+    CANAL_CORRIDOR_LIMIT
+    MAR_VAULT_WATER_QUALITY
+    INDIGENOUS_TERRITORY_FPIC
+    EJ_ZONE_TOXICITY_CAP
+    BIOTIC_CORRIDOR_DARKNESS
+    SEASONAL_BLACKOUT
+    DECOMPOSITION_RATE_LIMIT
+}
+
+enum GateDecision {
+    PASS
+    FAIL_HARD
+    FAIL_SOFT
+    PASS_WITH_CONDITIONS
+}
+
+record BiodegradeGate {
+    gate_id                 : Id
+    gate_type               : BiodegradeGateType
+    domain                  : Domain
+    description             : string
+    priority                : Int
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    geo_scope_refs          : [Id]
+    material_class_restrictions : [BiodegradeMaterialClass]
+    threshold_value         : Decimal?
+    threshold_unit          : string?
+    buffer_meters           : Decimal?
+    fpic_required           : Bool
+    audit_trail_required    : Bool
+    citizen_notification    : Bool
+    grievance_link_template : string
+}
+
+// =============================================================================
+// 2. Habitat Buffer Gates
+// =============================================================================
+
+record HabitatBufferGate {
+    gate_id                 : Id
+    protected_habitat_id    : Id
+    habitat_type            : string
+    buffer_distance_meters  : Decimal
+    prohibited_materials    : [BiodegradeMaterialClass]
+    allowed_materials       : [BiodegradeMaterialClass]
+    max_node_density_per_km2 : Decimal
+    max_total_mass_grams    : Decimal
+    monitoring_frequency_hours : Int
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+    biotic_treaty_refs      : [Id]
+    species_agent_refs      : [SpeciesAgentRef]
+}
+
+// Canonical: Riparian Corridor Buffer (Phoenix Canal System)
+record Example_RiparianBufferGate_Canal {
+    gate : HabitatBufferGate = {
+        gate_id                     = "ALE-GATE-HABITAT-RIPARIAN-001"
+        protected_habitat_id        = "HABITAT-PHX-CANAL-RIPARIAN-001"
+        habitat_type                = "riparian_corridor"
+        buffer_distance_meters      = 50.0
+        prohibited_materials        = [HAZARDOUS_CONTROLLED]
+        allowed_materials           = [ORGANIC_FAST, ORGANIC_SLOW, COMPOSITE_SAFE]
+        max_node_density_per_km2    = 10.0
+        max_total_mass_grams        = 5000.0
+        monitoring_frequency_hours  = 24
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+        biotic_treaty_refs          = ["ALE-BIOTIC-BAT-CANAL-CORRIDOR-001"]
+        species_agent_refs          = [{ species_agent_id = "SPECIES-MYOTIS-VELIFER" }]
+    }
+}
+
+// Canonical: Wetland Core Protection Zone
+record Example_WetlandCoreBufferGate {
+    gate : HabitatBufferGate = {
+        gate_id                     = "ALE-GATE-HABITAT-WETLAND-001"
+        protected_habitat_id        = "HABITAT-PHX-WETLAND-CORE-001"
+        habitat_type                = "wetland_core"
+        buffer_distance_meters      = 100.0
+        prohibited_materials        = [HAZARDOUS_CONTROLLED, POLYMER_BIO]
+        allowed_materials           = [ORGANIC_FAST, ORGANIC_SLOW]
+        max_node_density_per_km2    = 5.0
+        max_total_mass_grams        = 2000.0
+        monitoring_frequency_hours  = 12
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+        biotic_treaty_refs          = []
+        species_agent_refs          = []
+    }
+}
+
+// =============================================================================
+// 3. Sewer Outfall Restriction Gates
+// =============================================================================
+
+record SewerOutfallGate {
+    gate_id                 : Id
+    outfall_id              : Id
+    receiving_water_body    : Id
+    max_toxicity_ppb        : Decimal
+    max_decomposition_rate  : Decimal
+    dilution_factor_min     : Decimal
+    downstream_sensor_ids   : [Id]
+    alert_threshold_ppb     : Decimal
+    shutdown_threshold_ppb  : Decimal
+    sampling_frequency_hours : Int
+    fpic_required           : Bool
+    indigenous_water_rights_ref : Id?
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Salt River Outfall Constraint
+record Example_SewerOutfallGate_SaltRiver {
+    gate : SewerOutfallGate = {
+        gate_id                     = "ALE-GATE-OUTFALL-SALT-001"
+        outfall_id                  = "OUTFALL-PHX-SALT-001"
+        receiving_water_body        = "WATERBODY-SALT-RIVER"
+        max_toxicity_ppb            = 5.0
+        max_decomposition_rate      = 2.0
+        dilution_factor_min         = 10.0
+        downstream_sensor_ids       = ["SENSOR-SALT-DOWNSTREAM-001", "SENSOR-SALT-DOWNSTREAM-002"]
+        alert_threshold_ppb         = 3.0
+        shutdown_threshold_ppb      = 5.0
+        sampling_frequency_hours    = 6
+        fpic_required               = true
+        indigenous_water_rights_ref = "WATER-RIGHTS-AKIMEL-OODHAM-001"
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 4. Wetland Protection Gates
+// =============================================================================
+
+record WetlandProtectionGate {
+    gate_id                 : Id
+    wetland_id              : Id
+    wetland_classification  : string
+    protected_species_ids   : [Id]
+    seasonal_blackout_start : IsoTimestamp
+    seasonal_blackout_end   : IsoTimestamp
+    max_nodes               : Int
+    max_total_mass_grams    : Decimal
+    buffer_from_core_meters : Decimal
+    native_plant_fraction_min : Decimal
+    water_depth_range_cm    : [Decimal]
+    vegetation_cover_fraction_min : Decimal
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Phoenix Wetland Seasonal Protection
+record Example_WetlandProtectionGate_Phoenix {
+    gate : WetlandProtectionGate = {
+        gate_id                     = "ALE-GATE-WETLAND-PHX-001"
+        wetland_id                  = "WETLAND-PHX-001"
+        wetland_classification      = "palustrine_emergent"
+        protected_species_ids       = ["SPECIES-GREAT-BLUE-HERON", "SPECIES-WHITE-FACED-IBIS"]
+        seasonal_blackout_start     = "2025-03-01T00:00:00Z"
+        seasonal_blackout_end       = "2025-08-31T23:59:59Z"
+        max_nodes                   = 10
+        max_total_mass_grams        = 3000.0
+        buffer_from_core_meters     = 50.0
+        native_plant_fraction_min   = 0.7
+        water_depth_range_cm        = [20.0, 80.0]
+        vegetation_cover_fraction_min = 0.5
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 5. Canal Corridor Limit Gates
+// =============================================================================
+
+record CanalCorridorLimitGate {
+    gate_id                 : Id
+    canal_segment_id        : Id
+    max_nodes_per_km        : Int
+    min_spacing_meters      : Decimal
+    max_total_mass_grams    : Decimal
+    max_toxicity_ppb        : Decimal
+    flow_rate_threshold_cfs : Decimal
+    water_level_threshold_ft : Decimal
+    biotic_corridor_overlap : Bool
+    ej_zone_overlap         : Bool
+    fpic_required           : Bool
+    monitoring_frequency_hours : Int
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Central Arizona Project Canal Segment
+record Example_CanalCorridorLimitGate_CAP {
+    gate : CanalCorridorLimitGate = {
+        gate_id                     = "ALE-GATE-CANAL-CAP-001"
+        canal_segment_id            = "CANAL-CAP-PHX-001"
+        max_nodes_per_km            = 8
+        min_spacing_meters          = 125.0
+        max_total_mass_grams        = 4000.0
+        max_toxicity_ppb            = 5.0
+        flow_rate_threshold_cfs     = 100.0
+        water_level_threshold_ft    = 10.0
+        biotic_corridor_overlap     = true
+        ej_zone_overlap             = false
+        fpic_required               = true
+        monitoring_frequency_hours  = 24
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 6. MAR Vault Water Quality Gates
+// =============================================================================
+
+record MarVaultWaterQualityGate {
+    gate_id                 : Id
+    vault_id                : Id
+    aquifer_ref_id          : Id
+    water_quality_class     : Id
+    max_toxicity_ppb        : Decimal
+    max_heavy_metals_ppm    : Decimal
+    monitoring_well_ids     : [Id]
+    sampling_frequency_days : Int
+    injection_rate_limit_lph : Decimal
+    aquifer_pressure_limit_psi : Decimal
+    fpic_required           : Bool
+    indigenous_water_rights_ref : Id?
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Phoenix Active Management Area MAR Vault
+record Example_MarVaultGate_PhoenixAMA {
+    gate : MarVaultWaterQualityGate = {
+        gate_id                     = "ALE-GATE-MAR-PHX-AMA-001"
+        vault_id                    = "MARVAULT-PHX-AMA-001"
+        aquifer_ref_id              = "AQUIFER-PHX-AMA-001"
+        water_quality_class         = "CLASS-A"
+        max_toxicity_ppb            = 1.0
+        max_heavy_metals_ppm        = 0.01
+        monitoring_well_ids         = ["WELL-PHX-AMA-001", "WELL-PHX-AMA-002", "WELL-PHX-AMA-003"]
+        sampling_frequency_days     = 7
+        injection_rate_limit_lph    = 1000.0
+        aquifer_pressure_limit_psi  = 50.0
+        fpic_required               = true
+        indigenous_water_rights_ref = "WATER-RIGHTS-AKIMEL-OODHAM-001"
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 7. Indigenous Territory FPIC Gates
+// =============================================================================
+
+record IndigenousTerritoryFpicGate {
+    gate_id                 : Id
+    territory_id            : Id
+    indigenous_body_id      : Id
+    territory_name          : string
+    fpic_requirement_id     : Id
+    required_for_domains    : [Domain]
+    required_for_tags       : [string]
+    min_impact_score_trigger : Decimal
+    consultation_window_days : Int
+    consent_validity_days   : Int
+    renewal_required        : Bool
+    sacred_site_buffer_meters : Decimal?
+    water_rights_protected  : Bool
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Akimel O'odham Territory FPIC Requirement
+record Example_IndigenousFpicGate_AkimelOodham {
+    gate : IndigenousTerritoryFpicGate = {
+        gate_id                     = "ALE-GATE-FPIC-AKIMEL-001"
+        territory_id                = "TERRITORY-AKIMEL-OODHAM-001"
+        indigenous_body_id          = "INDIGENOUS-AKIMEL-OODHAM-COUNCIL"
+        territory_name              = "Akimel O'odham Traditional Territory"
+        fpic_requirement_id         = "ALE-FPIC-WATER-INDIGENOUS-001"
+        required_for_domains        = [WATER, WASTE, SOIL, BIOTIC]
+        required_for_tags           = ["canal_reallocation", "biodegrade_deployment", "waste_routing"]
+        min_impact_score_trigger    = 0.05
+        consultation_window_days    = 90
+        consent_validity_days       = 365
+        renewal_required            = true
+        sacred_site_buffer_meters   = 1000.0
+        water_rights_protected      = true
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 8. EJ Zone Toxicity Cap Gates
+// =============================================================================
+
+record EjZoneToxicityCapGate {
+    gate_id                 : Id
+    ej_zone_id              : Id
+    heat_vulnerability_index_min : Decimal
+    pollution_burden_index_min   : Decimal
+    max_additional_toxicity_ppb  : Decimal
+    max_decomposition_rate       : Decimal
+    buffer_from_residential_meters : Decimal
+    community_notification_required : Bool
+    notification_hours_before    : Int
+    preferred_cooling_priority   : Bool
+    monitoring_frequency_hours   : Int
+    grievance_hotline_id         : Id
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Phoenix South Mountain EJ Zone
+record Example_EjZoneToxicityCapGate_SouthMountain {
+    gate : EjZoneToxicityCapGate = {
+        gate_id                     = "ALE-GATE-EJ-SOUTHMTN-001"
+        ej_zone_id                  = "EJZONE-PHX-SOUTHMTN-001"
+        heat_vulnerability_index_min = 0.75
+        pollution_burden_index_min   = 0.70
+        max_additional_toxicity_ppb  = 3.0
+        max_decomposition_rate       = 1.5
+        buffer_from_residential_meters = 300.0
+        community_notification_required = true
+        notification_hours_before    = 72
+        preferred_cooling_priority   = true
+        monitoring_frequency_hours   = 12
+        grievance_hotline_id         = "GRIEVANCE-HOTLINE-PHX-EJ-001"
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 9. Biotic Corridor Darkness Gates (ALAN Constraints)
+// =============================================================================
+
+record BioticCorridorDarknessGate {
+    gate_id                 : Id
+    corridor_id             : Id
+    species_agent_refs      : [SpeciesAgentRef]
+    max_lux_corridor        : Decimal
+    max_lux_foraging        : Decimal
+    allowed_spectra         : [string]
+    dark_hours_start        : string
+    dark_hours_end          : string
+    light_sensor_ids        : [Id]
+    violation_threshold_lux : Decimal
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Bat Commuting Corridor Darkness Requirement
+record Example_BioticDarknessGate_BatCorridor {
+    gate : BioticCorridorDarknessGate = {
+        gate_id                     = "ALE-GATE-DARKNESS-BAT-001"
+        corridor_id                 = "GEO-CANAL-RIPARIAN-CORRIDOR-001"
+        species_agent_refs          = [{ species_agent_id = "SPECIES-MYOTIS-VELIFER" }]
+        max_lux_corridor            = 3.0
+        max_lux_foraging            = 5.0
+        allowed_spectra             = ["amber", ">=560nm"]
+        dark_hours_start            = "18:00"
+        dark_hours_end              = "06:00"
+        light_sensor_ids            = ["SENSOR-LUX-CORRIDOR-001", "SENSOR-LUX-CORRIDOR-002"]
+        violation_threshold_lux     = 5.0
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 10. Seasonal Blackout Gates
+// =============================================================================
+
+record SeasonalBlackoutGate {
+    gate_id                 : Id
+    zone_id                 : Id
+    blackout_type           : string
+    start_date              : IsoTimestamp
+    end_date                : IsoTimestamp
+    prohibited_actions      : [string]
+    allowed_exceptions      : [string]
+    notification_required   : Bool
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Breeding Season Blackout
+record Example_SeasonalBlackoutGate_Breeding {
+    gate : SeasonalBlackoutGate = {
+        gate_id                     = "ALE-GATE-SEASONAL-BREEDING-001"
+        zone_id                     = "WETLAND-PHX-001"
+        blackout_type               = "breeding_season"
+        start_date                  = "2025-03-01T00:00:00Z"
+        end_date                    = "2025-08-31T23:59:59Z"
+        prohibited_actions          = ["biodegrade_deployment", "flush_operation", "node_actuation"]
+        allowed_exceptions          = ["emergency_removal", "treaty_mandated_cleanup"]
+        notification_required       = true
+        enforcement_mode            = HARD_BLOCK
+        severity                    = CRITICAL
+    }
+}
+
+// =============================================================================
+// 11. Decomposition Rate Limit Gates
+// =============================================================================
+
+record DecompositionRateLimitGate {
+    gate_id                 : Id
+    domain                  : Domain
+    material_class          : BiodegradeMaterialClass
+    max_r_micro_grams_per_day : Decimal
+    max_r_tox_ppb           : Decimal
+    temperature_correction_factor : Decimal
+    ph_correction_factor    : Decimal
+    monitoring_frequency_hours : Int
+    enforcement_mode        : EnforcementMode
+    severity                : Severity
+}
+
+// Canonical: Fast Organic Decomposition Limit
+record Example_DecompositionRateLimitGate_OrganicFast {
+    gate : DecompositionRateLimitGate = {
+        gate_id                     = "ALE-GATE-DECOMP-ORGANIC-FAST-001"
+        domain                      = WASTE
+        material_class              = ORGANIC_FAST
+        max_r_micro_grams_per_day   = 5.0
+        max_r_tox_ppb               = 1.0
+        temperature_correction_factor = 1.0
+        ph_correction_factor        = 1.0
+        monitoring_frequency_hours  = 24
+        enforcement_mode            = HARD_BLOCK
+        severity                    = HIGH
+    }
+}
+
+// =============================================================================
+// 12. Gate Evaluation Context
+// =============================================================================
+
+record BiodegradeGateContext {
+    context_id              : Id
+    workflow_id             : Id
+    node_id                 : Id
+    material_ref            : Id
+    geo_tile_ref            : Id
+    birth_sign_id           : Id
+    timestamp_unix          : Int
+    proposed_action         : string
+    action_parameters       : [string]
+    current_node_state      : BiodegradeNodeState
+    corridor_ref            : Id
+    fpic_status             : FPICStatus
+    ej_zone_refs            : [Id]
+    biotic_corridor_refs    : [Id]
+    seasonal_restrictions   : [string]
+    impact_score            : Decimal
+    simulation_outcome_ref  : Id
+}
+
+// =============================================================================
+// 13. Gate Evaluation Result
+// =============================================================================
+
+record BiodegradeGateResult {
+    result_id               : Id
+    context_id              : Id
+    gate_id                 : Id
+    decision                : GateDecision
+    passed                  : Bool
+    violation_atoms         : [Id]
+    explanation             : string
+    severity                : Severity
+    conditions              : [string]
+    remediation_steps       : [string]
+    requires_human_review   : Bool
+    citizen_notification    : Bool
+    grievance_reference     : Id
+    timestamp_unix          : Int
+    governance_envelope_ref : Id
+}
+
+// =============================================================================
+// 14. Gate Registry & Composition
+// =============================================================================
+
+record BiodegradeGateRegistry {
+    registry_id             : Id
+    version                 : string
+    gates                   : [BiodegradeGate]
+    habitat_buffer_gates    : [HabitatBufferGate]
+    sewer_outfall_gates     : [SewerOutfallGate]
+    wetland_protection_gates : [WetlandProtectionGate]
+    canal_corridor_gates    : [CanalCorridorLimitGate]
+    mar_vault_gates         : [MarVaultWaterQualityGate]
+    indigenous_fpic_gates   : [IndigenousTerritoryFpicGate]
+    ej_zone_gates           : [EjZoneToxicityCapGate]
+    darkness_gates          : [BioticCorridorDarknessGate]
+    seasonal_blackout_gates : [SeasonalBlackoutGate]
+    decomposition_rate_gates : [DecompositionRateLimitGate]
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    signature               : Id
+}
+
+// =============================================================================
+// 15. Gate Composition Rules
+// =============================================================================
+
+record GateCompositionRule {
+    rule_id                 : Id
+    description             : string
+    applicable_gate_types   : [BiodegradeGateType]
+    composition_logic       : string
+    conflict_resolution     : string
+    priority_order          : [BiodegradeGateType]
+    min_pass_threshold      : Decimal
+    hard_block_gates        : [BiodegradeGateType]
+    soft_penalty_gates      : [BiodegradeGateType]
+}
+
+// Canonical: All Hard Block Gates Must Pass
+record Example_GateCompositionRule_HardBlock {
+    rule : GateCompositionRule = {
+        rule_id                     = "ALE-RULE-GATE-COMPOSITION-001"
+        description                 = "All hard block gates must pass before any biodegrade actuation"
+        applicable_gate_types       = [HABITAT_BUFFER, SEWER_OUTFALL_RESTRICTION, WETLAND_PROTECTION, INDIGENOUS_TERRITORY_FPIC, EJ_ZONE_TOXICITY_CAP]
+        composition_logic           = "AND"
+        conflict_resolution         = "highest_severity_wins"
+        priority_order              = [INDIGENOUS_TERRITORY_FPIC, HABITAT_BUFFER, WETLAND_PROTECTION, SEWER_OUTFALL_RESTRICTION, EJ_ZONE_TOXICITY_CAP]
+        min_pass_threshold          = 1.0
+        hard_block_gates            = [HABITAT_BUFFER, SEWER_OUTFALL_RESTRICTION, WETLAND_PROTECTION, INDIGENOUS_TERRITORY_FPIC, EJ_ZONE_TOXICITY_CAP]
+        soft_penalty_gates          = [DECOMPOSITION_RATE_LIMIT]
+    }
+}
+
+// =============================================================================
+// 16. Gate Override & Appeal Mechanisms
+// =============================================================================
+
+record GateOverrideRequest {
+    override_id             : Id
+    gate_id                 : Id
+    context_id              : Id
+    requested_by            : Id
+    requested_at            : IsoTimestamp
+    justification           : string
+    supporting_evidence     : [Id]
+    review_body_id          : Id
+    review_deadline         : IsoTimestamp
+    status                  : string
+    decision                : string?
+    decided_at              : IsoTimestamp?
+    decided_by              : Id?
+}
+
+record GateAppealRecord {
+    appeal_id               : Id
+    override_id             : Id
+    gate_result_id          : Id
+    filed_by                : Id
+    filed_at                : IsoTimestamp
+    grounds                 : [string]
+    supporting_documents    : [Id]
+    review_body_id          : Id
+    hearing_scheduled       : IsoTimestamp?
+    decision                : string?
+    decided_at              : IsoTimestamp?
+    grievance_reference     : Id
+}
+
+// =============================================================================
+// 17. Citizen Notification Templates
+// =============================================================================
+
+record CitizenNotificationTemplate {
+    template_id             : Id
+    gate_type               : BiodegradeGateType
+    language                : string
+    title_template          : string
+    body_template           : string
+    action_links            : [string]
+    grievance_link_template : string
+    contact_info_template   : string
+}
+
+// Canonical: English Notification for EJ Zone Actuation
+record Example_CitizenNotification_EJ_English {
+    template : CitizenNotificationTemplate = {
+        template_id                 = "ALE-NOTIFY-EJ-EN-001"
+        gate_type                   = EJ_ZONE_TOXICITY_CAP
+        language                    = "en"
+        title_template              = "Biodegradable Node Activity in Your Neighborhood"
+        body_template               = "A biodegradable node operation is planned in Environmental Justice zone {ej_zone_id}. Ecosafety score: {ecosafety_score}. Treaty compliance: {treaty_status}. Operation scheduled for {scheduled_time}."
+        action_links                = ["View Details", "File Grievance", "Contact Representatives"]
+        grievance_link_template     = "https://aletheion.phoenix/grievance/{grievance_ref}"
+        contact_info_template       = "EJ Zone Representative: {representative_contact}"
+    }
+}
+
+// Canonical: O'odham Notification for Indigenous Territory
+record Example_CitizenNotification_Indigenous_Oodham {
+    template : CitizenNotificationTemplate = {
+        template_id                 = "ALE-NOTIFY-INDIGENOUS-OODHAM-001"
+        gate_type                   = INDIGENOUS_TERRITORY_FPIC
+        language                    = "ood"
+        title_template              = "Haʼkohwóóʼ Áłtsé Hoolʼą́ą́ʼ"
+        body_template               = "Biodegradable node activity proposed in Akimel O'odham territory. FPIC status: {fpic_status}. Consultation required: {consultation_required}."
+        action_links                = ["View Details", "Request Consultation", "File Grievance"]
+        grievance_link_template     = "https://aletheion.phoenix/grievance/{grievance_ref}"
+        contact_info_template       = "Council Contact: {council_contact}"
+    }
+}
+
+// =============================================================================
+// 18. Audit & Ledger Integration
+// =============================================================================
+
+record BiodegradeGateAuditRecord {
+    audit_id                : Id
+    gate_result_id          : Id
+    workflow_id             : Id
+    node_id                 : Id
+    decision                : GateDecision
+    treaty_check_transcript : [Id]
+    governance_envelope_id  : Id
+    ledger_transaction_id   : Id
+    timestamp_unix          : Int
+    auditor_signature       : Id
+    citizen_accessible      : Bool
+    grievance_linked        : Bool
+}
+
+// =============================================================================
+// 19. SMART Chain Policy Bindings
+// =============================================================================
+
+record SmartChainBiodegradePolicy {
+    policy_id               : Id
+    domain                  : Domain
+    required_gates          : [BiodegradeGateType]
+    hard_block_gate_types   : [BiodegradeGateType]
+    min_ecosafety_score     : Decimal
+    fpic_required_domains   : [Domain]
+    ej_zone_enhanced_review : Bool
+    biotic_treaty_required  : Bool
+    audit_frequency_hours   : Int
+    citizen_notification_required : Bool
+    grievance_window_hours  : Int
+    human_review_threshold  : Decimal
+    enforcement_mode        : EnforcementMode
+}
+
+// Canonical: Water Domain Biodegrade Policy
+record Example_SmartChainPolicy_Water {
+    policy : SmartChainBiodegradePolicy = {
+        policy_id                   = "ALE-POLICY-SMART-WATER-BIODEGRADE-001"
+        domain                      = WATER
+        required_gates              = [HABITAT_BUFFER, SEWER_OUTFALL_RESTRICTION, INDIGENOUS_TERRITORY_FPIC, EJ_ZONE_TOXICITY_CAP]
+        hard_block_gate_types       = [HABITAT_BUFFER, SEWER_OUTFALL_RESTRICTION, INDIGENOUS_TERRITORY_FPIC]
+        min_ecosafety_score         = 0.85
+        fpic_required_domains       = [WATER, WASTE, SOIL]
+        ej_zone_enhanced_review     = true
+        biotic_treaty_required      = true
+        audit_frequency_hours       = 24
+        citizen_notification_required = true
+        grievance_window_hours      = 72
+        human_review_threshold      = 0.7
+        enforcement_mode            = HARD_BLOCK
+    }
+}
+
+// =============================================================================
+// 20. Gate Evaluation Contract (Rust Binding Interface)
+// =============================================================================
+
+// This defines the boundary that Rust gate evaluation modules must honor.
+// In Rust, each gate evaluator would expose a function equivalent to:
+//
+//   fn evaluate_gate(ctx: BiodegradeGateContext, gate: BiodegradeGate) -> BiodegradeGateResult;
+//
+// An orchestrator composes multiple gate results into an overall decision
+// and ensures that any FAIL_HARD decisions block actuation before
+// appending to Googolswarm provenance envelopes.
+
+record BiodegradeGateEvaluatorContract {
+    evaluator_id            : Id
+    description             : string
+    accepts_gate_types      : [BiodegradeGateType]
+    accepts_domains         : [Domain]
+    requires_birth_sign     : Bool
+    requires_fpic           : Bool
+    requires_ej_zones       : Bool
+    requires_biotic_refs    : Bool
+    output_schema_ref       : Id
+    version                 : string
+}
+
+record BiodegradeGateEvaluatorRegistry {
+    registry_id             : Id
+    evaluators              : [BiodegradeGateEvaluatorContract]
+    version                 : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+}
+
+// End of Aletheion Governance Lexethos Biodegrade Gates
