@@ -1,0 +1,155 @@
+# Aletheion Physical Interface Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer 1 (PIL)
+# Status: Canonical Reference for Physical Hardware Deployment
+
+layer_id: "aletheion-phy-phoenix-001"
+version: "1.0.0"
+description: "Physical Interface Layer for Phoenix Aletheion smart city. All sensor, actuator, and hardware operations must comply with this manifest."
+erm_layer: "PIL"
+
+environmental_hardening:
+  phoenix_extreme_heat:
+    operating_temp_min_c: -20.0
+    operating_temp_max_c: 55.0 # 131°F hardware limit
+    heat_certification_required: true
+    temperature_compensation_enabled: true
+    cooling_system_priority: "CRITICAL" # Cannot shut off during 120°F+
+  monsoon_resilience:
+    ip_rating_minimum: "IP65"
+    water_ingress_detection: true
+    flash_flood_sensor_priority: "CRITICAL"
+    stormwater_harvesting_integration: true
+  dust_storm_protection:
+    ip_rating_minimum: "IP65"
+    haboob_detection_enabled: true
+    pm10_threshold_ugm3: 500.0
+    air_filtration_priority: "HIGH"
+
+sensor_specifications:
+  supported_types:
+    - type: "WATER_FLOW_M3S"
+      accuracy_tolerance: 0.01
+      calibration_interval_days: 90
+      phoenix_certified: true
+    - type: "TEMPERATURE_C"
+      accuracy_tolerance: 0.1
+      calibration_interval_days: 90
+      operating_range_c: [-20, 55]
+    - type: "PM2_5_UGM3"
+      accuracy_tolerance: 1.0
+      calibration_interval_days: 30
+      haboob_detection: true
+    - type: "RAINFALL_MM"
+      accuracy_tolerance: 0.1
+      calibration_interval_days: 90
+      monsoon_priority: true
+  calibration_requirements:
+    pq_hash_required: true
+    birth_sign_propagation: true
+    immutable_audit_log: true
+
+actuator_specifications:
+  supported_types:
+    - type: "WATER_VALVE_LINEAR"
+      position_tolerance_percent: 5.0
+      maintenance_interval_days: 180
+      emergency_shutoff_capable: true
+    - type: "HVAC_DAMPER"
+      position_tolerance_percent: 5.0
+      maintenance_interval_days: 180
+      heat_priority: true # Cannot close during 120°F+
+    - type: "SOLAR_INVERTER"
+      efficiency_minimum: 0.98
+      maintenance_interval_days: 365
+      grid_tie_certified: true
+  safety_requirements:
+    s4_rule_check_required: true
+    birth_sign_propagation: true
+    position_feedback_verification: true
+    emergency_stop_capable: true
+
+hardware_abstraction:
+  supported_protocols:
+    - protocol: "I2C"
+      max_bus_speed_khz: 400
+      phoenix_certified: true
+    - protocol: "SPI"
+      max_clock_mhz: 50
+      phoenix_certified: true
+    - protocol: "MODBUS"
+      variants: ["RTU", "TCP"]
+      phoenix_certified: true
+    - protocol: "BACNET"
+      building_automation: true
+      phoenix_certified: true
+    - protocol: "MQTT"
+      qos_levels: [0, 1, 2]
+      offline_capable: true
+  vendor_agnostic: true
+  multi_vendor_support: true
+  certification_required: ["UL", "CE", "FCC"]
+
+firmware_management:
+  post_quantum_signing:
+    algorithm: "CRYSTALS-Dilithium"
+    verification_required: true
+  forward_compatible_only: true
+  rollback_prohibited: true
+  downgrade_prohibited: true
+  ota_update_capable: true
+  offline_update_support: true
+  boot_verification: true
+  recovery_flash_capable: true
+  phoenix_heat_certified: true
+  monsoon_sealed: true
+
+compliance_hooks:
+  ale_comp_core:
+    birth_sign_propagation: "ALL_OPERATIONS"
+    s4_rule_check: "ALL_ACTUATORS"
+    environmental_verification: "ALL_HARDWARE"
+    firmware_signature: "ALL_UPDATES"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    calibration_tracking: true
+    maintenance_scheduling: true
+
+deployment_zones:
+  - zone_id: "PHOENIX_CENTRAL"
+    environmental_class: "URBAN_HEAT_ISLAND"
+    sensor_density_per_km2: 100
+    actuator_density_per_km2: 50
+  - zone_id: "SALT_RIVER_VALLEY"
+    environmental_class: "RIPARIAN"
+    sensor_density_per_km2: 75
+    actuator_density_per_km2: 40
+  - zone_id: "AKIMEL_OODHAM_TERRITORY"
+    environmental_class: "INDIGENOUS_SOVEREIGN"
+    sensor_density_per_km2: 50
+    actuator_density_per_km2: 25
+    fpic_required: true
+
+ci_cd_requirements:
+  preflight_checks:
+    - "verify-heat-certification"
+    - "verify-ip-rating"
+    - "verify-pq-firmware-signature"
+    - "check-birthsign-propagation"
+    - "validate-s4-rule-check-integration"
+    - "environmental-stress-test"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  hardware_in_loop_testing: true
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  sensor_driver_interface: "/aletheion-phy/sensors/driver_interface_core.rs"
+  actuator_control_module: "/aletheion-phy/actuators/control_module.cpp"
+  hardware_abstraction_layer: "/aletheion-phy/hal/hardware_abstraction_layer.rs"
+  firmware_interface: "/aletheion-phy/firmware/edge_device_interface.cpp"
+  environmental_spec: "/aletheion-env/climate/integration_specs.md"
+
+# END OF PIL MANIFEST
