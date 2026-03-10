@@ -1,0 +1,153 @@
+// Binds SpeciesAgent / BioticTreaty model slots to the Rust engine
+// in ALE-SYN-HABITAT-CONTINUITY-ENGINE-001.rs. [file:5][file:6]
+
+namespace Aletheion.Synthexis.HabitatContinuityEngine.v1
+
+// ---- Type aliases matching Rust engine identifiers ----
+
+type SpeciesId   = String
+type TreatyId    = String
+type NodeId      = String
+type EdgeId      = String
+type CorridorId  = String
+type Score       = Float // constrained to [0,1] in contracts below
+
+// ---- External references ----
+// These refer to core model definitions, not redefined here. [file:5]
+
+extern type SpeciesAgentRef {
+  id        : SpeciesId
+  modelPath : String // e.g., "aletheion/synthexis/model/SpeciesAgent.aln"
+}
+
+extern type BioticTreatyRef {
+  id        : TreatyId
+  modelPath : String // e.g., "aletheion/synthexis/model/BioticTreaty.aln"
+}
+
+// ---- Local graph mirror (alignment with Rust BuiltForm*) ----
+
+type BuiltFormNode {
+  nodeId            : NodeId
+  nativeVegFraction : Score
+  canopyFraction    : Score
+  riparian          : Bool
+}
+
+type BuiltFormEdge {
+  edgeId             : EdgeId
+  from               : NodeId
+  to                 : NodeId
+  nightLux           : Float
+  nightDba           : Float
+  pesticideIntense   : Bool
+  surfaceHardness    : Score
+  treeCorridorScore  : Score
+  lengthMeters       : Optional<Float>
+}
+
+type BuiltFormGraph {
+  nodes      : List<BuiltFormNode>
+  edges      : List<BuiltFormEdge>
+}
+
+// ---- Corridor envelope mirroring Rust CorridorEnvelope ----
+
+type CorridorEnvelope {
+  corridorId     : CorridorId
+  requiredNodes  : List<NodeId>
+  forbiddenNodes : List<NodeId>
+  forbiddenEdges : List<EdgeId>
+}
+
+// ---- Engine configuration (matches Rust HabitatContinuityConfig) ----
+
+type HabitatContinuityConfig {
+  maxStepsPerPath     : Int
+  maxPathsPerSpecies  : Int
+  wConnectivity       : Float
+  wAlan               : Float
+  wPesticide          : Float
+}
+
+// ---- Output types (matches Rust CorridorProposal / HabitatContinuityResult) ----
+
+type CorridorProposal {
+  corridorId          : CorridorId
+  speciesId           : SpeciesId
+  treatyId            : TreatyId
+  pathNodes           : List<NodeId>
+  pathEdges           : List<EdgeId>
+  connectivityScore   : Score
+  alanSafetyScore     : Score
+  pesticideSafetyScore: Score
+  compositeScore      : Score
+  treatyCompliant     : Bool
+}
+
+type HabitatContinuityResult {
+  proposals          : List<CorridorProposal>
+  bestSpeciesScores  : Map<SpeciesId, Score>
+  treatySatisfaction : Map<TreatyId, Score>
+}
+
+// ---- Core contract: engine invocation surface ----
+
+contract HabitatContinuityEngine {
+  import RustEngine from "aletheion/synthexis/engine/impl/rust/ALE-SYN-HABITAT-CONTINUITY-ENGINE-001.rs"
+
+  fn compute(
+    graph     : BuiltFormGraph,
+    species   : List<SpeciesAgentRef>,
+    treaties  : List<BioticTreatyRef>,
+    envelopes : List<CorridorEnvelope>,
+    cfg       : HabitatContinuityConfig
+  ) -> HabitatContinuityResult
+}
+
+// ---- Safety and coherence constraints ----
+
+constraint ScoreRangeAll {
+  forAll cp in HabitatContinuityResult.proposals {
+    cp.connectivityScore   >= 0.0 && cp.connectivityScore   <= 1.0 &&
+    cp.alanSafetyScore     >= 0.0 && cp.alanSafetyScore     <= 1.0 &&
+    cp.pesticideSafetyScore>= 0.0 && cp.pesticideSafetyScore<= 1.0 &&
+    cp.compositeScore      >= 0.0 && cp.compositeScore      <= 1.0
+  }
+}
+
+// Each CorridorProposal must reference known species and treaties. [file:5][file:6]
+constraint ReferencesBound {
+  forAll cp in HabitatContinuityResult.proposals {
+    exists s in HabitatContinuityEngine.species . where s.id == cp.speciesId
+    exists t in HabitatContinuityEngine.treaties . where t.id == cp.treatyId
+  }
+}
+
+// Enforce "no corridor, no build" for Synthexis workflows that depend on habitat continuity. [file:5]
+rule ecosafety_corridor_required_for_synthexis {
+  appliesTo domains = ["biotic"]
+
+  when HabitatContinuityResult.proposals.size == 0
+  then reject "Synthexis HabitatContinuityEngine returned no corridors – no corridor, no build for biotic-domain workflows"
+}
+
+// Bind to higher-level SMART-chain / BioticTreaty enforcement: [file:5][file:6]
+// Any corridor used for actuation must be treaty-compliant under hard enforcement.
+rule treaty_hard_enforcement {
+  forAll cp in HabitatContinuityResult.proposals {
+    let t = first(HabitatContinuityEngine.treaties where _.id == cp.treatyId)
+    when t.hardEnforcement == true && cp.treatyCompliant == false
+    then reject "BioticTreaty hard enforcement violated for " + cp.treatyId
+  }
+}
+
+// Weight configuration must sum approximately to 1. [file:6]
+constraint WeightNormalization {
+  let wsum =
+    HabitatContinuityEngine.cfg.wConnectivity +
+    HabitatContinuityEngine.cfg.wAlan +
+    HabitatContinuityEngine.cfg.wPesticide
+
+  wsum >= 0.99 && wsum <= 1.01
+}
