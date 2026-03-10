@@ -1,0 +1,75 @@
+// ALETHEION_WATER_ECOSAFETY_CONTRACT_V1.0.0
+// LICENSE: BioticTreaty_Compliant_AGPLv3
+// ECO_IMPACT: K=0.93 | E=0.92 | R=0.14
+// CHAIN: SMART (Treaty-Check → Act → Log)
+// CONSTRAINTS: No-Corridor-No-Build, Derate-Or-Stop
+// INDIGENOUS_RIGHTS: Akimel_O'odham_Water_Rights_Priority
+
+contract Phoenix_MAR_Vault_01_Contract {
+    version: "1.0.0";
+    jurisdiction: "Phoenix_Arizona_Akimel_O'odham_Territory";
+    enforcement: "Hard_Stop_On_Violation";
+
+    // --- STATE INPUTS (From RiskEngine) ---
+    input {
+        hydraulic_loading_rate: f64; // m³/s
+        nutrient_concentration: f64; // mg/L
+        pfas_level: f64;             // ppt
+        aquifer_pressure: f64;       // psi
+        indigenous_water_claim: bool;// Priority flag
+    }
+
+    // --- CORRIDOR DEFINITIONS (2026 Standards) ---
+    corridors {
+        max_hlr: 1.5;                // Max flow before soil shear
+        max_nutrient: 0.05;          // Nitrogen limit for habitat
+        max_pfas: 4.0;               // Emerging contaminant limit
+        min_pressure: 10.0;          // Prevent subsidence
+    }
+
+    // --- INVARIANTS (Lyapunov Stability) ---
+    invariant non_increasing_risk {
+        // Ensures V_t (aggregate risk) does not increase after action
+        assert(lyapunov_residual_post <= lyapunov_residual_pre);
+    }
+
+    invariant sovereignty_priority {
+        // Indigenous water claims override industrial usage
+        if (indigenous_water_claim == true) {
+            assert(hydraulic_loading_rate == 0.0); // Stop recharge if claim active
+        }
+    }
+
+    // --- ACTIONS (ERM: ACT) ---
+    action recharge {
+        preconditions: [
+            hydraulic_loading_rate <= corridors.max_hlr,
+            nutrient_concentration <= corridors.max_nutrient,
+            pfas_level <= corridors.max_pfas,
+            aquifer_pressure >= corridors.min_pressure,
+            indigenous_water_claim == false
+        ];
+        effect: "Open_Intake_Valves";
+        log_event: "MAR_Recharge_Initiated_Safe";
+    }
+
+    action derate {
+        trigger: "Corridor_Violation_Warning";
+        effect: "Reduce_Flow_By_50_Percent";
+        log_event: "MAR_Derated_Corridor_Breach";
+    }
+
+    action stop {
+        trigger: "Corridor_Violation_Critical OR Sovereignty_Priority";
+        effect: "Close_Intake_Valves_Emergency";
+        log_event: "MAR_Emergency_Stop_Activated";
+    }
+
+    // --- AUDIT LOG (Immutable) ---
+    log {
+        timestamp: utc_now();
+        action_taken: string;
+        risk_vector_snapshot: json;
+        signature: post_quantum_sig();
+    }
+}
