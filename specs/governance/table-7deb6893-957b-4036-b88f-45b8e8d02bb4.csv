@@ -1,0 +1,7 @@
+﻿Grievance Type,Legal Anchor,Response Deadline,Escalation Path,Remedy Authority
+Treaty_Violation,"UNDRIP Art. 32, BioticTreaty Art. 7",72 Hours,Tribal_Council → Joint_Committee → Community_Referendum,Tribal_Authority
+Data_Misuse,"Neurorights Const., GDPR Art. 77",48 Hours,Data_Protection_Officer → City_Council → State_AGC,Privacy_Commissioner
+Environmental_Harm,"Phoenix Env. Health Code, EPA",24 Hours,Env_Services → State_ADEQ → Federal_EPA,Environmental_Director
+Discrimination,"Phoenix Civil Rights Ordinance, ADA",72 Hours,Civil_Rights_Office → HUD → DOJ,Civil_Rights_Director
+Optimizer_Overreach,"Aletheion Charter Art. 5, ERM-L5",12 Hours,AI_Oversight_Board → Citizen_Jury → System_Halt,Chief_Algorithm_Officer
+Infrastructure_Failure,Phoenix Public Works Code,6 Hours,Public_Works → Emergency_Mgmt → State_DEM,Infrastructure_Director
