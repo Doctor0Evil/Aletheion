@@ -1,53 +1,828 @@
-namespace ALE.GOV.SMART.BIODEGRADE.POLICY.001
+// Aletheion Governance SMART Chain Biodegrade Policy Set
+// File: ALE-GOV-SMART-BIODEGRADE-POLICY-001.aln
+// Domain: Governance / SMART Chain / Biodegrade Policy Enforcement
+// Compliance: BioticTreaties, Indigenous FPIC, EJ Zones, Ecosafety Contracts
 
-atom SmartChainDomain
-  enum WATER_BIODEGRADE MAR_BIODEGRADE CANAL_BIODEGRADE
+aln_version 1.0
+namespace Aletheion.Governance.SmartChain.Biodegrade
 
-atom SmartChainMode
-  enum CLASSICAL HYBRID PQSTRICT
+import Aletheion.ERM.Ecosafety.Biodegrade
+import Aletheion.Governance.Lexethos.Biodegrade
+import Aletheion.Trust.Schemas.Biodegrade
+import Aletheion.TreatyOS
 
-atom SmartChainCtx
-  field domain SmartChainDomain
-  field mode SmartChainMode
+// =============================================================================
+// 1. Core Policy Types & Enums
+// =============================================================================
 
-atom NodeRef
-  field node_id string
-  field corridor_present bool
-  field biodegrade_enabled bool
+enum PolicyEnforcementLevel {
+    MANDATORY
+    RECOMMENDED
+    ADVISORY
+    PROHIBITED
+}
 
-atom ShardRef
-  field shard_id string
-  field node_id string
-  field valid bool
+enum PolicyDomain {
+    WATER
+    WASTE
+    BIOTIC
+    SOIL
+    AIR
+    THERMAL
+}
 
-atom BiodegradeDecision
-  enum APPROVE DERATE REJECT
+enum CorridorDeclarationStatus {
+    REQUIRED
+    DECLARED
+    ACTIVE
+    EXPIRED
+    VIOLATED
+    NOT_REQUIRED
+}
 
-rule require_corridor_for_pqstrict
-  when ctx SmartChainCtx ctx.mode PQSTRICT
-       n NodeRef n.biodegrade_enabled true
-  then require n.corridor_present
-  else error BIODEGRADE_NO_CORRIDOR n.node_id
+enum ShardIngestionRule {
+    ALLOW
+    REQUIRE_VALIDATION
+    REQUIRE_MULTISIG
+    BLOCK
+    QUARANTINE
+}
 
-rule require_valid_shard_for_pqstrict
-  when ctx SmartChainCtx ctx.mode PQSTRICT
-       n NodeRef n.biodegrade_enabled true
-  then require exists s ShardRef where s.node_id n.node_id && s.valid true
-  else error BIODEGRADE_NO_VALID_SHARD n.node_id
+enum DerateTrigger {
+    LYAPUNOV_UNSTABLE
+    TOXICITY_ELEVATED
+    CORRIDOR_MARGIN_LOW
+    SEASONAL_RESTRICTION
+    FPIC_PENDING
+    EJ_ZONE_ACTIVE
+    BIOTIC_CORRIDOR_OVERLAP
+}
 
-template DecideBiodegradeAction
-  arg ctx SmartChainCtx
-  arg node NodeRef
-  returns BiodegradeDecision
-  body
-    when ctx.mode CLASSICAL
-      then APPROVE
-    when ctx.mode HYBRID && node.biodegrade_enabled false
-      then APPROVE
-    when ctx.mode HYBRID && node.biodegrade_enabled true
-      then DERATE
-    when ctx.mode PQSTRICT && node.biodegrade_enabled true && node.corridor_present
-      then APPROVE
-    else REJECT
+record SmartChainPolicyHeader {
+    policy_id               : Id
+    policy_version          : Int
+    namespace               : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    superseded_by           : Id?
+    signature               : PQSignature
+    authoring_body_did      : DID
+    ratification_timestamp  : IsoTimestamp
+}
 
-end namespace
+// =============================================================================
+// 2. Corridor Declaration Policies
+// =============================================================================
+
+record CorridorDeclarationPolicy {
+    policy_id               : Id
+    domain                  : PolicyDomain
+    requires_declaration    : Bool
+    declaration_validity_days : Int
+    renewal_notice_days     : Int
+    auto_expire_on_violation : Bool
+    min_integrity_score     : Decimal
+    max_nodes_per_corridor  : Int
+    max_total_mass_grams    : Decimal
+    enforcement_level       : PolicyEnforcementLevel
+    hard_block_conditions   : [string]
+    derate_conditions       : [string]
+}
+
+// Canonical: Water Domain Corridor Declaration (Phoenix Canal System)
+record Example_WaterDomain_CorridorPolicy {
+    policy : CorridorDeclarationPolicy = {
+        policy_id                     = "ALE-SMART-CORRIDOR-WATER-001"
+        domain                        = WATER
+        requires_declaration          = true
+        declaration_validity_days     = 90
+        renewal_notice_days           = 14
+        auto_expire_on_violation      = true
+        min_integrity_score           = 0.85
+        max_nodes_per_corridor        = 50
+        max_total_mass_grams          = 10000.0
+        enforcement_level             = MANDATORY
+        hard_block_conditions         = [
+            "corridor_status == UNDECLARED",
+            "corridor_status == VIOLATED",
+            "integrity_score < 0.70",
+            "fpic_status == DENIED"
+        ]
+        derate_conditions             = [
+            "integrity_score < 0.85",
+            "renewal_overdue == true",
+            "lyapunov_unstable_nodes > 0"
+        ]
+    }
+}
+
+// Canonical: Biotic Domain Corridor Declaration (Riparian Corridors)
+record Example_BioticDomain_CorridorPolicy {
+    policy : CorridorDeclarationPolicy = {
+        policy_id                     = "ALE-SMART-CORRIDOR-BIOTIC-001"
+        domain                        = BIOTIC
+        requires_declaration          = true
+        declaration_validity_days     = 60
+        renewal_notice_days           = 21
+        auto_expire_on_violation      = true
+        min_integrity_score           = 0.90
+        max_nodes_per_corridor        = 20
+        max_total_mass_grams          = 3000.0
+        enforcement_level             = MANDATORY
+        hard_block_conditions         = [
+            "corridor_status == UNDECLARED",
+            "biotic_treaty_violation == true",
+            "darkness_violation == true",
+            "protected_species_present && toxicity > 1.0"
+        ]
+        derate_conditions             = [
+            "integrity_score < 0.90",
+            "seasonal_blackout_approaching == true",
+            "native_plant_fraction < 0.6"
+        ]
+    }
+}
+
+// Canonical: Waste Domain Corridor Declaration (Sewer/Outfall)
+record Example_WasteDomain_CorridorPolicy {
+    policy : CorridorDeclarationPolicy = {
+        policy_id                     = "ALE-SMART-CORRIDOR-WASTE-001"
+        domain                        = WASTE
+        requires_declaration          = true
+        declaration_validity_days     = 30
+        renewal_notice_days           = 7
+        auto_expire_on_violation      = true
+        min_integrity_score           = 0.80
+        max_nodes_per_corridor        = 100
+        max_total_mass_grams          = 20000.0
+        enforcement_level             = MANDATORY
+        hard_block_conditions         = [
+            "corridor_status == UNDECLARED",
+            "downstream_toxicity_exceeded == true",
+            "receiving_water_body_violation == true"
+        ]
+        derate_conditions             = [
+            "dilution_factor < 10.0",
+            "alert_threshold_approaching == true"
+        ]
+    }
+}
+
+// =============================================================================
+// 3. Shard Ingestion Policies
+// =============================================================================
+
+record ShardIngestionPolicy {
+    policy_id               : Id
+    shard_type              : string
+    ingestion_rule          : ShardIngestionRule
+    required_validations    : [string]
+    required_signatures     : Int
+    required_attestations   : [string]
+    treaty_check_required   : Bool
+    fpic_binding_required   : Bool
+    ej_zone_enhanced_review : Bool
+    biotic_treaty_binding   : Bool
+    lyapunov_trace_required : Bool
+    toxicity_trace_required : Bool
+    quarantine_days         : Int
+    public_accessible_after : Int
+}
+
+// Canonical: Decomposition Experiment Shard Ingestion
+record Example_DecompositionShard_IngestionPolicy {
+    policy : ShardIngestionPolicy = {
+        policy_id                     = "ALE-SMART-INGEST-DECOMP-001"
+        shard_type                    = "decomposition_experiment"
+        ingestion_rule                = REQUIRE_VALIDATION
+        required_validations          = [
+            "material_provenance_verified",
+            "corridor_declaration_active",
+            "lyapunov_trace_complete",
+            "toxicity_trace_complete"
+        ]
+        required_signatures           = 2
+        required_attestations         = [
+            "principal_investigator",
+            "ecosafety_contract"
+        ]
+        treaty_check_required         = true
+        fpic_binding_required         = true
+        ej_zone_enhanced_review       = true
+        biotic_treaty_binding         = true
+        lyapunov_trace_required       = true
+        toxicity_trace_required       = true
+        quarantine_days               = 7
+        public_accessible_after       = 30
+    }
+}
+
+// Canonical: Leachate Monitoring Shard Ingestion
+record Example_LeachateShard_IngestionPolicy {
+    policy : ShardIngestionPolicy = {
+        policy_id                     = "ALE-SMART-INGEST-LEACHATE-001"
+        shard_type                    = "leachate_monitoring"
+        ingestion_rule                = REQUIRE_MULTISIG
+        required_validations          = [
+            "chain_of_custody_verified",
+            "lab_accreditation_verified",
+            "epa_method_compliance"
+        ]
+        required_signatures           = 3
+        required_attestations         = [
+            "sample_collector",
+            "lab_analyst",
+            "quality_control_officer"
+        ]
+        treaty_check_required         = true
+        fpic_binding_required         = false
+        ej_zone_enhanced_review       = true
+        biotic_treaty_binding         = false
+        lyapunov_trace_required       = false
+        toxicity_trace_required       = true
+        quarantine_days               = 0
+        public_accessible_after       = 7
+    }
+}
+
+// Canonical: Corridor Update Shard Ingestion
+record Example_CorridorUpdate_IngestionPolicy {
+    policy : ShardIngestionPolicy = {
+        policy_id                     = "ALE-SMART-INGEST-CORRIDOR-001"
+        shard_type                    = "corridor_update"
+        ingestion_rule                = REQUIRE_MULTISIG
+        required_validations          = [
+            "integrity_score_recalculated",
+            "node_count_verified",
+            "violation_count_verified"
+        ]
+        required_signatures           = 3
+        required_attestations         = [
+            "corridor_administrator",
+            "ecosafety_contract",
+            "birth_sign_resolver"
+        ]
+        treaty_check_required         = true
+        fpic_binding_required         = true
+        ej_zone_enhanced_review       = false
+        biotic_treaty_binding         = true
+        lyapunov_trace_required       = true
+        toxicity_trace_required       = true
+        quarantine_days               = 3
+        public_accessible_after       = 1
+    }
+}
+
+// =============================================================================
+// 4. Derate & Block Policies
+// =============================================================================
+
+record DeratePolicy {
+    policy_id               : Id
+    trigger_condition       : DerateTrigger
+    derate_factor           : Decimal
+    derate_duration_hours   : Int
+    escalation_rule         : string
+    recovery_conditions     : [string]
+    notification_required   : Bool
+    citizen_explanation_template : Id
+}
+
+record BlockPolicy {
+    policy_id               : Id
+    trigger_condition       : string
+    block_duration_hours    : Int
+    human_review_required   : Bool
+    appeal_window_hours     : Int
+    grievance_auto_file     : Bool
+    indigenous_consultation_required : Bool
+    ej_community_notification_required : Bool
+}
+
+// Canonical: Lyapunov Instability Derate
+record Example_LyapunovDerate_Policy {
+    policy : DeratePolicy = {
+        policy_id                     = "ALE-SMART-DERATE-LYAPUNOV-001"
+        trigger_condition             = LYAPUNOV_UNSTABLE
+        derate_factor                 = 0.5
+        derate_duration_hours         = 24
+        escalation_rule               = "if unstable_count > 3 then block"
+        recovery_conditions           = [
+            "lyapunov_stable == true",
+            "convergence_verified == true",
+            "ecosafety_contract_approval == true"
+        ]
+        notification_required         = true
+        citizen_explanation_template  = "ALE-EXPLAIN-DERATE-LYAPUNOV-001"
+    }
+}
+
+// Canonical: Toxicity Elevated Derate
+record Example_ToxicityDerate_Policy {
+    policy : DeratePolicy = {
+        policy_id                     = "ALE-SMART-DERATE-TOXICITY-001"
+        trigger_condition             = TOXICITY_ELEVATED
+        derate_factor                 = 0.3
+        derate_duration_hours         = 48
+        escalation_rule               = "if toxicity > threshold * 2 then block"
+        recovery_conditions           = [
+            "toxicity_below_threshold == true",
+            "flush_complete == true",
+            "downstream_sensor_clear == true"
+        ]
+        notification_required         = true
+        citizen_explanation_template  = "ALE-EXPLAIN-DERATE-TOXICITY-001"
+    }
+}
+
+// Canonical: FPIC Pending Block
+record Example_FpicPending_BlockPolicy {
+    policy : BlockPolicy = {
+        policy_id                     = "ALE-SMART-BLOCK-FPIC-001"
+        trigger_condition             = "fpic_status == REQUIRED_PENDING"
+        block_duration_hours          = 0
+        human_review_required         = true
+        appeal_window_hours           = 72
+        grievance_auto_file           = false
+        indigenous_consultation_required = true
+        ej_community_notification_required = false
+    }
+}
+
+// Canonical: EJ Zone Toxicity Block
+record Example_EJToxicity_BlockPolicy {
+    policy : BlockPolicy = {
+        policy_id                     = "ALE-SMART-BLOCK-EJ-TOXICITY-001"
+        trigger_condition             = "ej_zone_flag == true && toxicity > ej_cap"
+        block_duration_hours          = 168
+        human_review_required         = true
+        appeal_window_hours           = 72
+        grievance_auto_file           = true
+        indigenous_consultation_required = false
+        ej_community_notification_required = true
+    }
+}
+
+// =============================================================================
+// 5. Domain-Specific SMART Policies
+// =============================================================================
+
+record WaterDomainSmartPolicy {
+    policy_id               : Id
+    domain                  : PolicyDomain = WATER
+    corridor_policy_ref     : Id
+    ingestion_policy_ref    : Id
+    derate_policies         : [Id]
+    block_policies          : [Id]
+    fpic_requirement_ref    : Id
+    indigenous_water_rights_ref : Id
+    drought_tier_rules      : [string]
+    max_withdrawal_cfs      : Decimal
+    max_annual_volume_af    : Decimal
+    monitoring_frequency_hours : Int
+    alert_thresholds        : [string]
+}
+
+// Canonical: Phoenix Canal Water Domain Policy
+record Example_PhoenixCanal_WaterPolicy {
+    policy : WaterDomainSmartPolicy = {
+        policy_id                     = "ALE-SMART-WATER-PHX-CANAL-001"
+        corridor_policy_ref           = "ALE-SMART-CORRIDOR-WATER-001"
+        ingestion_policy_ref          = "ALE-SMART-INGEST-DECOMP-001"
+        derate_policies               = [
+            "ALE-SMART-DERATE-LYAPUNOV-001",
+            "ALE-SMART-DERATE-TOXICITY-001"
+        ]
+        block_policies                = [
+            "ALE-SMART-BLOCK-FPIC-001",
+            "ALE-SMART-BLOCK-EJ-TOXICITY-001"
+        ]
+        fpic_requirement_ref          = "ALE-FPIC-WATER-INDIGENOUS-001"
+        indigenous_water_rights_ref   = "WATER-RIGHTS-AKIMEL-OODHAM-001"
+        drought_tier_rules            = [
+            "tier_0: normal_operations",
+            "tier_1: reduce_15_percent",
+            "tier_2: reduce_30_percent",
+            "tier_3: emergency_only"
+        ]
+        max_withdrawal_cfs            = 50.0
+        max_annual_volume_af          = 1000.0
+        monitoring_frequency_hours    = 6
+        alert_thresholds              = [
+            "toxicity > 3.0 ppb",
+            "lyapunov_residual > 0.5",
+            "flow_rate < 10 cfs"
+        ]
+    }
+}
+
+record BioticDomainSmartPolicy {
+    policy_id               : Id
+    domain                  : PolicyDomain = BIOTIC
+    corridor_policy_ref     : Id
+    ingestion_policy_ref    : Id
+    derate_policies         : [Id]
+    block_policies          : [Id]
+    biotic_treaty_refs      : [Id]
+    species_agent_refs      : [SpeciesAgentRef]
+    darkness_requirements   : [string]
+    noise_requirements      : [string]
+    pesticide_bans          : [string]
+    seasonal_blackout_rules : [string]
+    habitat_buffer_meters   : Decimal
+}
+
+// Canonical: Phoenix Riparian Bat Corridor Policy
+record Example_PhoenixRiparian_BioticPolicy {
+    policy : BioticDomainSmartPolicy = {
+        policy_id                     = "ALE-SMART-BIOTIC-PHX-RIPARIAN-001"
+        corridor_policy_ref           = "ALE-SMART-CORRIDOR-BIOTIC-001"
+        ingestion_policy_ref          = "ALE-SMART-INGEST-DECOMP-001"
+        derate_policies               = [
+            "ALE-SMART-DERATE-LYAPUNOV-001"
+        ]
+        block_policies                = [
+            "ALE-SMART-BLOCK-FPIC-001"
+        ]
+        biotic_treaty_refs            = [
+            "ALE-BIOTIC-BAT-CANAL-CORRIDOR-001"
+        ]
+        species_agent_refs            = [
+            { species_agent_id = "SPECIES-MYOTIS-VELIFER" }
+        ]
+        darkness_requirements         = [
+            "max_lux_corridor <= 3.0",
+            "dark_hours 18:00-06:00",
+            "amber_spectrum_only"
+        ]
+        noise_requirements            = [
+            "max_db_night <= 45.0",
+            "impulsive_noise_penalty == 0.5"
+        ]
+        pesticide_bans                = [
+            "NEONICOTINOID",
+            "PYRETHROID"
+        ]
+        seasonal_blackout_rules       = [
+            "breeding_season: March 1 - August 31",
+            "no_actuation_during_blackout"
+        ]
+        habitat_buffer_meters         = 50.0
+    }
+}
+
+record WasteDomainSmartPolicy {
+    policy_id               : Id
+    domain                  : PolicyDomain = WASTE
+    corridor_policy_ref     : Id
+    ingestion_policy_ref    : Id
+    derate_policies         : [Id]
+    block_policies          : [Id]
+    outfall_policies        : [Id]
+    receiving_water_body_refs : [Id]
+    dilution_factor_min     : Decimal
+    downstream_sensor_refs  : [Id]
+    alert_threshold_ppb     : Decimal
+    shutdown_threshold_ppb  : Decimal
+    sampling_frequency_hours : Int
+}
+
+// Canonical: Phoenix Sewer Outfall Waste Policy
+record Example_PhoenixSewer_WastePolicy {
+    policy : WasteDomainSmartPolicy = {
+        policy_id                     = "ALE-SMART-WASTE-PHX-SEWER-001"
+        corridor_policy_ref           = "ALE-SMART-CORRIDOR-WASTE-001"
+        ingestion_policy_ref          = "ALE-SMART-INGEST-LEACHATE-001"
+        derate_policies               = [
+            "ALE-SMART-DERATE-TOXICITY-001"
+        ]
+        block_policies                = [
+            "ALE-SMART-BLOCK-EJ-TOXICITY-001"
+        ]
+        outfall_policies              = [
+            "ALE-GATE-OUTFALL-SALT-001"
+        ]
+        receiving_water_body_refs     = [
+            "WATERBODY-SALT-RIVER"
+        ]
+        dilution_factor_min           = 10.0
+        downstream_sensor_refs        = [
+            "SENSOR-SALT-DOWNSTREAM-001",
+            "SENSOR-SALT-DOWNSTREAM-002"
+        ]
+        alert_threshold_ppb           = 3.0
+        shutdown_threshold_ppb        = 5.0
+        sampling_frequency_hours      = 6
+    }
+}
+
+// =============================================================================
+// 6. SMART Chain Composition Rules
+// =============================================================================
+
+record SmartChainCompositionRule {
+    rule_id                 : Id
+    description             : string
+    applicable_domains      : [PolicyDomain]
+    policy_refs             : [Id]
+    composition_logic       : string
+    conflict_resolution     : string
+    priority_order          : [Id]
+    min_pass_threshold      : Decimal
+    hard_block_policies     : [Id]
+    soft_penalty_policies   : [Id]
+    override_requires       : [string]
+}
+
+// Canonical: All Hard Block Policies Must Pass
+record Example_HardBlock_CompositionRule {
+    rule : SmartChainCompositionRule = {
+        rule_id                     = "ALE-SMART-RULE-COMPOSITION-001"
+        description                 = "All hard block policies must pass before any biodegrade actuation"
+        applicable_domains          = [WATER, WASTE, BIOTIC]
+        policy_refs                 = [
+            "ALE-SMART-CORRIDOR-WATER-001",
+            "ALE-SMART-CORRIDOR-BIOTIC-001",
+            "ALE-SMART-CORRIDOR-WASTE-001"
+        ]
+        composition_logic           = "AND"
+        conflict_resolution         = "highest_severity_wins"
+        priority_order              = [
+            "ALE-SMART-BLOCK-FPIC-001",
+            "ALE-SMART-BLOCK-EJ-TOXICITY-001",
+            "ALE-SMART-DERATE-LYAPUNOV-001",
+            "ALE-SMART-DERATE-TOXICITY-001"
+        ]
+        min_pass_threshold          = 1.0
+        hard_block_policies         = [
+            "ALE-SMART-BLOCK-FPIC-001",
+            "ALE-SMART-BLOCK-EJ-TOXICITY-001"
+        ]
+        soft_penalty_policies       = [
+            "ALE-SMART-DERATE-LYAPUNOV-001",
+            "ALE-SMART-DERATE-TOXICITY-001"
+        ]
+        override_requires           = [
+            "human_review_approval",
+            "indigenous_consultation_if_applicable",
+            "ej_community_notification_if_applicable",
+            "ledger_append_before_override"
+        ]
+    }
+}
+
+// =============================================================================
+// 7. Policy Evaluation Context & Result
+// =============================================================================
+
+record SmartChainPolicyContext {
+    context_id              : Id
+    workflow_id             : Id
+    action_id               : Id
+    node_id                 : Id
+    domain                  : PolicyDomain
+    corridor_id             : Id?
+    birth_sign_id           : BirthSignId
+    geo_tile_ref            : Id
+    timestamp_unix          : Int
+    proposed_action         : string
+    action_parameters       : [string]
+    current_node_state      : BiodegradeNodeState
+    corridor_status         : CorridorDeclarationStatus
+    fpic_status             : FPICStatus
+    ej_zone_refs            : [Id]
+    biotic_corridor_refs    : [Id]
+    seasonal_restrictions   : [string]
+    impact_score            : Decimal
+    simulation_outcome_ref  : Id
+    shard_refs              : [ShardId]
+}
+
+record SmartChainPolicyResult {
+    result_id               : Id
+    context_id              : Id
+    policy_id               : Id
+    decision                : Decision
+    passed                  : Bool
+    violated_policies       : [Id]
+    applied_derates         : [Id]
+    applied_blocks          : [Id]
+    explanation             : string
+    severity                : Severity
+    conditions              : [string]
+    remediation_steps       : [string]
+    requires_human_review   : Bool
+    citizen_notification    : Bool
+    grievance_reference     : Id
+    timestamp_unix          : Int
+    governance_envelope_ref : Id
+}
+
+// =============================================================================
+// 8. Policy Registry & Versioning
+// =============================================================================
+
+record SmartChainPolicyRegistry {
+    registry_id             : Id
+    version                 : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    corridor_policies       : [CorridorDeclarationPolicy]
+    ingestion_policies      : [ShardIngestionPolicy]
+    derate_policies         : [DeratePolicy]
+    block_policies          : [BlockPolicy]
+    domain_policies         : [WaterDomainSmartPolicy, BioticDomainSmartPolicy, WasteDomainSmartPolicy]
+    composition_rules       : [SmartChainCompositionRule]
+    signature               : PQSignature
+    authoring_body_did      : DID
+    ratification_timestamp  : IsoTimestamp
+}
+
+record SmartChainPolicyVersion {
+    version_id              : Id
+    policy_id               : Id
+    version_number          : Int
+    changelog               : [string]
+    superseded_by           : Id?
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    migration_required      : Bool
+    migration_instructions  : [string]
+}
+
+// =============================================================================
+// 9. Audit & Compliance Records
+// =============================================================================
+
+record SmartChainPolicyAudit {
+    audit_id                : Id
+    policy_id               : Id
+    audit_timestamp         : IsoTimestamp
+    auditor_did             : DID
+    audit_type              : string
+    policy_enforcement_verified : Bool
+    treaty_compliance_verified : Bool
+    fpic_verified           : Bool
+    ej_compliance_verified  : Bool
+    biotic_compliance_verified : Bool
+    violations_found        : Int
+    violations_refs         : [Id]
+    remediation_required    : Bool
+    remediation_deadline    : IsoTimestamp?
+    audit_signature         : PQSignature
+    ledger_reference        : Id
+}
+
+record SmartChainComplianceTranscript {
+    transcript_id           : Id
+    context_id              : Id
+    timestamp               : IsoTimestamp
+    policies_evaluated      : [Id]
+    corridor_check_result   : string
+    ingestion_check_result  : string
+    derate_check_result     : string
+    block_check_result      : string
+    fpic_check_result       : string
+    ej_check_result         : string
+    biotic_check_result     : string
+    overall_compliance      : Bool
+    violated_policies       : [Id]
+    applied_policies        : [Id]
+    explanation             : string
+    grievance_reference     : Id
+}
+
+// =============================================================================
+// 10. Citizen Notification & Grievance Templates
+// =============================================================================
+
+record SmartChainNotificationTemplate {
+    template_id             : Id
+    policy_type             : string
+    language                : string
+    title_template          : string
+    body_template           : string
+    action_links            : [string]
+    grievance_link_template : string
+    contact_info_template   : string
+}
+
+// Canonical: English Notification for Derate Action
+record Example_DerateNotification_English {
+    template : SmartChainNotificationTemplate = {
+        template_id                 = "ALE-NOTIFY-DERATE-EN-001"
+        policy_type                 = "derate"
+        language                    = "en"
+        title_template              = "Biodegradable Node Operation Derated"
+        body_template               = "A biodegradable node operation in {domain} has been derated due to {trigger_condition}. Derate factor: {derate_factor}. Duration: {derate_duration_hours} hours. Ecosafety score: {ecosafety_score}."
+        action_links                = ["View Details", "File Grievance", "Contact Representatives"]
+        grievance_link_template     = "https://aletheion.phoenix/grievance/{grievance_ref}"
+        contact_info_template       = "Domain Representative: {representative_contact}"
+    }
+}
+
+// Canonical: English Notification for Block Action
+record Example_BlockNotification_English {
+    template : SmartChainNotificationTemplate = {
+        template_id                 = "ALE-NOTIFY-BLOCK-EN-001"
+        policy_type                 = "block"
+        language                    = "en"
+        title_template              = "Biodegradable Node Operation Blocked"
+        body_template               = "A biodegradable node operation in {domain} has been blocked due to {trigger_condition}. Block duration: {block_duration_hours} hours. Human review required: {human_review_required}. Grievance auto-filed: {grievance_auto_file}."
+        action_links                = ["View Details", "File Appeal", "Request Human Review"]
+        grievance_link_template     = "https://aletheion.phoenix/grievance/{grievance_ref}"
+        contact_info_template       = "Domain Representative: {representative_contact}"
+    }
+}
+
+// Canonical: O'odham Notification for Indigenous Territory Block
+record Example_IndigenousBlockNotification_Oodham {
+    template : SmartChainNotificationTemplate = {
+        template_id                 = "ALE-NOTIFY-INDIGENOUS-BLOCK-OODHAM-001"
+        policy_type                 = "block"
+        language                    = "ood"
+        title_template              = "Haʼkohwóóʼ Áłtsé Hoolʼą́ą́ʼ"
+        body_template               = "Biodegradable node activity blocked in Akimel O'odham territory. FPIC status: {fpic_status}. Consultation required: {consultation_required}."
+        action_links                = ["View Details", "Request Consultation", "File Grievance"]
+        grievance_link_template     = "https://aletheion.phoenix/grievance/{grievance_ref}"
+        contact_info_template       = "Council Contact: {council_contact}"
+    }
+}
+
+// =============================================================================
+// 11. SMART Chain Engine Contract (Rust Binding Interface)
+// =============================================================================
+
+// This defines the boundary that Rust SMART chain evaluators must honor.
+// In Rust, each policy evaluator would expose a function equivalent to:
+//
+//   fn evaluate_policy(ctx: SmartChainPolicyContext, policy: SmartChainPolicy) -> SmartChainPolicyResult;
+//
+// An orchestrator composes multiple policy results into an overall decision
+// and ensures that any BLOCK decisions prevent actuation before
+// appending to Googolswarm provenance envelopes.
+
+record SmartChainEngineContract {
+    engine_id               : Id
+    description             : string
+    accepts_domains         : [PolicyDomain]
+    accepts_policy_types    : [string]
+    requires_birth_sign     : Bool
+    requires_fpic           : Bool
+    requires_ej_zones       : Bool
+    requires_biotic_refs    : Bool
+    requires_corridor_decl  : Bool
+    requires_shard_refs     : Bool
+    output_schema_ref       : Id
+    version                 : string
+}
+
+record SmartChainEngineRegistry {
+    registry_id             : Id
+    engines                 : [SmartChainEngineContract]
+    version                 : string
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+}
+
+// =============================================================================
+// 12. Canonical Phoenix Policy Bindings
+// =============================================================================
+
+record PhoenixSmartChainBinding {
+    binding_id              : Id
+    city_jurisdiction       : string = "Phoenix, Arizona"
+    applicable_domains      : [PolicyDomain]
+    policy_registry_ref     : Id
+    treaty_os_ref           : Id
+    birth_sign_resolver_ref : Id
+    ecosafety_contract_ref  : Id
+    googolswarm_client_ref  : Id
+    citizen_interface_ref   : Id
+    valid_from              : IsoTimestamp
+    valid_until             : IsoTimestamp
+    city_council_resolution : string
+    indigenous_agreement_ref : Id
+    ej_zone_designation_ref : Id
+}
+
+// Canonical: Phoenix Aletheion Deployment Binding
+record Example_Phoenix_AletheionBinding {
+    binding : PhoenixSmartChainBinding = {
+        binding_id                    = "ALE-PHX-SMART-BINDING-001"
+        applicable_domains            = [WATER, WASTE, BIOTIC, SOIL, THERMAL]
+        policy_registry_ref           = "ALE-SMART-REGISTRY-PHX-001"
+        treaty_os_ref                 = "ALE-TREATY-OS-001"
+        birth_sign_resolver_ref       = "ALE-BIRTHSIGN-RESOLVER-001"
+        ecosafety_contract_ref        = "ALE-ECOSAFETY-CONTRACT-001"
+        googolswarm_client_ref        = "ALE-GOOGOLSWARM-CLIENT-001"
+        citizen_interface_ref         = "ALE-CITIZEN-INTERFACE-001"
+        valid_from                    = "2025-01-01T00:00:00Z"
+        valid_until                   = "2035-12-31T23:59:59Z"
+        city_council_resolution       = "PHX-RES-2024-SMARTCITY-001"
+        indigenous_agreement_ref      = "AGREEMENT-AKIMEL-OODHAM-001"
+        ej_zone_designation_ref       = "EJ-PHX-DESIGNATION-001"
+    }
+}
+
+// End of Aletheion Governance SMART Chain Biodegrade Policy Set
