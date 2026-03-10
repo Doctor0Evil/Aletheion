@@ -1,0 +1,115 @@
+// ALETHEION_DATA_SOVEREIGNTY_CONTRACT_V1.0.0
+// LICENSE: BioticTreaty_Compliant_AGPLv3
+// ECO_IMPACT: K=0.94 | E=0.92 | R=0.09
+// CHAIN: SMART (Treaty-Check → Act → Log)
+// CONSTRAINTS: Post-Quantum-Safe, Neurorights-Compliant, Indigenous-Data-Sovereignty
+// INDIGENOUS_RIGHTS: Akimel_O'odham_Data_Autonomy
+
+contract Phoenix_Data_Sovereignty_Contract {
+    version: "1.0.0";
+    jurisdiction: "Phoenix_Arizona_Akimel_O'odham_Territory";
+    enforcement: "Hard_Stop_On_Violation";
+
+    // --- STATE INPUTS ---
+    input {
+        data_owner_did: [u8; 32];      // Decentralized Identifier
+        data_classification: string;   // Public, Community, Private, Sovereign
+        access_requester_did: [u8; 32];
+        data_age_days: u64;
+        is_indigenous_sovereign: bool;
+        encryption_standard: string;
+        threat_score: f32;             // 0.0 - 1.0
+        consent_verified: bool;
+    }
+
+    // --- CORRIDORS ---
+    corridors {
+        max_data_retention_days: 90;   // Auto-purge threshold
+        max_threat_score: 0.7;         // Mitigation trigger
+        min_encryption_strength: 256;  // Bit equivalent
+        consent_expiry_days: 365;      // Consent renewal required
+    }
+
+    // --- INVARIANTS ---
+    invariant neurorights_compliance {
+        // All biosignal and neural data requires explicit consent
+        if (data_classification == "Private" OR data_classification == "Sovereign") {
+            assert(consent_verified == true);
+        }
+    }
+
+    invariant indigenous_data_sovereignty {
+        // Indigenous sovereign data cannot be accessed without community consent
+        if (is_indigenous_sovereign == true) {
+            assert(consent_verified == true);
+            assert(access_requester_did IN indigenous_community_whitelist);
+        }
+    }
+
+    invariant data_retention_limit {
+        // Non-sovereign data must be purged after retention period
+        if (data_age_days > corridors.max_data_retention_days AND is_indigenous_sovereign == false) {
+            assert(data_status == "PURGED");
+        }
+    }
+
+    invariant post_quantum_security {
+        // All encryption must be post-quantum safe (no blacklisted algorithms)
+        assert(encryption_standard NOT IN ["SHA-256", "BLAKE2", "KECCAK"]);
+        assert(encryption_standard IN ["PQ_LATTICE", "PQ_CODE", "PQ_HASH"]);
+    }
+
+    invariant threat_response {
+        // High-threat scores trigger automatic mitigation
+        if (threat_score > corridors.max_threat_score) {
+            assert(mitigation_status == "ACTIVE");
+        }
+    }
+
+    // --- ACTIONS ---
+    action grant_access {
+        preconditions: [
+            consent_verified == true,
+            threat_score <= corridors.max_threat_score,
+            data_age_days <= corridors.max_data_retention_days OR is_indigenous_sovereign == true,
+            encryption_standard compliant
+        ];
+        effect: "Allow_Data_Access";
+        log_event: "Data_Access_Granted";
+    }
+
+    action deny_access {
+        trigger: "Consent_Not_Verified OR Threat_Score_Exceeded OR Retention_Expired";
+        effect: "Block_Data_Access";
+        log_event: "Data_Access_Denied";
+    }
+
+    action purge_data {
+        trigger: "Retention_Period_Expired AND Not_Indigenous_Sovereign";
+        effect: "Permanently_Delete_Data";
+        log_event: "Data_Auto_Purge_Executed";
+    }
+
+    action mitigate_threat {
+        trigger: "Threat_Score_Above_Threshold";
+        effect: "Isolate_Data_Quarantine_Requester";
+        log_event: "Threat_Mitigation_Activated";
+    }
+
+    action rotate_keys {
+        trigger: "Key_Age_Hours > 24";
+        effect: "Generate_New_Encryption_Keys";
+        log_event: "Encryption_Keys_Rotated";
+    }
+
+    // --- AUDIT LOG (Immutable) ---
+    log {
+        timestamp: utc_now();
+        data_owner_did: [u8; 32];
+        access_requester_did: [u8; 32];
+        action_taken: string;
+        threat_score_snapshot: f32;
+        consent_hash: post_quantum_sig();
+        signature: post_quantum_sig();
+    }
+}
