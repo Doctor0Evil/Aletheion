@@ -1,0 +1,169 @@
+(* Aletheion Language (ALN) Rights Grammar Specification *)
+(* Version: 1.0.0 *)
+(* Status: Canonical Reference for Treaty and Rights Expression *)
+(* Compliance: ALE-COMP-CORE v1.0, Neurorights Framework, BioticTreaties *)
+
+(* ============================================ *)
+(* CORE GRAMMAR DEFINITIONS                     *)
+(* ============================================ *)
+
+grammar = rights_declaration , { treaty_clause } , { obligation_definition } , { prohibition_rule } ;
+
+(* -------------------------------------------- *)
+(* RIGHTS DECLARATION STRUCTURE                 *)
+(* -------------------------------------------- *)
+
+rights_declaration = "DECLARE_RIGHTS" , "{" , rights_body , "}" ;
+rights_body = { right_definition } ;
+right_definition = "RIGHT" , identifier , ":" , right_type , "," , subject_scope , "," , enforcement_level , ";" ;
+
+right_type = "NEURORIGHT" | "BIOTICRIGHT" | "CITIZENRIGHT" | "INDIGENOUSRIGHT" | "ECOLOGICALRIGHT" ;
+subject_scope = "ALL_CITIZENS" | "AUGMENTED_CITIZENS" | "INDIGENOUS_NATIONS" | "BIOTIC_ENTITIES" | "SPECIES:" , species_name ;
+enforcement_level = "INVOLABLE" | "CONDITIONAL" | "CONTEXTUAL" ;
+
+(* -------------------------------------------- *)
+(* TREATY CLAUSE STRUCTURE                      *)
+(* -------------------------------------------- *)
+
+treaty_clause = "TREATY" , treaty_id , ":" , treaty_type , "{" , treaty_body , "}" ;
+treaty_id = identifier ;
+treaty_type = "BIOTIC_TREATY" | "INDIGENOUS_TREATY" | "CITIZEN_TREATY" | "ECOLOGICAL_TREATY" ;
+treaty_body = { treaty_provision } ;
+
+treaty_provision = provision_header , ":" , provision_content , ";" ;
+provision_header = "PROVISION" , integer ;
+provision_content = obligation | permission | restriction ;
+
+(* -------------------------------------------- *)
+(* OBLIGATION DEFINITIONS                       *)
+(* -------------------------------------------- *)
+
+obligation_definition = "DEFINE_OBLIGATION" , "{" , obligation_body , "}" ;
+obligation_body = obligation_agent , "," , obligation_duty , "," , obligation_context , "," , penalty_clause , ";" ;
+
+obligation_agent = "AGENT:" , ( citizen_id | system_id | corporate_id ) ;
+obligation_duty = "DUTY:" , action_type ;
+obligation_context = "CONTEXT:" , ( geographic_zone | temporal_window | condition_expression ) ;
+penalty_clause = "PENALTY:" , ( eco_impact_delta | capability_restriction | access_revocation ) ;
+
+(* -------------------------------------------- *)
+(* PROHIBITION RULES                            *)
+(* -------------------------------------------- *)
+
+prohibition_rule = "PROHIBIT" , "{" , prohibition_body , "}" ;
+prohibition_body = prohibited_action , "," , prohibited_context , "," , enforcement_mechanism , ";" ;
+
+prohibited_action = "ACTION:" , action_identifier ;
+prohibited_context = "CONTEXT:" , ( "ALL_ZONES" | geographic_zone | "NEURAL_SPACE" | "BIOTIC_CORRIDOR" ) ;
+enforcement_mechanism = "ENFORCE:" , ( "HARD_BLOCK" | "SOFT_WARNING" | "CONSENT_REQUIRED" ) ;
+
+(* -------------------------------------------- *)
+(* IDENTIFIER AND VALUE DEFINITIONS             *)
+(* -------------------------------------------- *)
+
+identifier = letter , { letter | digit | "_" } ;
+species_name = string ;
+citizen_id = "DID:" , uuid ;
+system_id = "SYS:" , uuid ;
+corporate_id = "CORP:" , uuid ;
+uuid = digit , digit , digit , digit , "-" , digit , digit , digit , digit , "-" , digit , digit , digit , digit , "-" , digit , digit , digit , digit , "-" , digit , digit , digit , digit , digit , digit , digit , digit , digit , digit ;
+
+action_type = "DATA_COLLECTION" | "LAND_MODIFICATION" | "RESOURCE_EXTRACTION" | "NEURAL_ACCESS" | "BIOTIC_INTERACTION" | "INFRASTRUCTURE_DEPLOYMENT" ;
+action_identifier = identifier ;
+
+geographic_zone = "ZONE:" , zone_id ;
+zone_id = identifier ;
+temporal_window = "TIME:" , iso8601_start , "TO" , iso8601_end ;
+iso8601_start = string ;
+iso8601_end = string ;
+condition_expression = "IF" , boolean_expression ;
+boolean_expression = string ; (* Formal boolean logic expression *)
+
+eco_impact_delta = "ECO_DELTA:" , float ;
+capability_restriction = "RESTRICT:" , capability_list ;
+capability_list = "[" , { capability_identifier , "," } , "]" ;
+capability_identifier = identifier ;
+access_revocation = "REVOKE_ACCESS:" , access_scope ;
+access_scope = identifier ;
+
+(* -------------------------------------------- *)
+(* BIOTIC TREATY SPECIFIC RULES                 *)
+(* -------------------------------------------- *)
+
+biotic_treaty_extension = "BIOTIC_EXTENSION" , "{" , biotic_body , "}" ;
+biotic_body = bee_corridor_rule , tree_protection_rule , marine_species_rule ;
+
+bee_corridor_rule = "BEE_CORRIDOR:" , corridor_id , "{" , corridor_spec , "}" ;
+corridor_id = identifier ;
+corridor_spec = "MIN_WIDTH:" , float , "," , "FLORA_REQUIREMENTS:" , flora_list , "," , "PESTICIDE_FREE:" , boolean ;
+flora_list = "[" , { species_name , "," } , "]" ;
+
+tree_protection_rule = "TREE_PROTECTION:" , protection_zone , "{" , protection_spec , "}" ;
+protection_zone = geographic_zone ;
+protection_spec = "MIN_ROOT_ZONE:" , float , "," , "CANOPY_PRESERVATION:" , float , "PERCENT" ;
+
+marine_species_rule = "MARINE_PROTECTION:" , species_list , "{" , marine_spec , "}" ;
+species_list = "[" , { species_name , "," } , "]" ;
+marine_spec = "HABITAT_BUFFER:" , float , "," , "POLLUTION_LIMIT:" , float ;
+
+(* -------------------------------------------- *)
+(* NEURORIGHTS SPECIFIC RULES                   *)
+(* -------------------------------------------- *)
+
+neurorights_extension = "NEURORIGHTS_EXTENSION" , "{" , neurorights_body , "}" ;
+neurorights_body = neural_privacy_rule , cognitive_liberty_rule , identity_protection_rule ;
+
+neural_privacy_rule = "NEURAL_PRIVACY:" , privacy_level , "{" , privacy_spec , "}" ;
+privacy_level = "ABSOLUTE" | "CONSENT_GATED" | "AGGREGATED_ONLY" ;
+privacy_spec = "DATA_RETENTION:" , temporal_window , "," , "COMMERCIAL_USE:" , "PROHIBITED" , "," , "SUB LIMINAL_CHECK:" , "MANDATORY" ;
+
+cognitive_liberty_rule = "COGNITIVE_LIBERTY:" , liberty_scope , "{" , liberty_spec , "}" ;
+liberty_scope = "THOUGHT" | "EMOTION" | "MEMORY" | "DECISION" ;
+liberty_spec = "COERCION_CHECK:" , "MANDATORY" , "," , "MANIPULATION_DETECTION:" , "ENABLED" ;
+
+identity_protection_rule = "IDENTITY_PROTECTION:" , protection_level , "{" , identity_spec , "}" ;
+protection_level = "INVOLABLE" ;
+identity_spec = "DID_BINDING:" , "REQUIRED" , "," , "BIOSIGNATURE_VERIFICATION:" , "MANDATORY" ;
+
+(* -------------------------------------------- *)
+(* INDIGENOUS FPIC RULES                        *)
+(* -------------------------------------------- *)
+
+fpic_extension = "FPIC_EXTENSION" , "{" , fpic_body , "}" ;
+fpic_body = fpic_requirement , fpic_verification , fpic_enforcement ;
+
+fpic_requirement = "FPIC_REQUIRED_FOR:" , ( land_modification | resource_extraction | data_collection ) ;
+land_modification = "LAND_MODIFICATION" ;
+resource_extraction = "RESOURCE_EXTRACTION" ;
+data_collection = "INDIGENOUS_DATA_COLLECTION" ;
+
+fpic_verification = "VERIFICATION:" , verification_method ;
+verification_method = "COMMUNITY_CONSENT" | "ELDER_COUNCIL" | "TRIBAL_AUTHORITY" ;
+
+fpic_enforcement = "ENFORCEMENT:" , enforcement_action ;
+enforcement_action = "HARD_BLOCK_UNTIL_CONSENT" | "LOG_AND_NOTIFY" | "ESCALATE_TO_ARBITRATION" ;
+
+(* -------------------------------------------- *)
+(* GOVERNANCE PROOF GENERATION                  *)
+(* -------------------------------------------- *)
+
+governance_proof = "GENERATE_PROOF" , "{" , proof_body , "}" ;
+proof_body = proof_type , "," , proof_scope , "," , cryptographic_method , ";" ;
+
+proof_type = "COMPLIANCE_PROOF" | "CONSENT_PROOF" | "TREATY_PROOF" ;
+proof_scope = "WORKFLOW" | "DECISION" | "CITIZEN_ACTION" ;
+cryptographic_method = "POST_QUANTUM_SIGNATURE" ; (* Non-blacklisted algorithms only *)
+
+(* -------------------------------------------- *)
+(* RESERVED KEYWORDS (CANNOT BE USED AS IDENTIFIERS) *)
+(* -------------------------------------------- *)
+
+reserved_keywords = "DECLARE_RIGHTS" | "RIGHT" | "TREATY" | "DEFINE_OBLIGATION" | "PROHIBIT" | 
+                    "BIOTIC_EXTENSION" | "BEE_CORRIDOR" | "TREE_PROTECTION" | "MARINE_PROTECTION" |
+                    "NEURORIGHTS_EXTENSION" | "NEURAL_PRIVACY" | "COGNITIVE_LIBERTY" | "IDENTITY_PROTECTION" |
+                    "FPIC_EXTENSION" | "GENERATE_PROOF" | "AGENT" | "DUTY" | "CONTEXT" | "PENALTY" |
+                    "ACTION" | "ENFORCE" | "ZONE" | "TIME" | "IF" | "ECO_DELTA" | "RESTRICT" | "REVOKE_ACCESS" ;
+
+(* ============================================ *)
+(* END OF ALN RIGHTS GRAMMAR SPECIFICATION      *)
+(* ============================================ *)
