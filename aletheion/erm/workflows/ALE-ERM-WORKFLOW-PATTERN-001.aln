@@ -1,174 +1,679 @@
-// Purpose: Canonical, machine-enforceable pattern for Aletheion workflows.
+// =============================================================================
+// Aletheion ERM Workflow Pattern Spine
+// Canonical ALN definition of the mandatory seven-stage workflow structure
+// =============================================================================
+// File: ALE-ERM-WORKFLOW-PATTERN-001.aln
+// Domain: Environmental Resource Management / Workflow Orchestration
 // Scope:
 //   - Applies to all workflows that touch land, water, air, materials, biosignals,
-//     augmentation, mobility, energy, culture, or citizens.[file:2][file:5]
-//   - Encodes the mandatory seven-stage spine and required governance hooks.
+//     augmentation, mobility, energy, culture, or citizens.
 // Governance anchors:
-//   - Birth-Signs jurisdictional signatures must be present for governed domains.[file:2]
-//   - Compliance preflight and ecosafety grammars must be invoked before actuation.[file:1][file:2]
+//   - Birth-Signs jurisdictional signatures must be present for governed domains.
+//   - Compliance preflight and ecosafety grammars must be invoked before actuation.
 //   - Trust-layer append using governed decision envelopes must be performed.
-//   - Citizen surface and grievance loop must be wired as S7.[file:5]
+//   - Citizen surface and grievance loop must be wired as S7.
+// Compliance: BioticTreaties, Indigenous FPIC, EJ Zones, SMART-chain
+// =============================================================================
 
-namespace ALE.ERM.WORKFLOW.PATTERN
+aln_version 1.0
+namespace Aletheion.ERM.Workflows
+
+import Aletheion.TreatyOS
+import Aletheion.ERM.Ecosafety.Biodegrade
+import Aletheion.Governance.Lexethos.Biodegrade
+import Aletheion.Governance.BirthSigns.Model
+import Aletheion.Trust.Schemas.GovernedDecision
+import Aletheion.Compliance.Core
 
 // ----------------------------
-// Core identifiers
+// Core identifiers and aliases
 // ----------------------------
 
-atom WorkflowId
-  field value string
+type WorkflowId      = string
+type WorkflowVersion = string        // "major.minor.patch"
+type StageId         = string        // "S1" .. "S7"
+type HookId          = string
+type DID             = string
+type IsoTimestamp    = string
+type Decimal         = number
+type Int             = integer
+type Bool            = boolean
 
-atom WorkflowVersion
-  field major int
-  field minor int
-  field patch int
-
-atom StageId
-  field code string    // "S1".."S7"
-
-atom ModulePath
-  field repo_path string   // e.g., "aletheion/rm/water/allocation"
-  field file_path string   // e.g., "ALE-RM-WATER-ALLOCATION-CORE-001.rs"
+// Reference atoms used by other namespaces
 
 atom BirthSignIdRef
-  field id string          // Refers to ALE-GOV-BIRTH-SIGN-MODEL-001.rs BirthSignId.[file:2]
+  field id string        // Refers to BirthSignId in ALE-GOV-BIRTH-SIGN-MODEL-001.rs
 
 atom GovernanceDomainRef
-  field name string        // Land, Water, Air, Materials, Mobility, Biosignals, etc.[file:2]
+  field name string      // Land, Water, Air, Materials, Mobility, Biosignals, etc.
 
 atom TrustSchemaIdRef
-  field id string          // e.g., "ALE-TRUST-GOVERNED-DECISION-TX-001".[file:2]
+  field id string        // e.g., "ALE-TRUST-GOVERNED-DECISION-TX-001"
 
 atom ComplianceProfileRef
-  field id string          // e.g., "ALE-COMP-CORE-001".[file:5]
+  field id string        // e.g., "ALE-COMP-CORE-001"
 
 atom EcosafetyProfileRef
-  field id string          // e.g., "ALE-ERM-ECOSAFETY-GRAMMAR-001".[file:1]
+  field id string        // e.g., "ALE-ERM-ECOSAFETY-BIODEGRADE-GRAMMAR-001"
 
 atom RightsGrammarRef
-  field id string          // e.g., "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001".[file:2]
+  field id string        // e.g., "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001"
 
 atom CIWorkflowRef
-  field path string        // e.g., ".github/workflows/aletheion-compliance-preflight.yml"[file:5]
+  field path string      // e.g., ".github/workflows/aletheion-workflow-pattern-preflight.yml"
 
-atom CitizenSurfaceRef
-  field app_path string    // e.g., "aletheion/citizen/app/HEAT-ROUTES-APP-001.kt"[file:5]
-  field web_path string    // e.g., "aletheion/citizen/web/HEAT-ROUTES-DASH-001.js"[file:5]
+// =============================================================================
+// 1. Workflow enums
+// =============================================================================
 
-// ----------------------------
-// Stage taxonomy
-// ----------------------------
+enum WorkflowDomain {
+    WATER
+    THERMAL
+    WASTE
+    AIR
+    SOIL
+    MOBILITY
+    ENERGY
+    BIOSIGNAL
+    BIOTIC
+    GOVERNANCE
+    CULTURE
+}
 
-enum StageCode
-  S1_EDGE_INGESTION
-  S2_STATE_MODEL_UPDATE
-  S3_TRUST_APPEND
-  S4_OPTIMIZATION_ENGINE
-  S5_GOVERNANCE_VALIDATION
-  S6_ACTUATION_ORCHESTRATION
-  S7_CITIZEN_SURFACE
+enum WorkflowStatus {
+    DRAFT
+    VALIDATED
+    ACTIVE
+    SUSPENDED
+    DEPRECATED
+}
 
-atom StageRole
-  field code StageCode
-  field description string
+// Canonical seven-stage spine used across Aletheion ERM
+enum WorkflowStage {
+    S1_EDGE_INGESTION
+    S2_STATE_MODEL_UPDATE
+    S3_TRUST_APPEND_SEED
+    S4_OPTIMIZATION_ENGINE
+    S5_TREATY_RIGHTS_ENFORCEMENT
+    S6_ACTUATION_ORCHESTRATION
+    S7_CITIZEN_SURFACE_AUDIT
+}
 
-// ----------------------------
-// Stage descriptors
-// ----------------------------
+enum StageStatus {
+    PENDING
+    IN_PROGRESS
+    COMPLETED
+    FAILED
+    BLOCKED
+    SKIPPED
+}
 
-record StageDescriptor
-  field id StageId
-  field role StageRole
-  field module ModulePath
-  field languages list string
-  field domains list GovernanceDomainRef
-  field requires_birthsign bool
-  field requires_compliance bool
-  field requires_trust_append bool
-  field requires_citizen_surface bool
+enum HookType {
+    BIRTH_SIGN_RESOLUTION
+    ALN_NORM_VALIDATION
+    TRUST_APPEND
+    CITIZEN_SURFACE
+    FPIC_VERIFICATION
+    EJ_ZONE_CHECK
+    BIOTIC_TREATY_CHECK
+    LYAPUNOV_STABILITY_CHECK
+    TOXICITY_THRESHOLD_CHECK
+    CORRIDOR_INTEGRITY_CHECK
+}
 
-// ----------------------------
-// Workflow descriptor
-// ----------------------------
+enum HookEnforcement {
+    MANDATORY
+    CONDITIONAL
+    OPTIONAL
+}
 
-record WorkflowDescriptor
-  field workflow_id WorkflowId
-  field version WorkflowVersion
-  field title string
-  field description string
-  field domains list GovernanceDomainRef
-  field birthsign_required bool
-  field rights_grammars list RightsGrammarRef
-  field ecosafety_profiles list EcosafetyProfileRef
-  field compliance_profiles list ComplianceProfileRef
-  field trust_schemas list TrustSchemaIdRef
-  field stages list StageDescriptor
-  field ci_workflows list CIWorkflowRef
-  field citizen_surfaces list CitizenSurfaceRef
+// =============================================================================
+// 2. Stage Input/Output Contracts
+// =============================================================================
 
-// ----------------------------
-// Constraints (informal, to be enforced by validators):
-//
-// C1: A valid workflow MUST define exactly one S1..S7 per StageCode.
-// C2: For any domain in {Land, Water, Air, Materials, Mobility, Biosignals,
-//     Augmentation, Energy, Emergency}, birthsign_required MUST be true.[file:2]
-// C3: If birthsign_required is true, then StageDescriptor.requires_birthsign MUST
-//     be true for S1, S2, S4, S5, S6.[file:2][file:5]
-// C4: At least one TrustSchemaIdRef MUST be "ALE-TRUST-GOVERNED-DECISION-TX-001"
-//     when domains include governed resources.[file:2]
-// C5: At least one RightsGrammarRef MUST be "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001".[file:2]
-// C6: At least one EcosafetyProfileRef MUST reference the ecosafety grammar spine
-//     when any ecological corridor or biodegradable node is affected.[file:1]
-// C7: compliance_profiles MUST include the centralized compliance core.[file:5]
-// C8: ci_workflows MUST include compliance preflight and workflow-pattern preflight.
-// C9: citizen_surfaces MUST be non-empty when human-facing impacts exist.[file:5]
-// ----------------------------
+record StageInputContract {
+    contract_id             : string
+    stage_id                : StageId
+    required_fields         : [string]
+    optional_fields         : [string]
+    field_types             : [string]
+    validation_rules        : [string]
+    min_data_quality_score  : Decimal
+    schema_ref              : string
+}
 
-// ----------------------------
-// Example pattern instances
-// (These are templates; concrete workflows clone and specialize them.)
-// ----------------------------
+record StageOutputContract {
+    contract_id             : string
+    stage_id                : StageId
+    produced_fields         : [string]
+    field_types             : [string]
+    downstream_stages       : [StageId]
+    ledger_append_required  : Bool
+    citizen_visible         : Bool
+    schema_ref              : string
+}
 
-record DefaultSpineStageS1
-  field stage StageDescriptor
+// =============================================================================
+// 3. Seven-Stage Workflow Spine Definition
+// =============================================================================
 
-record DefaultSpineStageS2
-  field stage StageDescriptor
+record WorkflowStageDefinition {
+    stage_id                : StageId
+    stage_number            : Int
+    stage_name              : string
+    description             : string
+    domain_applicability    : [WorkflowDomain]
+    input_contract_ref      : string
+    output_contract_ref     : string
+    required_hooks          : [HookId]
+    optional_hooks          : [HookId]
+    timeout_seconds         : Int
+    retry_count             : Int
+    failure_action          : string
+    treaty_check_required   : Bool
+    ledger_append_required  : Bool
+    citizen_notification    : Bool
+}
 
-record DefaultSpineStageS3
-  field stage StageDescriptor
+// Stage 1: Edge Ingestion (L1)
+record Stage1_EdgeIngestion : WorkflowStageDefinition = {
+    stage_id                    = "S1_EDGE_INGESTION"
+    stage_number                = 1
+    stage_name                  = "Edge Ingestion"
+    description                 = "Collect raw sensor and event data from edge nodes and XR-grid devices"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOSIGNAL, BIOTIC, GOVERNANCE]
+    input_contract_ref          = "CONTRACT-S1-INPUT-001"
+    output_contract_ref         = "CONTRACT-S1-OUTPUT-001"
+    required_hooks              = ["HOOK-BIRTHSIGN-RESOLVE-001"]
+    optional_hooks              = []
+    timeout_seconds             = 30
+    retry_count                 = 3
+    failure_action              = "retry_then_alert"
+    treaty_check_required       = false
+    ledger_append_required      = false
+    citizen_notification        = false
+}
 
-record DefaultSpineStageS4
-  field stage StageDescriptor
+// Stage 2: State Model Update (L2)
+record Stage2_StateModelUpdate : WorkflowStageDefinition = {
+    stage_id                    = "S2_STATE_MODEL_UPDATE"
+    stage_number                = 2
+    stage_name                  = "State Model Update"
+    description                 = "Update typed ERM state models with validated edge data"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOSIGNAL, BIOTIC, GOVERNANCE]
+    input_contract_ref          = "CONTRACT-S2-INPUT-001"
+    output_contract_ref         = "CONTRACT-S2-OUTPUT-001"
+    required_hooks              = []
+    optional_hooks              = []
+    timeout_seconds             = 30
+    retry_count                 = 2
+    failure_action              = "degrade_to_last_known"
+    treaty_check_required       = false
+    ledger_append_required      = false
+    citizen_notification        = false
+}
 
-record DefaultSpineStageS5
-  field stage StageDescriptor
+// Stage 3: Trust Seed (L3)
+record Stage3_TrustSeed : WorkflowStageDefinition = {
+    stage_id                    = "S3_TRUST_APPEND_SEED"
+    stage_number                = 3
+    stage_name                  = "Trust Seed Append"
+    description                 = "Prepare candidate governed decision envelope and hashes for Googolswarm"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOSIGNAL, BIOTIC, GOVERNANCE]
+    input_contract_ref          = "CONTRACT-S3-INPUT-001"
+    output_contract_ref         = "CONTRACT-S3-OUTPUT-001"
+    required_hooks              = []
+    optional_hooks              = []
+    timeout_seconds             = 20
+    retry_count                 = 1
+    failure_action              = "block_and_alert"
+    treaty_check_required       = false
+    ledger_append_required      = false
+    citizen_notification        = false
+}
 
-record DefaultSpineStageS6
-  field stage StageDescriptor
+// Stage 4: Optimization Engine (L4)
+record Stage4_OptimizationEngine : WorkflowStageDefinition = {
+    stage_id                    = "S4_OPTIMIZATION_ENGINE"
+    stage_number                = 4
+    stage_name                  = "Optimization Engine"
+    description                 = "Run multi-objective optimization and simulation for candidate actions"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOTIC]
+    input_contract_ref          = "CONTRACT-S4-INPUT-001"
+    output_contract_ref         = "CONTRACT-S4-OUTPUT-001"
+    required_hooks              = ["HOOK-LYAPUNOV-STABILITY-001"]
+    optional_hooks              = ["HOOK-TOXICITY-THRESHOLD-001"]
+    timeout_seconds             = 120
+    retry_count                 = 1
+    failure_action              = "use_last_valid_plan"
+    treaty_check_required       = false
+    ledger_append_required      = false
+    citizen_notification        = false
+}
 
-record DefaultSpineStageS7
-  field stage StageDescriptor
+// Stage 5: Treaty & Rights Enforcement (L3/L4 governance)
+record Stage5_TreatyRightsEnforcement : WorkflowStageDefinition = {
+    stage_id                    = "S5_TREATY_RIGHTS_ENFORCEMENT"
+    stage_number                = 5
+    stage_name                  = "Treaty & Rights Enforcement"
+    description                 = "Evaluate proposed actions against Birth-Signs, ALN norms, FPIC, EJ, and BioticTreaties"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOSIGNAL, BIOTIC, GOVERNANCE]
+    input_contract_ref          = "CONTRACT-S5-INPUT-001"
+    output_contract_ref         = "CONTRACT-S5-OUTPUT-001"
+    required_hooks              = [
+        "HOOK-BIRTHSIGN-RESOLVE-001",
+        "HOOK-ALN-NORM-VALIDATION-001",
+        "HOOK-FPIC-VERIFICATION-001",
+        "HOOK-EJ-ZONE-CHECK-001",
+        "HOOK-BIOTIC-TREATY-CHECK-001",
+        "HOOK-CORRIDOR-INTEGRITY-001"
+    ]
+    optional_hooks              = ["HOOK-TOXICITY-THRESHOLD-001"]
+    timeout_seconds             = 60
+    retry_count                 = 0
+    failure_action              = "block_actuation"
+    treaty_check_required       = true
+    ledger_append_required      = true
+    citizen_notification        = true
+}
 
-// A generic 7-stage bundle for cloning when defining a new workflow.
-record DefaultWorkflowSpine
-  field s1 DefaultSpineStageS1
-  field s2 DefaultSpineStageS2
-  field s3 DefaultSpineStageS3
-  field s4 DefaultSpineStageS4
-  field s5 DefaultSpineStageS5
-  field s6 DefaultSpineStageS6
-  field s7 DefaultSpineStageS7
+// Stage 6: Actuation Orchestration (L1/L4)
+record Stage6_ActuationOrchestration : WorkflowStageDefinition = {
+    stage_id                    = "S6_ACTUATION_ORCHESTRATION"
+    stage_number                = 6
+    stage_name                  = "Actuation Orchestration"
+    description                 = "Execute approved actions via signed, rate-limited actuation buses"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOTIC]
+    input_contract_ref          = "CONTRACT-S6-INPUT-001"
+    output_contract_ref         = "CONTRACT-S6-OUTPUT-001"
+    required_hooks              = ["HOOK-TRUST-APPEND-001"]
+    optional_hooks              = []
+    timeout_seconds             = 300
+    retry_count                 = 2
+    failure_action              = "execute_compensating_action"
+    treaty_check_required       = false
+    ledger_append_required      = true
+    citizen_notification        = true
+}
 
-// ----------------------------
-// Minimal meta-API for validators (to be implemented in Rust/Lua):
-//
-//   fn is_well_formed_workflow(w: WorkflowDescriptor) -> bool
-//   fn has_full_seven_stage_spine(w: WorkflowDescriptor) -> bool
-//   fn enforces_birthsigns_for_governed_domains(w: WorkflowDescriptor) -> bool
-//   fn wires_trust_append_and_citizen_surface(w: WorkflowDescriptor) -> bool
-//
-// These functions are referenced by CI workflows such as
-// `.github/workflows/aletheion-workflow-pattern-preflight.yml` to accept or
-// reject new or modified workflows.
-// ----------------------------
+// Stage 7: Citizen Surface & Audit (L5)
+record Stage7_CitizenSurfaceAudit : WorkflowStageDefinition = {
+    stage_id                    = "S7_CITIZEN_SURFACE_AUDIT"
+    stage_number                = 7
+    stage_name                  = "Citizen Surface & Audit"
+    description                 = "Append governed decision transaction and present citizen-facing explanation + grievance handle"
+    domain_applicability        = [WATER, THERMAL, WASTE, AIR, SOIL, MOBILITY, ENERGY, BIOSIGNAL, BIOTIC, GOVERNANCE, CULTURE]
+    input_contract_ref          = "CONTRACT-S7-INPUT-001"
+    output_contract_ref         = "CONTRACT-S7-OUTPUT-001"
+    required_hooks              = [
+        "HOOK-TRUST-APPEND-001",
+        "HOOK-CITIZEN-SURFACE-001"
+    ]
+    optional_hooks              = []
+    timeout_seconds             = 60
+    retry_count                 = 3
+    failure_action              = "queue_for_retry"
+    treaty_check_required       = false
+    ledger_append_required      = true
+    citizen_notification        = true
+}
+
+// =============================================================================
+// 4. Hook Definitions
+// =============================================================================
+
+record WorkflowHookDefinition {
+    hook_id                 : HookId
+    hook_name               : string
+    hook_type               : HookType
+    description             : string
+    enforcement             : HookEnforcement
+    applicable_stages       : [StageId]
+    input_requirements      : [string]
+    output_produced         : [string]
+    timeout_seconds         : Int
+    failure_blocks_workflow : Bool
+    treaty_module_ref       : string?
+    schema_ref              : string
+}
+
+// Birth-Sign Resolution Hook
+record Hook_BirthSignResolution : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-BIRTHSIGN-RESOLVE-001"
+    hook_name                   = "Birth-Sign Resolution"
+    hook_type                   = BIRTH_SIGN_RESOLUTION
+    description                 = "Resolve active Birth-Signs for geo-tile and attach constraint bundles"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S1_EDGE_INGESTION", "S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["geo_tile_ref", "timestamp"]
+    output_produced             = ["birth_sign_id", "constraint_bundle_ids", "indigenous_territory_flag", "ej_zone_flag"]
+    timeout_seconds             = 5
+    failure_blocks_workflow     = true
+    treaty_module_ref           = "birthsign_resolver"
+    schema_ref                  = "ALE-GOV-BIRTH-SIGN-INDEX-001"
+}
+
+// ALN Norm Validation Hook
+record Hook_ALNNormValidation : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-ALN-NORM-VALIDATION-001"
+    hook_name                   = "ALN Norm Validation"
+    hook_type                   = ALN_NORM_VALIDATION
+    description                 = "Validate action against all applicable ALN norms and treaty atoms"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["proposed_action", "birth_sign_id", "action_context"]
+    output_produced             = ["violated_atom_ids", "applied_norm_ids", "treaty_decision"]
+    timeout_seconds             = 30
+    failure_blocks_workflow     = true
+    treaty_module_ref           = "treaty_engine"
+    schema_ref                  = "ALE-TRUST-GOVERNED-DECISION-TX-001"
+}
+
+// Trust Append Hook
+record Hook_TrustAppend : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-TRUST-APPEND-001"
+    hook_name                   = "Trust Append"
+    hook_type                   = TRUST_APPEND
+    description                 = "Append governed decision transaction to Googolswarm ledger"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S6_ACTUATION_ORCHESTRATION", "S7_CITIZEN_SURFACE_AUDIT"]
+    input_requirements          = ["governed_decision_tx", "multi_sig_attestors"]
+    output_produced             = ["ledger_transaction_id", "ledger_block_height", "append_receipt"]
+    timeout_seconds             = 30
+    failure_blocks_workflow     = false
+    treaty_module_ref           = "trust_append_core"
+    schema_ref                  = "ALE-TRUST-GOVERNED-DECISION-TX-001"
+}
+
+// Citizen Surface Hook
+record Hook_CitizenSurface : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-CITIZEN-SURFACE-001"
+    hook_name                   = "Citizen Surface"
+    hook_type                   = CITIZEN_SURFACE
+    description                 = "Generate citizen-readable explanation, notification, and grievance reference"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S7_CITIZEN_SURFACE_AUDIT"]
+    input_requirements          = ["treaty_decision", "actuation_result", "ledger_transaction_id"]
+    output_produced             = ["citizen_explanation", "notification_record", "grievance_reference"]
+    timeout_seconds             = 10
+    failure_blocks_workflow     = false
+    treaty_module_ref           = null
+    schema_ref                  = "ALE-TRUST-GOVERNED-DECISION-TX-001"
+}
+
+// FPIC Verification Hook
+record Hook_FPICVerification : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-FPIC-VERIFICATION-001"
+    hook_name                   = "FPIC Verification"
+    hook_type                   = FPIC_VERIFICATION
+    description                 = "Verify Free, Prior, and Informed Consent status for Indigenous territory actions"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["geo_tile_ref", "action_type", "impact_score"]
+    output_produced             = ["fpic_status", "fpic_grant_id", "consultation_required"]
+    timeout_seconds             = 15
+    failure_blocks_workflow     = true
+    treaty_module_ref           = "treaty_indigenous"
+    schema_ref                  = "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001"
+}
+
+// EJ Zone Check Hook
+record Hook_EJZoneCheck : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-EJ-ZONE-CHECK-001"
+    hook_name                   = "EJ Zone Check"
+    hook_type                   = EJ_ZONE_CHECK
+    description                 = "Verify Environmental Justice zone constraints and toxicity caps"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["geo_tile_ref", "delta_pollution", "action_type"]
+    output_produced             = ["ej_zone_flag", "toxicity_within_limits", "community_notification_required"]
+    timeout_seconds             = 10
+    failure_blocks_workflow     = true
+    treaty_module_ref           = "treaty_ej"
+    schema_ref                  = "ALE-GOV-RIGHTS-TREATY-GRAMMAR-001"
+}
+
+// Biotic Treaty Check Hook
+record Hook_BioticTreatyCheck : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-BIOTIC-TREATY-CHECK-001"
+    hook_name                   = "Biotic Treaty Check"
+    hook_type                   = BIOTIC_TREATY_CHECK
+    description                 = "Verify BioticTreaty compliance for affected species and habitats"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["geo_tile_ref", "action_type", "species_agent_refs"]
+    output_produced             = ["biotic_compliant", "violated_treaty_ids"]
+    timeout_seconds             = 15
+    failure_blocks_workflow     = true
+    treaty_module_ref           = "treaty_biotic"
+    schema_ref                  = "ALE-SYNTHEXIS-MODEL-BIOTIC-TREATY-001"
+}
+
+// Lyapunov Stability Check Hook
+record Hook_LyapunovStabilityCheck : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-LYAPUNOV-STABILITY-001"
+    hook_name                   = "Lyapunov Stability Check"
+    hook_type                   = LYAPUNOV_STABILITY_CHECK
+    description                 = "Verify ecological convergence and Lyapunov stability for proposed actions"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S4_OPTIMIZATION_ENGINE"]
+    input_requirements          = ["simulation_outcome", "node_states", "lyapunov_threshold"]
+    output_produced             = ["lyapunov_stable", "residual_value", "convergence_time_hours"]
+    timeout_seconds             = 20
+    failure_blocks_workflow     = false
+    treaty_module_ref           = null
+    schema_ref                  = "ALE-ERM-ECOSAFETY-BIODEGRADE-CONTRACTS-001"
+}
+
+// Toxicity Threshold Check Hook
+record Hook_ToxicityThresholdCheck : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-TOXICITY-THRESHOLD-001"
+    hook_name                   = "Toxicity Threshold Check"
+    hook_type                   = TOXICITY_THRESHOLD_CHECK
+    description                 = "Verify toxicity levels remain within ecosafety corridor and EJ limits"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S4_OPTIMIZATION_ENGINE", "S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["node_states", "corridor_id", "ej_zone_flag"]
+    output_produced             = ["toxicity_within_limits", "max_toxicity_ppb", "threshold_exceeded"]
+    timeout_seconds             = 10
+    failure_blocks_workflow     = true
+    treaty_module_ref           = null
+    schema_ref                  = "ALE-ERM-ECOSAFETY-BIODEGRADE-GRAMMAR-001"
+}
+
+// Corridor Integrity Check Hook
+record Hook_CorridorIntegrityCheck : WorkflowHookDefinition = {
+    hook_id                     = "HOOK-CORRIDOR-INTEGRITY-001"
+    hook_name                   = "Corridor Integrity Check"
+    hook_type                   = CORRIDOR_INTEGRITY_CHECK
+    description                 = "Verify ecosafety corridor declaration and integrity score for nodes and materials"
+    enforcement                 = MANDATORY
+    applicable_stages           = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    input_requirements          = ["corridor_id", "node_states"]
+    output_produced             = ["corridor_status", "integrity_score", "renewal_required"]
+    timeout_seconds             = 10
+    failure_blocks_workflow     = true
+    treaty_module_ref           = null
+    schema_ref                  = "ALE-ERM-ECOSAFETY-BIODEGRADE-GRAMMAR-001"
+}
+
+// =============================================================================
+// 5. Workflow Pattern & Examples
+// =============================================================================
+
+record WorkflowPattern {
+    pattern_id                  : string
+    pattern_name                : string
+    description                 : string
+    version                     : WorkflowVersion
+    domain                      : WorkflowDomain
+    status                      : WorkflowStatus
+    stages                      : [WorkflowStageDefinition]
+    hooks                       : [WorkflowHookDefinition]
+    stage_sequence              : [StageId]
+    parallel_stages             : [[StageId]]
+    failure_recovery_path       : [string]
+    ledger_append_points        : [StageId]
+    citizen_notification_points : [StageId]
+    treaty_check_points         : [StageId]
+    valid_from                  : IsoTimestamp
+    valid_until                 : IsoTimestamp
+    schema_ref                  : string
+}
+
+// Canonical: Biodegradable Node Deployment Workflow
+record Example_BiodegradeDeployment_Workflow : WorkflowPattern = {
+    pattern_id                      = "WORKFLOW-BIODEGRADE-DEPLOY-001"
+    pattern_name                    = "Biodegradable Node Deployment"
+    description                     = "Workflow for deploying and actuating biodegradable nodes in cyboquatic systems"
+    version                         = "1.0.0"
+    domain                          = WASTE
+    status                          = ACTIVE
+    stages                          = [
+        Stage1_EdgeIngestion,
+        Stage2_StateModelUpdate,
+        Stage3_TrustSeed,
+        Stage4_OptimizationEngine,
+        Stage5_TreatyRightsEnforcement,
+        Stage6_ActuationOrchestration,
+        Stage7_CitizenSurfaceAudit
+    ]
+    hooks                           = [
+        Hook_BirthSignResolution,
+        Hook_ALNNormValidation,
+        Hook_TrustAppend,
+        Hook_CitizenSurface,
+        Hook_FPICVerification,
+        Hook_EJZoneCheck,
+        Hook_BioticTreatyCheck,
+        Hook_LyapunovStabilityCheck,
+        Hook_ToxicityThresholdCheck,
+        Hook_CorridorIntegrityCheck
+    ]
+    stage_sequence                  = [
+        "S1_EDGE_INGESTION",
+        "S2_STATE_MODEL_UPDATE",
+        "S3_TRUST_APPEND_SEED",
+        "S4_OPTIMIZATION_ENGINE",
+        "S5_TREATY_RIGHTS_ENFORCEMENT",
+        "S6_ACTUATION_ORCHESTRATION",
+        "S7_CITIZEN_SURFACE_AUDIT"
+    ]
+    parallel_stages                 = []
+    failure_recovery_path           = [
+        "S1_failure: retry_sensor_read",
+        "S4_failure: use_last_valid_plan",
+        "S5_failure: block_and_notify",
+        "S6_failure: execute_compensating_action",
+        "S7_failure: queue_for_retry"
+    ]
+    ledger_append_points            = ["S5_TREATY_RIGHTS_ENFORCEMENT", "S6_ACTUATION_ORCHESTRATION", "S7_CITIZEN_SURFACE_AUDIT"]
+    citizen_notification_points     = ["S5_TREATY_RIGHTS_ENFORCEMENT", "S7_CITIZEN_SURFACE_AUDIT"]
+    treaty_check_points             = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    valid_from                      = "2025-01-01T00:00:00Z"
+    valid_until                     = "2035-12-31T23:59:59Z"
+    schema_ref                      = "ALE-ERM-WORKFLOW-PATTERN-001"
+}
+
+// Canonical: Water Diversion Workflow
+record Example_WaterDiversion_Workflow : WorkflowPattern = {
+    pattern_id                      = "WORKFLOW-WATER-DIVERSION-001"
+    pattern_name                    = "Water Diversion & Allocation"
+    description                     = "Workflow for water diversion decisions respecting Indigenous rights and compacts"
+    version                         = "1.0.0"
+    domain                          = WATER
+    status                          = ACTIVE
+    stages                          = [
+        Stage1_EdgeIngestion,
+        Stage2_StateModelUpdate,
+        Stage3_TrustSeed,
+        Stage4_OptimizationEngine,
+        Stage5_TreatyRightsEnforcement,
+        Stage6_ActuationOrchestration,
+        Stage7_CitizenSurfaceAudit
+    ]
+    hooks                           = [
+        Hook_BirthSignResolution,
+        Hook_ALNNormValidation,
+        Hook_TrustAppend,
+        Hook_CitizenSurface,
+        Hook_FPICVerification,
+        Hook_EJZoneCheck
+    ]
+    stage_sequence                  = [
+        "S1_EDGE_INGESTION",
+        "S2_STATE_MODEL_UPDATE",
+        "S3_TRUST_APPEND_SEED",
+        "S4_OPTIMIZATION_ENGINE",
+        "S5_TREATY_RIGHTS_ENFORCEMENT",
+        "S6_ACTUATION_ORCHESTRATION",
+        "S7_CITIZEN_SURFACE_AUDIT"
+    ]
+    parallel_stages                 = []
+    failure_recovery_path           = [
+        "S1_failure: use_last_known_flow_data",
+        "S4_failure: apply_conservative_diversion",
+        "S5_failure: block_and_notify_council",
+        "S6_failure: close_valve_safely",
+        "S7_failure: queue_for_retry"
+    ]
+    ledger_append_points            = ["S5_TREATY_RIGHTS_ENFORCEMENT", "S6_ACTUATION_ORCHESTRATION", "S7_CITIZEN_SURFACE_AUDIT"]
+    citizen_notification_points     = ["S5_TREATY_RIGHTS_ENFORCEMENT", "S7_CITIZEN_SURFACE_AUDIT"]
+    treaty_check_points             = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    valid_from                      = "2025-01-01T00:00:00Z"
+    valid_until                     = "2035-12-31T23:59:59Z"
+    schema_ref                      = "ALE-ERM-WORKFLOW-PATTERN-001"
+}
+
+// Canonical: Heat Mitigation Workflow
+record Example_HeatMitigation_Workflow : WorkflowPattern = {
+    pattern_id                      = "WORKFLOW-HEAT-MITIGATION-001"
+    pattern_name                    = "Heat Mitigation & Cooling"
+    description                     = "Workflow for heat mitigation actions in EJ zones and vulnerable areas"
+    version                         = "1.0.0"
+    domain                          = THERMAL
+    status                          = ACTIVE
+    stages                          = [
+        Stage1_EdgeIngestion,
+        Stage2_StateModelUpdate,
+        Stage3_TrustSeed,
+        Stage4_OptimizationEngine,
+        Stage5_TreatyRightsEnforcement,
+        Stage6_ActuationOrchestration,
+        Stage7_CitizenSurfaceAudit
+    ]
+    hooks                           = [
+        Hook_BirthSignResolution,
+        Hook_ALNNormValidation,
+        Hook_TrustAppend,
+        Hook_CitizenSurface,
+        Hook_EJZoneCheck
+    ]
+    stage_sequence                  = [
+        "S1_EDGE_INGESTION",
+        "S2_STATE_MODEL_UPDATE",
+        "S3_TRUST_APPEND_SEED",
+        "S4_OPTIMIZATION_ENGINE",
+        "S5_TREATY_RIGHTS_ENFORCEMENT",
+        "S6_ACTUATION_ORCHESTRATION",
+        "S7_CITIZEN_SURFACE_AUDIT"
+    ]
+    parallel_stages                 = [["S1_EDGE_INGESTION", "S2_STATE_MODEL_UPDATE"]]
+    failure_recovery_path           = [
+        "S1_failure: use_weather_forecast_data",
+        "S4_failure: apply_standard_cooling_pattern",
+        "S5_failure: proceed_with_enhanced_monitoring",
+        "S6_failure: activate_backup_cooling",
+        "S7_failure: queue_for_retry"
+    ]
+    ledger_append_points            = ["S5_TREATY_RIGHTS_ENFORCEMENT", "S6_ACTUATION_ORCHESTRATION", "S7_CITIZEN_SURFACE_AUDIT"]
+    citizen_notification_points     = ["S5_TREATY_RIGHTS_ENFORCEMENT", "S7_CITIZEN_SURFACE_AUDIT"]
+    treaty_check_points             = ["S5_TREATY_RIGHTS_ENFORCEMENT"]
+    valid_from                      = "2025-01-01T00:00:00Z"
+    valid_until                     = "2035-12-31T23:59:59Z"
+    schema_ref                      = "ALE-ERM-WORKFLOW-PATTERN-001"
+}
+
+// =============================================================================
+// End of Aletheion ERM Workflow Pattern Spine
+// =============================================================================
