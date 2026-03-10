@@ -1,0 +1,124 @@
+(* Aletheion Governance: Decision Envelope Validator *)
+(* Module: gtl/envelope *)
+(* Language: ALN (Aletheion Language) *)
+(* Compliance: ALE-COMP-CORE v1.0, Googolswarm-Style Envelopes *)
+(* Constraint: All envelopes must pass validation before S4 Rule-Check *)
+
+(* ============================================ *)
+(* IMPORTS AND SCHEMA REFERENCES                *)
+(* ============================================ *)
+
+IMPORT aletheion_gtl_birthsign.birth_sign_model;
+IMPORT aletheion_gtl_biotic.biotic_treaty_engine;
+IMPORT aletheion_gtl_fpic.fpic_verification_module;
+IMPORT aletheion_core_compliance.ALE_COMP_CORE_SPEC;
+
+(* ============================================ *)
+(* ENVELOPE VALIDATION TRIGGER                  *)
+(* ============================================ *)
+
+VALIDATION_TRIGGER envelope_schema_validation {
+    INPUT: DecisionEnvelope;
+    OUTPUT: ValidationResult;
+    CONTEXT: WorkflowContext;
+    
+    (* ============================================ *)
+    (* STRUCTURAL VALIDATION                        *)
+    (* ============================================ *)
+    
+    CHECK envelope_version {
+        CONDITION: DecisionEnvelope.envelope_version == "1.0.0";
+        ACTION: IF mismatch THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK decision_id_format {
+        CONDITION: DecisionEnvelope.decision_id IS_UUID_V4_STRICT;
+        ACTION: IF invalid THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK birth_sign_id_presence {
+        CONDITION: DecisionEnvelope.birth_sign_id IS_NOT_NULL;
+        CONDITION: DecisionEnvelope.birth_sign_id IS_VALID_UUID;
+        ACTION: IF missing THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* GOVERNANCE FOOTPRINT VALIDATION              *)
+    (* ============================================ *)
+    
+    CHECK neurorights_compliance_status {
+        CONDITION: DecisionEnvelope.governance_footprint.neurorights_compliance IN ["verified", "pending", "failed", "not_applicable"];
+        ACTION: IF invalid_status THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK biotic_treaty_check_status {
+        CONDITION: DecisionEnvelope.governance_footprint.biotic_treaty_check IN ["verified", "pending", "failed", "not_applicable"];
+        ACTION: IF invalid_status THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK fpic_consent_status {
+        CONDITION: DecisionEnvelope.governance_footprint.fpic_consent IN ["verified", "pending", "not_applicable", "consent_denied"];
+        ACTION: IF invalid_status THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK ale_comp_core_hash {
+        CONDITION: DecisionEnvelope.governance_footprint.ale_comp_core_hash LENGTH >= 64;
+        CONDITION: DecisionEnvelope.governance_footprint.ale_comp_core_hash IS_HEX;
+        ACTION: IF invalid_hash THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* CRYPTOGRAPHIC SIGNATURE VALIDATION           *)
+    (* ============================================ *)
+    
+    CHECK pq_signature_algorithm {
+        CONDITION: DecisionEnvelope.cryptographic_signature.algorithm IN ["CRYSTALS-Dilithium", "FALCON", "SPHINCS+"];
+        CONDITION: DecisionEnvelope.cryptographic_signature.algorithm NOT_IN ["SHA-256", "BLAKE", "KECCAK"];
+        ACTION: IF blacklisted_algorithm THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK pq_signature_validity {
+        CONDITION: VERIFY_SIGNATURE(DecisionEnvelope.cryptographic_signature, DecisionEnvelope.payload);
+        ACTION: IF verification_failure THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* DIGITAL TWIN EXCLUSION CHECK                 *)
+    (* ============================================ *)
+    
+    CHECK model_type_declaration {
+        CONDITION: DecisionEnvelope.payload.data.model_type == "STATE_MIRROR";
+        CONDITION: DecisionEnvelope.payload.data.model_type != "SIMULATION";
+        CONDITION: DecisionEnvelope.payload.data.model_type != "DIGITAL_TWIN";
+        ACTION: IF simulation_detected THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK data_source_audit {
+        CONDITION: DecisionEnvelope.payload.data.source IN ["PHYSICAL_SENSOR", "VERIFIED_CITIZEN_INPUT"];
+        CONDITION: DecisionEnvelope.payload.data.source != "PREDICTIVE_MODEL";
+        ACTION: IF unverified_source THEN HARD_BLOCK;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, ENVELOPE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* FINAL VALIDATION RESULT                      *)
+    (* ============================================ *)
+    
+    RESULT {
+        IF ALL_CHECKS_PASS THEN ValidationResult = "VALID";
+        ELSE ValidationResult = "INVALID";
+        LOG: AuditLogEntry(ValidationResult, Timestamp, BirthSignId);
+    }
+}
+
+(* END OF ENVELOPE VALIDATOR MODULE *)
