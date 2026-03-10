@@ -1,0 +1,161 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/Doctor0Evil/Aletheion/aletheion-gtl/birthsign/birth_sign_model.schema.json",
+  "title": "Aletheion Birth-Sign Model",
+  "description": "Canonical schema for Birth-Sign identity and provenance tracking. Every entity, workflow, and decision in Aletheion must have a BirthSignId for accountability and traceability.",
+  "version": "1.0.0",
+  "type": "object",
+  "required": [
+    "birth_sign_id",
+    "creator_signature",
+    "creation_timestamp",
+    "entity_type",
+    "origin_node",
+    "rights_profile",
+    "treaty_bindings",
+    "propagation_chain"
+  ],
+  "properties": {
+    "birth_sign_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Globally unique identifier for this Birth-Sign. Cannot be modified after creation.",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "creator_signature": {
+      "type": "object",
+      "required": ["did", "cryptographic_signature", "signature_algorithm"],
+      "properties": {
+        "did": {
+          "type": "string",
+          "description": "Decentralized Identifier of the creator (citizen, system, or governance body)",
+          "pattern": "^did:aletheion:[a-zA-Z0-9-]+$"
+        },
+        "cryptographic_signature": {
+          "type": "string",
+          "description": "Post-quantum secure cryptographic signature (non-blacklisted algorithm)",
+          "minLength": 64
+        },
+        "signature_algorithm": {
+          "type": "string",
+          "enum": ["CRYSTALS-Dilithium", "FALCON", "SPHINCS+"],
+          "description": "Post-quantum signature algorithm. SHA-256, BLAKE, and blacklisted algorithms are forbidden."
+        }
+      }
+    },
+    "creation_timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO8601 timestamp with microsecond precision",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\\.[0-9]{6}Z$"
+    },
+    "entity_type": {
+      "type": "string",
+      "enum": [
+        "CITIZEN",
+        "AUGMENTED_CITIZEN",
+        "WORKFLOW",
+        "DECISION_ENVELOPE",
+        "INFRASTRUCTURE_NODE",
+        "BIOTIC_ENTITY",
+        "GOVERNANCE_BODY"
+      ],
+      "description": "Type of entity this Birth-Sign represents"
+    },
+    "origin_node": {
+      "type": "object",
+      "required": ["node_id", "geographic_location", "erm_layer"],
+      "properties": {
+        "node_id": {
+          "type": "string",
+          "description": "Unique identifier of the node where this entity was created"
+        },
+        "geographic_location": {
+          "type": "object",
+          "required": ["latitude", "longitude", "altitude"],
+          "properties": {
+            "latitude": { "type": "number", "minimum": -90, "maximum": 90 },
+            "longitude": { "type": "number", "minimum": -180, "maximum": 180 },
+            "altitude": { "type": "number" }
+          }
+        },
+        "erm_layer": {
+          "type": "string",
+          "enum": ["PIL", "DSL", "WOL", "GTL", "CIL"],
+          "description": "ERM layer where this entity originated"
+        }
+      }
+    },
+    "rights_profile": {
+      "type": "object",
+      "required": ["neurorights_level", "biotic_treaty_status", "fpic_status"],
+      "properties": {
+        "neurorights_level": {
+          "type": "string",
+          "enum": ["INVOLABLE", "CONSENT_GATED", "AGGREGATED_ONLY"],
+          "description": "Level of neurorights protection"
+        },
+        "biotic_treaty_status": {
+          "type": "string",
+          "enum": ["COMPLIANT", "PENDING_REVIEW", "NON_COMPLIANT"],
+          "description": "BioticTreaty compliance status"
+        },
+        "fpic_status": {
+          "type": "string",
+          "enum": ["VERIFIED", "NOT_APPLICABLE", "PENDING_CONSENT"],
+          "description": "Free, Prior, and Informed Consent status for Indigenous territories"
+        }
+      }
+    },
+    "treaty_bindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["treaty_id", "treaty_type", "binding_date"],
+        "properties": {
+          "treaty_id": { "type": "string" },
+          "treaty_type": {
+            "type": "string",
+            "enum": ["BIOTIC_TREATY", "INDIGENOUS_TREATY", "CITIZEN_TREATY", "ECOLOGICAL_TREATY"]
+          },
+          "binding_date": { "type": "string", "format": "date-time" }
+        }
+      },
+      "minItems": 0,
+      "description": "List of treaties this entity is bound to"
+    },
+    "propagation_chain": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["stage", "timestamp", "node_id", "action"],
+        "properties": {
+          "stage": {
+            "type": "string",
+            "enum": ["S1", "S2", "S3", "S4", "S5", "S6", "S7"],
+            "description": "Workflow stage where this BirthSignId was propagated"
+          },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "node_id": { "type": "string" },
+          "action": {
+            "type": "string",
+            "enum": ["SENSE", "MODEL", "ALLOCATE", "RULE_CHECK", "ACTUATE", "RECORD", "TALK_BACK"]
+          }
+        }
+      },
+      "minItems": 0,
+      "description": "Chain of propagation through workflow stages"
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "version": { "type": "string" },
+        "description": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$comment": "This schema is enforced by ALE-COMP-CORE. Any Birth-Sign not conforming to this schema will be rejected at S4 (Rule-Check) stage."
+}
