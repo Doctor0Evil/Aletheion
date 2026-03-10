@@ -1,0 +1,88 @@
+// ALETHEION_AGRICULTURAL_WATER_CONTRACT_V1.0.0
+// LICENSE: BioticTreaty_Compliant_AGPLv3
+// ECO_IMPACT: K=0.93 | E=0.91 | R=0.12
+// CHAIN: SMART (Treaty-Check → Act → Log)
+// CONSTRAINTS: Water-Scarcity-Corridors, Organic-Standards, Sovereignty
+// INDIGENOUS_RIGHTS: Akimel_O'odham_Agricultural_Water_Priority
+
+contract Phoenix_Agricultural_Water_Usage_Contract {
+    version: "1.0.0";
+    jurisdiction: "Phoenix_Arizona_Akimel_O'odham_Territory";
+    enforcement: "Hard_Stop_On_Violation";
+
+    // --- STATE INPUTS ---
+    input {
+        farm_zone_id: u64;
+        water_usage_liters_day: f32;
+        crop_type: string;
+        is_indigenous_operated: bool;
+        is_organic_certified: bool;
+        drought_emergency_level: u8; // 0-5 scale
+        aquifer_pressure_psi: f32;
+        water_recycle_rate: f32;     // 0.0 - 1.0
+    }
+
+    // --- CORRIDORS ---
+    corridors {
+        max_water_per_zone: 50.0;    // Liters/day target
+        min_recycle_rate: 0.95;      // 95% water recovery required
+        min_aquifer_pressure: 10.0;  // Prevent subsidence
+        drought_level_threshold: 3;  // Emergency restrictions activate
+    }
+
+    // --- INVARIANTS ---
+    invariant water_sustainability {
+        // Daily water usage must not exceed corridor limits
+        assert(water_usage_liters_day <= corridors.max_water_per_zone);
+    }
+
+    invariant indigenous_priority {
+        // Indigenous farms receive water priority during shortages
+        if (is_indigenous_operated == true && drought_emergency_level >= corridors.drought_level_threshold) {
+            assert(water_allocation_priority == "HIGH");
+        }
+    }
+
+    invariant aquifer_protection {
+        // Prevent groundwater depletion damage
+        assert(aquifer_pressure_psi >= corridors.min_aquifer_pressure);
+    }
+
+    invariant circular_water_economy {
+        // Enforce water recycling targets
+        assert(water_recycle_rate >= corridors.min_recycle_rate);
+    }
+
+    // --- ACTIONS ---
+    action authorize_irrigation {
+        preconditions: [
+            water_usage_liters_day <= corridors.max_water_per_zone,
+            aquifer_pressure_psi >= corridors.min_aquifer_pressure,
+            water_recycle_rate >= corridors.min_recycle_rate,
+            drought_emergency_level < corridors.drought_level_threshold OR is_indigenous_operated == true
+        ];
+        effect: "Enable_Water_Flow";
+        log_event: "Agricultural_Irrigation_Authorized";
+    }
+
+    action restrict_water {
+        trigger: "Drought_Emergency_Level_Exceeded AND Not_Indigenous";
+        effect: "Reduce_Water_Flow_50_Percent";
+        log_event: "Water_Restriction_Activated";
+    }
+
+    action emergency_shutdown {
+        trigger: "Aquifer_Pressure_Critical OR Water_Recycle_Below_Target";
+        effect: "Stop_All_Water_Flow";
+        log_event: "Agricultural_Water_Emergency_Shutdown";
+    }
+
+    // --- AUDIT LOG ---
+    log {
+        timestamp: utc_now();
+        farm_zone_id: u64;
+        water_usage_snapshot: f32;
+        recycle_rate: f32;
+        signature: post_quantum_sig();
+    }
+}
