@@ -1,0 +1,150 @@
+# Purpose: Resolve Workflow Index entries to CI job graphs for Aletheion
+
+name: ALE-CI-COMPOSITE-MAPPING-001
+
+on:
+  push:
+    paths:
+      - "registry/workflows/ALE-WORKFLOW-INDEX-001.json"
+      - ".github/workflows/ci-composite-mapping.yml"
+  workflow_dispatch: {}
+
+env:
+  ALETHEION_INDEX_VERSION: "1.0.0"
+  ALETHEION_CI_MAPPING_VERSION: "3.0"
+
+jobs:
+  resolve-composite-graph:
+    name: Resolve Composite CI Graph from Workflow Index
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.build-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Load Workflow Index
+        id: load-index
+        run: |
+          INDEX_PATH="registry/workflows/ALE-WORKFLOW-INDEX-001.json"
+          if [ ! -f "$INDEX_PATH" ]; then
+            echo "Missing workflow index at $INDEX_PATH"; exit 1
+          fi
+          cat "$INDEX_PATH" | jq '.' > /tmp/ale-workflow-index.json
+
+      - name: Build Composite Job Matrix
+        id: build-matrix
+        run: |
+          cat << 'EOF' > /tmp/build-matrix.js
+          const fs = require('fs');
+          const idx = JSON.parse(fs.readFileSync('/tmp/ale-workflow-index.json','utf8'));
+          const shared = [
+            { name: 'ci-compliance-preflight.yml', triggers: ['ALE-WF-001','ALE-WF-002','ALE-WF-003','ALE-WF-006','ALE-WF-019','ALE-WF-024'], priority: 'Critical', blocks_deploy: true, requires_manual_approval: false },
+            { name: 'ci-fpic-check.yml',           triggers: ['ALE-WF-008','ALE-WF-020'],                                               priority: 'Critical', blocks_deploy: true, requires_manual_approval: true },
+            { name: 'ci-neuro-guard.yml',          triggers: ['ALE-WF-003','ALE-WF-019','ALE-WF-022'],                                  priority: 'Critical', blocks_deploy: true, requires_manual_approval: false }
+          ];
+          const specific = [
+            { workflow: 'ALE-WF-024', primary_job: 'ci-grievance-file.yml', secondary_jobs: ['ci-compliance-preflight.yml','ci-ledger-append.yml'], parallel: false },
+            { workflow: 'ALE-WF-008', primary_job: 'ci-water-optimize.yml', secondary_jobs: ['ci-fpic-check.yml','ci-compliance-preflight.yml'],   parallel: true  }
+          ];
+          const byId = {};
+          (idx.workflows || []).forEach(w => { byId[w.aletheion_id] = w; });
+          const entries = [];
+          Object.keys(byId).forEach(id => {
+            const wf = byId[id];
+            const specificCfg = specific.find(s => s.workflow === id);
+            const sharedJobs = shared.filter(s => s.triggers.includes(id));
+            const primaryJob = specificCfg ? specificCfg.primary_job : null;
+            const secondaryJobs = specificCfg ? specificCfg.secondary_jobs : [];
+            const parallel = specificCfg ? !!specificCfg.parallel : true;
+            const ciJobs = new Set();
+            sharedJobs.forEach(sj => ciJobs.add(sj.name));
+            secondaryJobs.forEach(n => ciJobs.add(n));
+            if (primaryJob) ciJobs.add(primaryJob);
+            if (ciJobs.size === 0) return;
+            const requireApproval = sharedJobs.some(sj => sj.requires_manual_approval);
+            const blocksDeploy = sharedJobs.some(sj => sj.blocks_deploy);
+            entries.push({
+              aletheion_id: id,
+              name: wf.name || id,
+              primary_job: primaryJob,
+              ci_jobs: Array.from(ciJobs),
+              parallel: parallel,
+              requires_manual_approval: requireApproval,
+              blocks_deploy: blocksDeploy
+            });
+          });
+          process.stdout.write(JSON.stringify({ include: entries }));
+          EOF
+          node /tmp/build-matrix.js | jq -c '.' > /tmp/matrix.json
+          echo "matrix=$(cat /tmp/matrix.json)" >> "$GITHUB_OUTPUT"
+
+  gate-fpic-approval:
+    name: FPIC Manual Approval Gate
+    needs: resolve-composite-graph
+    if: ${{ contains(needs.resolve-composite-graph.outputs.matrix, '\"requires_manual_approval\":true') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Await Tribal Authority Sign-off
+        uses: fjogeleit/http-request-action@v1.16.4
+        with:
+          url: ${{ secrets.ALE_FPIC_APPROVAL_ENDPOINT }}
+          method: "GET"
+          timeout: 900
+
+  run-composite-ci:
+    name: Execute Composite CI for Aletheion Workflows
+    needs:
+      - resolve-composite-graph
+      - gate-fpic-approval
+    if: ${{ always() && needs.resolve-composite-graph.result == 'success' }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.resolve-composite-graph.outputs.matrix) }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log Composite Plan
+        run: |
+          echo "ALE Workflow: ${{ matrix.include.aletheion_id }} -> Jobs: ${{ join(matrix.include.ci_jobs, ',') }}"
+          echo "Parallel: ${{ matrix.include.parallel }} Blocks Deploy: ${{ matrix.include.blocks_deploy }}"
+
+      - name: Run Primary CI Job (if defined)
+        if: ${{ matrix.include.primary_job != '' && matrix.include.primary_job != null }}
+        uses: ./.github/workflows/${{ matrix.include.primary_job }}
+        with:
+          aletheion_workflow_id: ${{ matrix.include.aletheion_id }}
+        secrets: inherit
+
+      - name: Run Secondary / Shared Jobs (parallel mode)
+        if: ${{ matrix.include.parallel && (matrix.include.ci_jobs && contains(join(matrix.include.ci_jobs, ','), '.yml')) }}
+        run: |
+          JOBS="${{ join(matrix.include.ci_jobs, ' ') }}"
+          for j in $JOBS; do
+            if [ "$j" = "${{ matrix.include.primary_job }}" ]; then continue; fi
+            echo "Dispatching CI job workflow: $j"
+            gh workflow run "$j" --ref "${GITHUB_REF##*/}" || exit 1
+          done
+
+      - name: Run Secondary / Shared Jobs (sequential mode)
+        if: ${{ !matrix.include.parallel && (matrix.include.ci_jobs && contains(join(matrix.include.ci_jobs, ','), '.yml')) }}
+        run: |
+          JOBS="${{ join(matrix.include.ci_jobs, ' ') }}"
+          for j in $JOBS; do
+            if [ "$j" = "${{ matrix.include.primary_job }}" ]; then continue; fi
+            echo "Running CI job workflow sequentially: $j"
+            gh workflow run "$j" --ref "${GITHUB_REF##*/}" || exit 1
+          done
+
+  deploy-gate:
+    name: Deployment Block / Allow Decision
+    needs: run-composite-ci
+    runs-on: ubuntu-latest
+    if: ${{ always() }}
+    steps:
+      - name: Evaluate Blocking Rules
+        run: |
+          echo "Composite CI complete; deployment decision must honor blocks_deploy flags from matrix."
+          # Enforcement is implemented in downstream deploy workflows using ALETHEION_CI_MAPPING_VERSION and index flags.
