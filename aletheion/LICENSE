@@ -1,0 +1,59 @@
+ALETHEION BIOTIC TREATY COMPLIANT LICENSE (AGPLv3 EXTENSION)
+
+Version 1.0.0
+Date: 2026-01-15
+Jurisdiction: Phoenix, Arizona (Akimel O'odham Territory)
+
+PREAMBLE
+This license extends the GNU Affero General Public License v3.0 with specific 
+constraints for ecological stability, Indigenous sovereignty, and citizen rights. 
+Use of this software constitutes agreement to the BioticTreaty terms.
+
+TERMS
+
+1. OPEN SOURCE REQUIREMENT
+All modifications, derivatives, and linked works must be released under this 
+license. Source code must be available to all users interacting with the software 
+over a network (AGPLv3 Section 13).
+
+2. INDIGENOUS SOVEREIGNTY CLAUSE
+Software deployed on Akimel O'odham or Piipaash territories must respect 
+community veto power over land-use, water-allocation, and data-sovereignty 
+functions. Removal of sovereignty checks (e.g., 'is_indigenous_sovereign' flags) 
+is a material breach of this license.
+
+3. NEURORIGHTS PROTECTION
+Biometric, biosignal, and neural data collected by this software must be:
+  a) Encrypted locally before transmission (Zero-Knowledge).
+  b) Deletable upon user request (Right to Purge).
+  c) Used only for explicit, consented purposes (No Behavioral Prediction).
+
+4. ECOLOGICAL STABILITY
+Software controlling environmental systems (water, energy, waste) must enforce 
+Lyapunov stability constraints ($V_t$ non-increasing). Modifications that 
+allow environmental degradation (e.g., overriding toxicity corridors) are 
+prohibited.
+
+5. BLACKLIST COMPLIANCE
+Use of blacklisted algorithms (SHA-256, BLAKE, KECCAK, Python for core logic) 
+voids this license. Only supported languages (Rust, ALN, Lua, JS, Kotlin, C++) 
+and post-quantum safe cryptography are permitted.
+
+6. OFFLINE CAPABILITY
+Deployments must maintain ≥72 hours of autonomous operation without network 
+connectivity. Cloud-only dependencies are prohibited for critical infrastructure.
+
+7. LIABILITY
+Contributors are liable for intentional violations of sovereignty, neurorights, 
+or ecological stability constraints. Accidental errors must be patched within 
+72 hours of disclosure.
+
+8. TERMINATION
+License terminates automatically upon violation of Terms 2, 3, or 4. Reinstatement 
+requires community consent (Indigenous) or user consent (Neurorights).
+
+DISCLAIMER
+SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. AUTHORS ARE NOT 
+LIABLE FOR DAMAGES EXCEPT IN CASES OF GROSS NEGLIGENCE OR INTENTIONAL HARM.
+
+END OF TERMS
