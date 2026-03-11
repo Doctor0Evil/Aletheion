@@ -1,0 +1,170 @@
+# Aletheion Mobility & Transportation Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer (MOBILITY)
+# Status: Canonical Reference for Phoenix Transportation Systems
+
+layer_id: "aletheion-mobility-phoenix-001"
+version: "1.0.0"
+description: "Mobility & Transportation Layer for Phoenix Aletheion smart city. All AV, transit, charging, and freight operations must comply with this manifest."
+erm_layer: "MOBILITY"
+
+autonomous_vehicles:
+  fleet_size_target: 10000
+  vehicle_types:
+    - type: "PASSENGER_AV"
+      capacity: 4
+      operating_temp_max_c: 55.0
+      heat_derate_enabled: true
+    - type: "SHUTTLE_AV"
+      capacity: 20
+      operating_temp_max_c: 55.0
+      public_transit_integration: true
+    - type: "DELIVERY_ROBOT"
+      capacity: 1
+      sidewalk_navigation: true
+      max_speed_mph: 10.0
+  sensor_requirements:
+    lidar: true
+    radar: true
+    camera: true
+    thermal_camera: true # Phoenix heat/pedestrian detection
+    gps_accuracy_m_max: 2.0
+  safety_standards:
+    zero_fatalities_target: true
+    emergency_stop_capable: true
+    dust_storm_mode: true
+    heat_emergency_protocol: true
+
+public_transit:
+  modes:
+    - type: "LIGHT_RAIL"
+      frequency_min: 12.0
+      accessibility: "ADA_COMPLIANT"
+      cooling_enabled: true
+    - type: "BUS_RAPID_TRANSIT"
+      frequency_min: 15.0
+      dedicated_lanes: true
+      electric_vehicles: true
+    - type: "MICRO_TRANSIT"
+      on_demand: true
+      underserved_areas: true
+      av_based: true
+  accessibility:
+    wcag_level: "2.2_AAA"
+    wheelchair_accessible: true
+    multilingual_support: ["en", "es", "ood"]
+    fare_subsidy_low_income_percent: 50.0
+  heat_protocols:
+    shelter_cooling_activation_temp_c: 48.9
+    free_fare_during_extreme_heat: true
+    extended_ac_on_vehicles: true
+
+ev_charging:
+  charger_types:
+    - type: "LEVEL_2_AC"
+      power_kw: 19.2
+      deployment: "RESIDENTIAL, WORKPLACE"
+    - type: "DC_FAST_CHARGER"
+      power_kw: 150.0
+      deployment: "HIGHWAY_CORRIDORS"
+    - type: "ULTRA_FAST_CHARGER"
+      power_kw: 350.0
+      deployment: "MAJOR_HIGHWAYS"
+  renewable_energy_requirement: 0.80 # 80% minimum renewable
+  thermal_management:
+    liquid_cooling_required: true
+    max_operating_temp_c: 55.0
+    shaded_canopy_required: true
+  pricing:
+    max_rate_usd_kwh: 0.35
+    low_income_discount_percent: 50.0
+    indigenous_benefit_share_percent: 5.0
+  accessibility:
+    ada_compliant: true
+    wheelchair_accessible: true
+    reach_height_m: [0.9, 1.2]
+
+freight_logistics:
+  zero_emission_target_year: 2035
+  vehicle_types:
+    - type: "DELIVERY_VAN"
+      emission_class: "ZERO_EMISSION"
+      last_mile: true
+    - type: "HEAVY_TRUCK"
+      emission_class: "ZERO_EMISSION"
+      hydrogen_fuel_cell: true
+    - type: "AUTONOMOUS_FREIGHT"
+      dedicated_corridors: true
+      driverless: true
+  residential_separation:
+    required: true
+    dedicated_freight_lanes: true
+    night_delivery_preferred: true
+  hazardous_materials:
+    restricted_zones: ["INDUSTRIAL_DISTRICT_EAST"]
+    special_permits_required: true
+  scheduling:
+    peak_avoidance: true
+    peak_hours: ["07:00-09:00", "16:00-19:00"]
+    optimal_delivery_window: "02:00-06:00"
+
+indigenous_territory_protocols:
+  fpic_required: true
+  recognized_territories:
+    - "AKIMEL_OODHAM_TERRITORY"
+    - "PIIPAASH_TERRITORY"
+    - "SALT_RIVER_RESERVATION"
+  benefit_sharing:
+    revenue_share_percent: 5.0
+    employment_priority: true
+    infrastructure_co_design: true
+
+environmental_integration:
+  emission_reduction_target: 1.0 # 100% zero-emission by 2035
+  carbon_tracking:
+    real_time_monitoring: true
+    per_trip_accounting: true
+    public_dashboards: true
+  heat_mitigation:
+    shaded_infrastructure: true
+    cool_pavement_charging_lots: true
+    vegetation_buffer_zones: true
+  dust_storm_protocols:
+    av_shelter_mode: true
+    transit_delay_notifications: true
+    emergency_routing: true
+
+compliance_hooks:
+  ale_comp_core:
+    birth_sign_propagation: "ALL_TRANSACTIONS"
+    fpic_indigenous_territories: "ALL_INFRASTRUCTURE"
+    safety_verification: "REAL_TIME"
+    emission_standards: "CONTINUOUS"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    public_dashboards: true
+    real_time_reporting: true
+
+ci_cd_requirements:
+  preflight_checks:
+    - "verify-av-sensor-health"
+    - "verify-transit-accessibility"
+    - "verify-charging-thermal-safety"
+    - "verify-freight-emission-standards"
+    - "verify-fpic-territory-overlays"
+    - "verify-birthsign-propagation"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  hardware_in_loop_testing: true
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  autonomous_vehicles: "/aletheion-mobility/autonomous/vehicle_management_engine.rs"
+  public_transit: "/aletheion-mobility/transit/public_transit_optimization.cpp"
+  ev_charging: "/aletheion-mobility/charging/ev_charging_network.aln"
+  freight_logistics: "/aletheion-mobility/logistics/freight_management_system.rs"
+  environmental_spec: "/aletheion-env/climate/integration_specs.md"
+
+# END OF MOBILITY LAYER MANIFEST
