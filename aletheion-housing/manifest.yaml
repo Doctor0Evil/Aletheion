@@ -1,0 +1,68 @@
+# ALETHEION HOUSING LAYER MANIFEST
+# File: 75/100
+# Compliance: ALE-COMP-CORE, Right-to-Shelter, WCAG 2.2 AAA, ALN-Blockchain
+
+layer:
+  id: "ALETHEION_HOUSING"
+  version: "1.0.0"
+  status: "ACTIVE"
+  files_completed: 5
+  file_range: "71-75/100"
+
+dependencies:
+  core:
+    - "aletheion-core/identity/birth_sign_engine"
+    - "aletheion-core/crypto/aln_sovereign_sdk"
+  infrastructure:
+    - "aletheion-infra/mesh/offline_sync_protocol"
+  governance:
+    - "aletheion-gov/treaty/biotic_treaty_engine"
+  health:
+    - "aletheion-health/biosignal/biosignal_collection_engine" # For heat vulnerability
+
+compliance:
+  housing_rights:
+    standard: "RIGHT_TO_SHELTER_GUARANTEED"
+    allocation: "VULNERABILITY_WEIGHTED"
+    discrimination: "ZERO_TOLERANCE"
+  accessibility:
+    standard: "WCAG_2.2_AAA_PHYSICAL"
+    validation: "AUTOMATED_PER_PERMIT"
+  environment:
+    cool_roof: "PHOENIX_MINIMUM_0.65_REFLECTANCE"
+    net_zero: "ENERGY_POSITIVE_REQUIRED"
+    water_usage: "50_GALLONS_PER_CAPITA_DAY"
+  sovereignty:
+    indigenous_rights: "FPIC_REQUIRED_FOR_LAND_USE"
+    community_ownership: "LAND_TRUST_SUPPORTED"
+    data_residency: "ARIZONA_JURISDICTION"
+
+ci_cd:
+  build:
+    language_support: ["Rust", "C++", "ALN", "JavaScript"]
+    blacklist_check: "ENABLED" # Blocks SHA-256, Python, etc.
+  test:
+    coverage_target: 0.95
+    accessibility_audit: "WCAGAAA_AUTO"
+    heat_simulation: "120F_PLUS_OPERATIONAL"
+  deploy:
+    strategy: "CANARY_OFFLINE_FIRST"
+    rollback: "FORWARD_COMPATIBLE_ONLY" # No downgrades
+
+workflows:
+  erm_chain:
+    - "SENSE: Applicant/Plan Ingestion"
+    - "MODEL: Vulnerability/Energy Calculation"
+    - "OPTIMIZE: Allocation/Design Optimization"
+    - "TREATY: FPIC/Rights Verification"
+    - "ACT: Allocate/Issue Permit"
+    - "LOG: ALN-Blockchain Commit"
+    - "INTERFACE: Dashboard/Report"
+
+metrics:
+  offline_capacity: "72_HOURS_MINIMUM"
+  response_time_ms: 50
+  sovereignty_score: 100
+  accessibility_score: 100
+  heat_resilience_score: 100
+  anti_displacement_index: 100
