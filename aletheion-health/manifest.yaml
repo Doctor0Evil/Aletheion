@@ -1,0 +1,58 @@
+# ALETHEION HEALTH LAYER MANIFEST
+# File: 65/100
+# Compliance: ALE-COMP-CORE, HIPAA-Equivalent, ALN-Blockchain Sovereignty
+
+layer:
+  id: "ALETHEION_HEALTH"
+  version: "1.0.0"
+  status: "ACTIVE"
+  files_completed: 5
+  file_range: "61-65/100"
+
+dependencies:
+  core:
+    - "aletheion-core/identity/birth_sign_engine"
+    - "aletheion-core/crypto/aln_sovereign_sdk"
+  infrastructure:
+    - "aletheion-infra/mesh/offline_sync_protocol"
+  governance:
+    - "aletheion-gov/treaty/biotic_treaty_engine"
+
+compliance:
+  privacy:
+    standard: "HIPAA_EQUIVALENT"
+    encryption: "ALN_HOMOMORPHIC" # No SHA-256/BLAKE
+    data_residency: "ARIZONA_JURISDICTION"
+  rights:
+    neurorights: "ENABLED"
+    fpic: "REQUIRED_FOR_INDIGENOUS_DATA"
+    accessibility: "WCAG_2.2_AAA"
+  environment:
+    heat_protocol: "PHOENIX_120F_PLUS"
+    water_usage: "ZERO_LIQUID_DISCHARGE"
+
+ci_cd:
+  build:
+    language_support: ["Rust", "C++", "ALN", "JavaScript"]
+    blacklist_check: "ENABLED" # Blocks SHA-256, Python, etc.
+  test:
+    coverage_target: 0.95
+    security_audit: "ALN_STATIC_ANALYSIS"
+  deploy:
+    strategy: "CANARY_OFFLINE_FIRST"
+    rollback: "FORWARD_COMPATIBLE_ONLY" # No downgrades
+
+workflows:
+  erm_chain:
+    - "SENSE: Biosignal Collection"
+    - "MODEL: Health State Mirror"
+    - "OPTIMIZE: Resource Allocation"
+    - "TREATY: FPIC/Neurorights Check"
+    - "ACT: Dispatch/Distribution"
+    - "LOG: ALN-Blockchain Commit"
+    - "INTERFACE: Citizen Dashboard"
+
+metrics:
+  offline_capacity: "72_HOURS_MINIMUM"
+  response_time_ms: 50
+  sovereignty_score: 100
