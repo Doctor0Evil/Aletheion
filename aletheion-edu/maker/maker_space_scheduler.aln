@@ -1,0 +1,102 @@
+/**
+ * ALETHEION EDUCATION LAYER: MAKER SPACE SCHEDULER
+ * File: 68/100
+ * Language: ALN (Aletheion Native)
+ * Compliance: Resource Optimization, Safety Protocols, Community Equity
+ */
+
+module aletheion.edu.maker {
+    import aletheion.sovereign.identity;
+    import aletheion.sovereign.treaty;
+    import aletheion.safety.toxicity; // Interop with Layer 16/17
+
+    // ERM State Definition
+    state workflow : [SENSE, MODEL, OPTIMIZE, TREATY, ACT, LOG, INTERFACE];
+
+    // Tool Resource Definition
+    struct ToolResource {
+        id: string;
+        type: string; // 3D Printer, Laser Cutter, Woodworking
+        status: string; // Available, Maintenance, InUse
+        safety_rating: u8; // 0-100 (Ventilation, Guarding)
+        heat_tolerance: u8; // Operational limit in Phoenix heat
+    }
+
+    // Booking Request
+    struct BookingRequest {
+        citizen_id: identity.BirthSignId;
+        tool_id: string;
+        duration_minutes: u16;
+        project_type: string;
+        fpic_token: treaty.FpicToken;
+    }
+
+    // Scheduler Logic
+    func schedule_booking(request: BookingRequest) -> string {
+        workflow = SENSE;
+        
+        // Validate Identity
+        if not identity.verify(request.citizen_id) {
+            return "ERROR_INVALID_IDENTITY";
+        }
+
+        workflow = TREATY;
+        
+        // Safety Check (Toxicity/Ventilation)
+        if not toxicity.check_ventilation(request.tool_id) {
+            return "ERROR_SAFETY_VENTILATION";
+        }
+
+        // Equity Check (Community Priority)
+        let priority = identity.get_community_priority(request.citizen_id);
+        if priority < 50 and is_peak_hours() {
+            return "ERROR_LOW_PRIORITY_PEAK";
+        }
+
+        workflow = OPTIMIZE;
+
+        // Find Slot
+        let slot = find_available_slot(request.tool_id, request.duration_minutes);
+        if slot == null {
+            return "ERROR_NO_AVAILABILITY";
+        }
+
+        workflow = ACT;
+        
+        // Unlock Tool (Physical Interface)
+        hardware.unlock(request.tool_id, slot);
+
+        workflow = LOG;
+        
+        // Log Usage on ALN-Blockchain
+        aln.ledger.commit({
+            type: "MAKER_SPACE_USAGE",
+            citizen: request.citizen_id,
+            tool: request.tool_id,
+            slot: slot,
+            timestamp: sys.now()
+        });
+
+        return slot.id;
+    }
+
+    // Maintenance Scheduler
+    func schedule_maintenance(tool_id: string) {
+        workflow = MODEL;
+        // Predictive maintenance based on usage logs
+        let usage = aln.ledger.query("MAKER_SPACE_USAGE", tool_id);
+        if usage.count > 100 {
+            hardware.flag_maintenance(tool_id);
+        }
+    }
+
+    // Heat Protocol
+    func check_heat_safety() {
+        workflow = INTERFACE;
+        let temp = sys.environment.temperature();
+        if temp > 45 { // Celsius (113F)
+            // Reduce load on non-essential tools
+            power.downscale_non_essential();
+        }
+    }
+}
