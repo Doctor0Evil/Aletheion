@@ -1,0 +1,67 @@
+# ALETHEION SAFETY LAYER MANIFEST
+# File: 80/100
+# Compliance: ALE-COMP-CORE, De-escalation Priority, Indigenous Sovereignty, ALN-Blockchain
+
+layer:
+  id: "ALETHEION_SAFETY"
+  version: "1.0.0"
+  status: "ACTIVE"
+  files_completed: 5
+  file_range: "76-80/100"
+
+dependencies:
+  core:
+    - "aletheion-core/identity/birth_sign_engine"
+    - "aletheion-core/crypto/aln_sovereign_sdk"
+  infrastructure:
+    - "aletheion-infra/mesh/offline_sync_protocol"
+  governance:
+    - "aletheion-gov/treaty/biotic_treaty_engine"
+  health:
+    - "aletheion-health/biosignal/biosignal_collection_engine" # For emergency detection
+  environment:
+    - "aletheion-environment/climate/weather_monitoring" # For dust/fire risk
+
+compliance:
+  justice:
+    standard: "RESTORATIVE_JUSTICE_FIRST"
+    carceral_use: "LAST_RESORT_ONLY"
+    de_escalation_priority: "HARD_CONSTRAINT"
+  sovereignty:
+    indigenous_rights: "FPIC_REQUIRED_FOR_LAND_AND_AIRSPACE"
+    data_residency: "ARIZONA_JURISDICTION"
+    language_support: ["eng", "spa", "ood"]
+  environment:
+    heat_protocol: "DRONE_GROUND_AT_125F"
+    dust_storm: "HABOOB_NAVIGATION_PROTOCOLS"
+    fire_risk: "VEGETATION_MOISTURE_MONITORING"
+
+ci_cd:
+  build:
+    language_support: ["Rust", "C++", "ALN", "JavaScript"]
+    blacklist_check: "ENABLED" # Blocks SHA-256, Python, etc.
+  test:
+    coverage_target: 0.95
+    security_audit: "ALN_STATIC_ANALYSIS"
+    heat_simulation: "120F_PLUS_OPERATIONAL"
+  deploy:
+    strategy: "CANARY_OFFLINE_FIRST"
+    rollback: "FORWARD_COMPATIBLE_ONLY" # No downgrades
+
+workflows:
+  erm_chain:
+    - "SENSE: Incident/Report Ingestion"
+    - "MODEL: Risk/State Mirror"
+    - "OPTIMIZE: Resource/Mediator Assignment"
+    - "TREATY: FPIC/Consent Verification"
+    - "ACT: Dispatch/Facilitate"
+    - "LOG: ALN-Blockchain Commit"
+    - "INTERFACE: Dashboard/Alert"
+
+metrics:
+  offline_capacity: "72_HOURS_MINIMUM"
+  response_time_ms: 50
+  sovereignty_score: 100
+  de_escalation_success_rate: 0.90
+  indigenous_compliance_score: 100
+  heat_resilience_score: 100
