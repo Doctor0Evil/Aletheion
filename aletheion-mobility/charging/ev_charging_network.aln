@@ -1,0 +1,243 @@
+(* Aletheion Mobility: EV Charging Network Protocol *)
+(* Module: mobility/charging *)
+(* Language: ALN (Aletheion Language) *)
+(* Compliance: ALE-COMP-CORE v1.0, Phoenix EV Infrastructure Standards *)
+(* Constraint: 100% renewable energy, 120°F+ thermal management, universal access *)
+
+(* ============================================ *)
+(* IMPORTS AND SCHEMA REFERENCES                *)
+(* ============================================ *)
+
+IMPORT aletheion_gtl_birthsign.birth_sign_model;
+IMPORT aletheion_energy_solar.generation_management_engine;
+IMPORT aletheion_core_compliance.ALE_COMP_CORE_SPEC;
+IMPORT aletheion_gtl_fpic.fpic_verification_module;
+
+(* ============================================ *)
+(* CHARGING STATION DEFINITIONS                 *)
+(* ============================================ *)
+
+(* Phoenix EV Charging Standards: Level 2 (7-19 kW), DC Fast (50-350 kW) *)
+(* 100% Renewable Energy: Solar + Battery Storage *)
+(* Universal Access: All EV standards (CCS, NACS, CHAdeMO) *)
+
+DEFINE_CHARGER_TYPE level_2_ac {
+    power_kw: 19.2;
+    voltage: 240;
+    connector_types: ["J1772", "NACS"];
+    charge_time_hours: 8.0; (* Full charge for 60 kWh battery *)
+    deployment: "RESIDENTIAL, WORKPLACE, DESTINATION";
+}
+
+DEFINE_CHARGER_TYPE dc_fast_charger {
+    power_kw: 150.0;
+    voltage: 400-924;
+    connector_types: ["CCS", "NACS", "CHAdeMO"];
+    charge_time_min: 30.0; (* 10-80% for 60 kWh battery *)
+    deployment: "HIGHWAY_CORRIDORS, URBAN_HUBS";
+}
+
+DEFINE_CHARGER_TYPE ultra_fast_charger {
+    power_kw: 350.0;
+    voltage: 800;
+    connector_types: ["CCS", "NACS"];
+    charge_time_min: 15.0; (* 10-80% for 100 kWh battery *)
+    deployment: "MAJOR_HIGHWAYS, FLEET_DEPOTS";
+}
+
+(* ============================================ *)
+(* CHARGING SESSION TRIGGER                     *)
+(* ============================================ *)
+
+SESSION_TRIGGER ev_charging_session {
+    INPUT: CitizenRequest, ChargerStatus, GridStatus;
+    OUTPUT: ChargingAllocation;
+    CONTEXT: GeographicZone;
+    
+    (* ============================================ *)
+    (* CITIZEN VERIFICATION                         *)
+    (* ============================================ *)
+    
+    CHECK citizen_identity {
+        CONDITION: CitizenRequest.DID IS_VALID;
+        REQUIREMENT: BirthSignId PROPAGATED;
+        ACTION: IF invalid_did THEN REJECT_SESSION;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK vehicle_compatibility {
+        CONDITION: CitizenRequest.vehicle_connector IN ChargerStatus.supported_connectors;
+        ACTION: IF incompatible THEN DIRECT_TO_COMPATIBLE_CHARGER;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* CHARGER AVAILABILITY                         *)
+    (* ============================================ *)
+    
+    CHECK charger_operational_status {
+        CONDITION: ChargerStatus.status == "OPERATIONAL";
+        CONDITION: ChargerStatus.temperature_c < 55.0; (* Phoenix heat limit *)
+        ACTION: IF malfunction THEN MARK_OUT_OF_SERVICE;
+        ACTION: IF overheat THEN ACTIVATE_COOLING;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK charger_queue_management {
+        CONDITION: ChargerStatus.queue_length < 5;
+        ACTION: IF queue_full THEN DIRECT_TO_NEAREST_AVAILABLE;
+        REQUIREMENT: WaitTimeNotification < 5_MINUTES;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* RENEWABLE ENERGY VERIFICATION                *)
+    (* ============================================ *)
+    
+    CHECK renewable_energy_source {
+        CONDITION: GridStatus.renewable_percent >= 0.80; (* 80% minimum renewable *)
+        REQUIREMENT: SolarGeneration.verified = TRUE;
+        REQUIREMENT: BatteryStorage.available = TRUE;
+        ACTION: IF renewable_insufficient THEN DEFER_CHARGING;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK carbon_intensity_tracking {
+        CALCULATE: charging_carbon_gCO2 = energy_kwh * grid_carbon_intensity;
+        REQUIREMENT: carbon_intensity < 100_gCO2_kWh; (* Phoenix clean grid target *)
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* PRICING AND PAYMENT                          *)
+    (* ============================================ *)
+    
+    CALCULATE charging_rate {
+        FORMULA: base_rate + time_of_use_multiplier + demand_charge;
+        CONSTRAINT: rate <= 0.35_USD_kWh; (* Maximum rate cap *)
+        REQUIREMENT: PriceTransparency = TRUE;
+    }
+    
+    CHECK low_income_support {
+        CONDITION: CitizenIncome < 60_percent_AMI;
+        ACTION: APPLY_50_PERCENT_DISCOUNT;
+        REQUIREMENT: VerificationDocument = TRUE;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* INDIGENOUS TERRITORY PROTOCOL                *)
+    (* ============================================ *)
+    
+    CHECK indigenous_energy_sovereignty {
+        CONDITION: GeographicZone IN ["AKIMEL_OODHAM_TERRITORY", "PIIPAASH_TERRITORY"];
+        REQUIREMENT: FPIC_VERIFIED = TRUE;
+        REQUIREMENT: CommunityBenefitShare >= 0.05; (* 5% revenue to community *)
+        ACTION: IF fpic_not_verified THEN BLOCK_CHARGING;
+        PROOF: GENERATE_PROOF { CONSENT_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* THERMAL MANAGEMENT (PHOENIX HEAT)            *)
+    (* ============================================ *)
+    
+    CHECK charger_temperature {
+        CONDITION: ChargerStatus.temperature_c < 55.0; (* 131°F hardware limit *)
+        ACTION: IF temp > 45.0 THEN ACTIVATE_LIQUID_COOLING;
+        ACTION: IF temp > 55.0 THEN SUSPEND_CHARGING;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK battery_temperature {
+        CONDITION: VehicleBattery.temperature_c < 60.0;
+        ACTION: IF battery_overheat THEN REDUCE_CHARGE_RATE;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* ACCESSIBILITY REQUIREMENTS                   *)
+    (* ============================================ *)
+    
+    CHECK wheelchair_accessibility {
+        CONDITION: ChargerStatus.wheelchair_accessible == TRUE;
+        REQUIREMENT: ADA_COMPLIANT = TRUE;
+        REQUIREMENT: ReachHeight BETWEEN 0.9_AND_1.2_METERS;
+        ACTION: IF not_accessible THEN FLAG_FOR_REMEDIATION;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, CHARGING, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* FINAL CHARGING ALLOCATION                    *)
+    (* ============================================ *)
+    
+    RESULT {
+        IF ALL_CHECKS_PASS THEN ChargingAllocation = APPROVED;
+        ELSE ChargingAllocation = REJECTED;
+        
+        LOG: AuditLogEntry(ChargingAllocation, Timestamp, BirthSignId, CitizenDID, Energy_kWh, Cost_USD);
+    }
+}
+
+(* ============================================ *)
+(* CHARGING INFRASTRUCTURE PLANNING             *)
+(* ============================================ *)
+
+INFRASTRUCTURE_PLAN ev_charger_deployment {
+    (* Phoenix EV Charging Network Targets *)
+    
+    DENSITY_REQUIREMENTS {
+        residential_chargers_per_1000_homes: 500; (* 50% home charging *)
+        public_chargers_per_10000_population: 100;
+        highway_chargers_per_100_km: 50;
+        indigenous_territory_chargers: 25; (* FPIC-approved locations *)
+    }
+    
+    (* Power Requirements *)
+    POWER_SPECIFICATIONS {
+        level_2_power_kw: 19.2;
+        dc_fast_power_kw: 150.0;
+        ultra_fast_power_kw: 350.0;
+        solar_canopy_required: TRUE; (* Shade + generation *)
+        battery_buffer_kwh: 500.0; (* Peak shaving *)
+    }
+    
+    (* Heat Mitigation *)
+    THERMAL_MANAGEMENT {
+        liquid_cooling_required: TRUE; (* Phoenix summer *)
+        shaded_canopy_required: TRUE;
+        maximum_operating_temp_c: 55.0;
+        emergency_shutdown_temp_c: 65.0;
+    }
+    
+    RESULT {
+        GENERATE: DeploymentPlan;
+        LOG: InfrastructureLog(Plan, Timestamp, BirthSignId);
+    }
+}
+
+(* ============================================ *)
+(* VEHICLE-TO-GRID (V2G) PROTOCOL               *)
+(* ============================================ *)
+
+V2G_PROTOCOL bidirectional_energy_flow {
+    (* EVs as grid storage resources *)
+    
+    DISCHARGE_CONDITIONS {
+        grid_demand_peak: TRUE;
+        vehicle_soc_min: 0.50; (* Never discharge below 50% *)
+        citizen_consent: TRUE;
+        compensation_rate_usd_kwh: 0.50; (* Premium for V2G *)
+    }
+    
+    BENEFIT_SHARING {
+        citizen_share_percent: 70.0;
+        grid_infrastructure_share_percent: 25.0;
+        community_benefit_share_percent: 5.0;
+    }
+    
+    RESULT {
+        LOG: V2GLog(Energy_Dispatched, Compensation_USD, Timestamp, BirthSignId);
+    }
+}
+
+(* END OF EV CHARGING NETWORK PROTOCOL *)
