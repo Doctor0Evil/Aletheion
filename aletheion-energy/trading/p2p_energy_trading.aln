@@ -1,0 +1,264 @@
+(* Aletheion Energy: P2P Energy Trading Protocol *)
+(* Module: energy/trading *)
+(* Language: ALN (Aletheion Language) *)
+(* Compliance: ALE-COMP-CORE v1.0, APS/SRP Interconnection Rules, Arizona Corporation Commission *)
+(* Constraint: Blockchain-tracked, privacy-preserving, no commercial speculation *)
+
+(* ============================================ *)
+(* IMPORTS AND SCHEMA REFERENCES                *)
+(* ============================================ *)
+
+IMPORT aletheion_gtl_birthsign.birth_sign_model;
+IMPORT aletheion_dsl_encryption.pq_crypto_wrapper;
+IMPORT aletheion_core_compliance.ALE_COMP_CORE_SPEC;
+IMPORT aletheion_energy_solar.generation_management_engine;
+IMPORT aletheion_energy_battery.storage_distribution_system;
+
+(* ============================================ *)
+(* ENERGY TRADING DEFINITIONS                   *)
+(* ============================================ *)
+
+(* Phoenix Time-of-Use Rates: Peak 4-9 PM Summer, Off-Peak 9 PM-4 PM *)
+(* Net Metering: 1:1 credit for excess solar export *)
+(* P2P Trading: Citizen-to-citizen energy exchange (blockchain-settled) *)
+
+DEFINE_ENERGY_UNIT kilowatt_hour {
+    symbol: "kWh";
+    base_conversion: 3.6_MEGAJOULES;
+    precision: 0.001; (* 1 Wh resolution *)
+}
+
+DEFINE_PRICING_MODEL time_of_use {
+    peak_rate_usd_kwh: 0.30; (* 4-9 PM summer *)
+    off_peak_rate_usd_kwh: 0.10; (* 9 PM-4 PM *)
+    super_off_peak_rate_usd_kwh: 0.05; (* Night time *)
+    export_credit_rate_usd_kwh: 0.12; (* Net metering credit *)
+}
+
+(* ============================================ *)
+(* P2P TRADE EXECUTION TRIGGER                  *)
+(* ============================================ *)
+
+TRADE_TRIGGER p2p_energy_trade {
+    INPUT: SellerOffer, BuyerBid, GridStatus;
+    OUTPUT: TradeExecution;
+    CONTEXT: GeographicZone;
+    
+    (* ============================================ *)
+    (* SELLER VERIFICATION                          *)
+    (* ============================================ *)
+    
+    CHECK seller_solar_generation {
+        CONDITION: SellerOffer.energy_source == "SOLAR";
+        REQUIREMENT: SolarGeneration.verified_output_kwh >= SellerOffer.offered_kwh;
+        REQUIREMENT: SolarGeneration.birth_sign_id IS_VALID;
+        ACTION: IF generation_insufficient THEN REJECT_TRADE;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK seller_battery_availability {
+        CONDITION: SellerOffer.energy_source == "BATTERY_STORAGE";
+        REQUIREMENT: BatteryStatus.current_soc_percent >= 30;
+        REQUIREMENT: BatteryStatus.thermal_runaway_risk == FALSE;
+        ACTION: IF battery_unsafe THEN REJECT_TRADE;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* BUYER VERIFICATION                           *)
+    (* ============================================ *)
+    
+    CHECK buyer_creditworthiness {
+        CONDITION: BuyerBid.payment_method IN ["CREDIT_PREPAID", "BASIC_INCOME", "P2P_CREDIT"];
+        REQUIREMENT: BuyerAccount.balance >= BuyerBid.bid_amount_usd;
+        ACTION: IF insufficient_funds THEN REJECT_TRADE;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK buyer_priority_status {
+        CONDITION: BuyerBid.purpose IN ["COOLING_SYSTEM", "MEDICAL_EQUIPMENT", "RESIDENTIAL"];
+        ACTION: IF purpose == "COOLING_SYSTEM" AND extreme_heat_active THEN PRIORITY_MATCH;
+        ACTION: IF purpose == "MEDICAL_EQUIPMENT" THEN CRITICAL_PRIORITY;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* GRID IMPACT ASSESSMENT                       *)
+    (* ============================================ *)
+    
+    CHECK grid_capacity {
+        CONDITION: GridStatus.transformer_load_percent < 90;
+        ACTION: IF load > 90 THEN DEFER_TRADE;
+        ACTION: IF load > 95 THEN BLOCK_TRADE;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    CHECK grid_frequency_stability {
+        CONDITION: GridStatus.frequency_hz BETWEEN 59.95 AND 60.05;
+        ACTION: IF frequency_out_of_range THEN SUSPEND_TRADING;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* PRICING AND SETTLEMENT                       *)
+    (* ============================================ *)
+    
+    CALCULATE trade_price {
+        FORMULA: MATCH_SELLER_OFFER_AND_BUYER_BID;
+        CONSTRAINT: price >= off_peak_rate_usd_kwh;
+        CONSTRAINT: price <= peak_rate_usd_kwh;
+        REQUIREMENT: PriceTransparency = TRUE; (* All prices visible on blockchain *)
+    }
+    
+    CHECK pricing_fairness {
+        CONDITION: trade_price WITHIN [0.08, 0.35] USD_kWh;
+        ACTION: IF price_manipulation_detected THEN BLOCK_SELLER;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* BLOCKCHAIN SETTLEMENT                        *)
+    (* ============================================ *)
+    
+    EXECUTE blockchain_settlement {
+        ACTION: RECORD_TRADE_ON_LEDGER;
+        ACTION: TRANSFER_ENERGY_CREDITS;
+        ACTION: UPDATE_GRID_INJECTION_METER;
+        REQUIREMENT: SettlementTime < 60_SECONDS;
+        REQUIREMENT: TransactionFee < 0.01_USD;
+        PROOF: GENERATE_PROOF { COMPLIANCE_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* INDIGENOUS TERRITORY PROTOCOL                *)
+    (* ============================================ *)
+    
+    CHECK indigenous_energy_sovereignty {
+        CONDITION: GeographicZone IN ["AKIMEL_OODHAM_TERRITORY", "PIIPAASH_TERRITORY"];
+        REQUIREMENT: FPIC_VERIFIED = TRUE;
+        REQUIREMENT: CommunityBenefitShare >= 0.05; (* 5% revenue to community *)
+        ACTION: IF fpic_not_verified THEN BLOCK_TRADE;
+        PROOF: GENERATE_PROOF { CONSENT_PROOF, TRADE, POST_QUANTUM_SIGNATURE };
+    }
+    
+    (* ============================================ *)
+    (* FINAL TRADE EXECUTION                        *)
+    (* ============================================ *)
+    
+    RESULT {
+        IF ALL_CHECKS_PASS THEN TradeExecution = APPROVED;
+        ELSE TradeExecution = REJECTED;
+        
+        LOG: AuditLogEntry(TradeExecution, Timestamp, BirthSignId, SellerDID, BuyerDID, Energy_kWh, Price_USD);
+    }
+}
+
+(* ============================================ *)
+(* NET METERING PROTOCOL                        *)
+(* ============================================ *)
+
+NET_METERING_PROTOCOL solar_export_credit {
+    INPUT: SolarGeneration, GridConsumption;
+    OUTPUT: NetCredit;
+    
+    (* 1:1 Net Metering: Export credits equal import charges *)
+    CALCULATE net_energy {
+        FORMULA: GridConsumption - SolarGeneration;
+        UNIT: kilowatt_hour;
+    }
+    
+    (* Monthly True-Up: APS/SRP model *)
+    CHECK monthly_reconciliation {
+        CONDITION: BillingCycle == MONTH_END;
+        ACTION: IF net_energy < 0 THEN ISSUE_CREDIT;
+        ACTION: IF net_energy > 0 THEN CHARGE_CUSTOMER;
+        REQUIREMENT: CreditValue = net_energy * export_credit_rate_usd_kwh;
+    }
+    
+    (* Annual True-Up: Unused credits expire after 12 months *)
+    CHECK annual_expiration {
+        CONDITION: CalendarMonth == DECEMBER;
+        ACTION: EXPIRE_UNUSED_CREDITS;
+        ACTION: DONATE_TO_COMMUNITY_SOLAR; (* Optional: donate to low-income solar *)
+    }
+    
+    RESULT {
+        NetCredit = net_energy * export_credit_rate_usd_kwh;
+        LOG: NetMeteringLog(NetCredit, Timestamp, BirthSignId, CustomerDID);
+    }
+}
+
+(* ============================================ *)
+(* DEMAND RESPONSE PROGRAM                      *)
+(* ============================================ *)
+
+DEMAND_RESPONSE_PROTOCOL peak_demand_reduction {
+    TRIGGER: GridStatus.peak_demand_detected == TRUE;
+    
+    (* APS/SRP Peak Hours: 4-9 PM Summer *)
+    TIME_WINDOW peak_hours {
+        start: "16:00";
+        end: "21:00";
+        season: "JUNE_TO_SEPTEMBER";
+    }
+    
+    (* Incentive Structure: $0.50/kWh for demand reduction *)
+    INCENTIVE demand_reduction_payment {
+        rate_usd_kwh: 0.50;
+        minimum_reduction_kwh: 1.0;
+        maximum_payment_usd: 100.00;
+    }
+    
+    (* Citizen Participation: Opt-in program *)
+    CHECK citizen_enrollment {
+        REQUIREMENT: ConsentVerified = TRUE;
+        REQUIREMENT: SmartThermostatInstalled = TRUE;
+        REQUIREMENT: BatteryStorageAvailable = OPTIONAL;
+    }
+    
+    (* Load Shedding Actions *)
+    ACTION shed_load {
+        ADJUST: HVAC_setpoint +4°F; (* Reduce cooling load *)
+        ADJUST: WaterHeater_setpoint -10°F;
+        ACTION: IF battery_available THEN DISCHARGE_BATTERY;
+    }
+    
+    RESULT {
+        LOG: DemandResponseLog(Reduction_kWh, Payment_USD, Timestamp, BirthSignId);
+    }
+}
+
+(* ============================================ *)
+(* COMMUNITY SOLAR PROGRAM                      *)
+(* ============================================ *)
+
+COMMUNITY_SOLAR_PROGRAM shared_solar_subscription {
+    (* For citizens without rooftop solar (renters, apartments) *)
+    
+    SUBSCRIPTION_MODEL community_share {
+        minimum_share_kwh_month: 100;
+        maximum_share_kwh_month: 1000;
+        subscription_fee_usd_month: 10.00;
+        credit_rate_usd_kwh: 0.12;
+    }
+    
+    (* Low-Income Support: 50% discount for qualifying households *)
+    CHECK low_income_eligibility {
+        CONDITION: HouseholdIncome < 60_percent_AMI; (* Area Median Income *)
+        ACTION: APPLY_50_PERCENT_DISCOUNT;
+        REQUIREMENT: VerificationDocument = TRUE;
+    }
+    
+    (* Indigenous Community Priority: Akimel O'odham, Piipaash *)
+    CHECK indigenous_priority {
+        CONDITION: SubscriberTerritory IN ["AKIMEL_OODHAM", "PIIPAASH"];
+        ACTION: PRIORITY_ALLOCATION;
+        REQUIREMENT: FPIC_VERIFIED = TRUE;
+    }
+    
+    RESULT {
+        LOG: CommunitySolarLog(SubscriberDID, Share_kWh, Credit_USD, Timestamp, BirthSignId);
+    }
+}
+
+(* END OF P2P ENERGY TRADING PROTOCOL *)
