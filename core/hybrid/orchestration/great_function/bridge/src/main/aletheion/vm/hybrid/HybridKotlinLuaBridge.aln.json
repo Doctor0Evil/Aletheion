@@ -1,0 +1,152 @@
+{
+  "filename": "core/hybrid/orchestration/great_function/bridge/src/main/aletheion/vm/hybrid/HybridKotlinLuaBridge.aln.json",
+  "language": "aln-json",
+  "content": {
+    "metadata": {
+      "function_name": "Hybrid_Kotlin_Lua_Cybercore_Orchestration",
+      "version": "1.0.0",
+      "description": "Great_Function bridge orchestrating low-latency Cybercore-Brain calls in Kotlin/Android with sandboxed Lua automation and code-generation inside the Aletheion VM.",
+      "author": "Aletheion-Core",
+      "timestamp": "2026-03-10T22:31:00Z",
+      "tags": [
+        "hybrid-language",
+        "kotlin-android",
+        "lua-sandbox",
+        "cybercore-bridge",
+        "great_function-standard"
+      ]
+    },
+    "security_policy": {
+      "blacklist": [
+        "SHA3-512",
+        "SHA3_512",
+        "SHA3 512",
+        "os.execute",
+        "io.popen",
+        "io.open",
+        "package.loadlib",
+        "debug.sethook",
+        "require_native_module"
+      ],
+      "sandbox": true,
+      "cfi_enabled": true,
+      "offline_only": true,
+      "allow_network": false,
+      "max_cpu_millis": 120000,
+      "max_memory_bytes": 268435456,
+      "max_steps": 16
+    },
+    "parameters": [
+      {
+        "name": "session_id",
+        "type": "String",
+        "required": true,
+        "default_value": null
+      },
+      {
+        "name": "cybercore_mode",
+        "type": "String",
+        "required": true,
+        "default_value": "low_latency"
+      },
+      {
+        "name": "lua_template_path",
+        "type": "String",
+        "required": false,
+        "default_value": "vm/runtime/lua/templates/great_function_codegen.lua"
+      },
+      {
+        "name": "offline_window_hours",
+        "type": "Int",
+        "required": false,
+        "default_value": "72"
+      }
+    ],
+    "workflow": [
+      {
+        "step_id": "01_prepare_context",
+        "language": "Lua",
+        "component": "SandboxedLuaRuntime",
+        "script_path": "vm/runtime/lua/sandbox/context_prepare.lua",
+        "entry_point": "prepare_context",
+        "parameters": {
+          "session_id": "${session_id}",
+          "offline_window_hours": "${offline_window_hours}"
+        },
+        "expects": [],
+        "produces": [
+          "prepared_context"
+        ],
+        "timeout_millis": 500,
+        "retries": 0,
+        "halt_on_failure": true
+      },
+      {
+        "step_id": "02_generate_cybercore_payload",
+        "language": "Lua",
+        "component": "GreatFunctionLuaGenerator",
+        "script_path": "vm/runtime/lua/great_function_codegen.lua",
+        "entry_point": "generate_cybercore_payload",
+        "parameters": {
+          "session_id": "${session_id}",
+          "cybercore_mode": "${cybercore_mode}"
+        },
+        "expects": [
+          "prepared_context"
+        ],
+        "produces": [
+          "cybercore_payload"
+        ],
+        "timeout_millis": 1500,
+        "retries": 1,
+        "halt_on_failure": true
+      },
+      {
+        "step_id": "03_invoke_cybercore_brain",
+        "language": "Kotlin/Android",
+        "component": "CybercoreBrainFFIBridge",
+        "script_path": "core/cybercore/android/ffi/CybercoreBrainBridge.kt",
+        "entry_point": "invokeWithPayload",
+        "parameters": {
+          "session_id": "${session_id}",
+          "payload": "${cybercore_payload}",
+          "mode": "${cybercore_mode}"
+        },
+        "expects": [
+          "cybercore_payload"
+        ],
+        "produces": [
+          "cybercore_result"
+        ],
+        "timeout_millis": 9500,
+        "retries": 1,
+        "halt_on_failure": true
+      },
+      {
+        "step_id": "04_postprocess_in_lua",
+        "language": "Lua",
+        "component": "SandboxedLuaRuntime",
+        "script_path": "vm/runtime/lua/sandbox/postprocess_result.lua",
+        "entry_point": "postprocess_cybercore_result",
+        "parameters": {
+          "session_id": "${session_id}"
+        },
+        "expects": [
+          "cybercore_result"
+        ],
+        "produces": [
+          "postprocessed_result"
+        ],
+        "timeout_millis": 1500,
+        "retries": 0,
+        "halt_on_failure": true
+      }
+    ],
+    "output_specification": {
+      "format": "JSON-LD",
+      "schema_uri": "https://aletheion.schemas/core/hybrid/GreatFunctionResult.schema.json",
+      "content_type": "application/ld+json",
+      "envelope_type": "HybridKotlinLuaGreatFunctionEnvelope"
+    }
+  }
+}
