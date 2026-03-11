@@ -1,0 +1,49 @@
+network PhoenixPesticideEvents {
+    dimension epoch_utc: 0..(2^48 - 1)
+
+    dimension township: 1..60
+    dimension range: 1..60
+    dimension section: 1..36
+    dimension quarter: 0..3
+
+    axis phoenix_soil_series {
+        CasaGrande, Mohall, Avondale, Gilman, Mohave, Laveen, Glendale
+    }
+
+    axis tribal_scope {
+        None, JointStewardship, IndependentStewardship
+    }
+
+    table PesticideEventPhoenix {
+        key event_epoch_utc: epoch_utc
+        key township: township
+        key range: range
+        key section: section
+        key quarter: quarter
+
+        attr phoenix_soil: phoenix_soil_series
+        attr active_ingredient: text[64]
+        attr product_epa_reg_no: text[16]
+        attr application_method: text[16]
+        attr rate_value: u32
+        attr rate_unit: text[8]
+        attr total_area_sq_m: u32
+
+        attr applicator_epa_establishment_id: text[16]
+        attr operator_local_id: text[24]
+        attr tribal_scope: tribal_scope
+
+        attr fpic_tribal_code: text[4]
+        attr fpic_consent_epoch_utc: epoch_utc
+        attr fpic_consent_version: u16
+        attr fpic_on_device_only: bool
+    }
+
+    view PesticideEventPhoenix_Valid {
+        from PesticideEventPhoenix
+        where product_epa_reg_no != ""
+          and total_area_sq_m > 0
+          and section >= 1
+          and section <= 36
+    }
+}
