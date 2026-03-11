@@ -1,0 +1,43 @@
+network GreatFunctionsGrid {
+    dimension city_zones: 0..4095
+    dimension epochs: 0..(2^48 - 1)
+
+    axis class {
+        Signal, Flow, Topology, Policy, Ledger, Device, Civic, Custom
+    }
+
+    table GreatFnRegistryIndex {
+        key fn_id_city: u16
+        key fn_id_district: u16
+        key fn_id_block: u16
+        key fn_id_lane: u16
+        attr index: u32
+        attr class: class
+        attr ops_per_tick_hint: u16
+        attr city_scope: text[24]
+    }
+
+    stream GreatFnCallFlow {
+        key epoch: epochs
+        key city_zone: city_zones
+        attr fn_id_city: u16
+        attr fn_id_district: u16
+        attr fn_id_block: u16
+        attr fn_id_lane: u16
+        attr payload_scalar: u64
+        attr payload_vector: u32[4]
+        attr payload_grid: u16[8]
+        attr priority: u8
+    }
+
+    table GreatFnMetrics {
+        key fn_id_city: u16
+        key fn_id_district: u16
+        key fn_id_block: u16
+        key fn_id_lane: u16
+        attr oks: u64
+        attr warns: u64
+        attr errors: u64
+        attr orphans: u64
+    }
+}
