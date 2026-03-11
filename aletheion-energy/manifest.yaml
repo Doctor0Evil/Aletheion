@@ -1,0 +1,151 @@
+# Aletheion Energy & Solar Microgrid Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer (ENERGY)
+# Status: Canonical Reference for Phoenix Energy Systems
+
+layer_id: "aletheion-energy-phoenix-001"
+version: "1.0.0"
+description: "Energy & Solar Microgrid Layer for Phoenix Aletheion smart city. All solar, battery, trading, and grid operations must comply with this manifest."
+erm_layer: "ENERGY"
+
+solar_generation:
+  target_capacity_mw: 5000 # Phoenix metro solar target
+  panel_technologies:
+    - type: "MONOCRYSTALLINE"
+      efficiency_percent: 22.0
+      heat_tolerance_c: 85.0
+      deployment: "RESIDENTIAL"
+    - type: "BIFACIAL"
+      efficiency_percent: 27.0
+      heat_tolerance_c: 80.0
+      deployment: "UTILITY_SCALE"
+    - type: "SOLAR_CANOPY"
+      efficiency_percent: 20.0
+      heat_tolerance_c: 75.0
+      deployment: "PARKING_LOTS"
+  heat_derate_coefficient: -0.004 # -0.4%/°C above 25°C
+  dust_soiling_loss_monthly_percent: 4.0
+  cleaning_frequency_days: 30
+  monsoon_protection:
+    ip_rating_minimum: "IP65"
+    automatic_shutdown: true
+
+battery_storage:
+  target_capacity_mwh: 2000 # 4-hour duration at 500 MW
+  chemistry_types:
+    - type: "LITHIUM_IRON_PHOSPHATE"
+      cycle_life: 3000
+      operating_temp_range_c: [-20, 60]
+      thermal_runaway_threshold_c: 80.0
+      deployment: "GRID_SCALE"
+    - type: "FLOW_BATTERY"
+      cycle_life: 20000
+      operating_temp_range_c: [-10, 50]
+      deployment: "UTILITY_SCALE"
+    - type: "SODIUM_ION"
+      cycle_life: 5000
+      operating_temp_range_c: [-20, 70]
+      deployment: "RESIDENTIAL"
+  soc_operating_range:
+    minimum_percent: 20.0
+    maximum_percent: 90.0
+  thermal_management:
+    liquid_cooling: true
+    forced_air: true
+    emergency_discharge_temp_c: 75.0
+
+p2p_trading:
+  blockchain_enabled: true
+  pricing_model: "TIME_OF_USE"
+  rates_usd_kwh:
+    peak: 0.30 # 4-9 PM summer
+    off_peak: 0.10 # 9 PM-4 PM
+    super_off_peak: 0.05 # Night
+    export_credit: 0.12 # Net metering
+  transaction_fee_max_usd: 0.01
+  settlement_time_seconds: 60
+  indigenous_benefit_share_percent: 5.0
+  low_income_discount_percent: 50.0
+
+grid_management:
+  frequency_target_hz: 60.00
+  frequency_tolerance_hz: 0.05
+  voltage_target_v: 120.0
+  voltage_tolerance_percent: 5.0
+  max_transformer_load_percent: 90.0
+  renewable_target_percent: 100.0 # 100% renewable by 2035
+  peak_demand_mw: 8000 # Phoenix metro summer peak
+  demand_response:
+    enabled: true
+    incentive_usd_kwh: 0.50
+    peak_hours: "16:00-21:00"
+    peak_season: "JUNE_TO_SEPTEMBER"
+
+net_metering:
+  enabled: true
+  credit_ratio: 1.0 # 1:1 export credit
+  monthly_true_up: true
+  annual_expiration: true
+  community_solar_option: true
+  low_income_support: true
+
+interconnection_standards:
+  aps_compliant: true
+  srp_compliant: true
+  ieee_1547_compliant: true # DER interconnection
+  ul_1741_compliant: true # Inverter safety
+  anti_islanding_protection: true
+  fault_ride_through: true
+
+emergency_protocols:
+  extreme_heat:
+    cooling_priority: true
+    battery_discharge_mandatory: true
+    load_shedding_residential_minimized: true
+  grid_failure:
+    islanding_capable: true
+    critical_infrastructure_priority:
+      - hospitals
+      - water_reclamation
+      - cooling_centers
+      - emergency_services
+    battery_backup_hours: 72
+  monsoon:
+    automatic_disconnect: true
+    flood_protection: true
+    rapid_reconnection: true
+
+compliance_hooks:
+  ale_comp_core:
+    birth_sign_propagation: "ALL_TRANSACTIONS"
+    fpic_indigenous_territories: "ALL_ENERGY_INFRASTRUCTURE"
+    grid_stability_monitoring: "REAL_TIME"
+    thermal_safety_verification: "CONTINUOUS"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    public_dashboards: true
+    real_time_reporting: true
+
+ci_cd_requirements:
+  preflight_checks:
+    - "verify-solar-generation-standards"
+    - "verify-battery-thermal-safety"
+    - "verify-grid-frequency-compliance"
+    - "verify-p2p-trading-blockchain"
+    - "verify-fpic-territory-overlays"
+    - "verify-birthsign-propagation"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  hardware_in_loop_testing: true
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  solar_generation: "/aletheion-energy/solar/generation_management_engine.rs"
+  battery_storage: "/aletheion-energy/battery/storage_distribution_system.cpp"
+  p2p_trading: "/aletheion-energy/trading/p2p_energy_trading.aln"
+  grid_management: "/aletheion-energy/grid/load_balancing_engine.rs"
+  environmental_spec: "/aletheion-env/climate/integration_specs.md"
+
+# END OF ENERGY LAYER MANIFEST
