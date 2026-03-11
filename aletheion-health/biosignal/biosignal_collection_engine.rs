@@ -1,3 +1,11 @@
+/**
+ * ALETHEION HEALTH LAYER: BIOSIGNAL COLLECTION ENGINE
+ * File: 61/100
+ * Language: Rust
+ * Compliance: ALE-COMP-CORE, ALN-Blockchain Sovereignty, FPIC, Neurorights
+ * Context: Phoenix, AZ (Extreme Heat, Non-Wearable Bio-Integration)
+ */
+
 #![no_std]
 #![feature(alloc_error_handler)]
 extern crate alloc;
