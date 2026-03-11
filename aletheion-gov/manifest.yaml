@@ -1,0 +1,195 @@
+# Aletheion Governance & Civic Systems Layer Manifest
+# Version: 1.0.0
+# Compliance: ALE-COMP-CORE v1.0, ERM Layer (GOV)
+# Status: Canonical Reference for Phoenix Governance Systems
+
+layer_id: "aletheion-gov-phoenix-001"
+version: "1.0.0"
+description: "Governance & Civic Systems Layer for Phoenix Aletheion smart city. All voting, dispute resolution, policy, and participation systems must comply with this manifest."
+erm_layer: "GOV"
+
+liquid_democracy:
+  voting_age_minimum: 16
+  quorum_thresholds:
+    municipal: 0.50
+    neighborhood: 0.30
+    indigenous_consent: 0.67
+    policy_amendment: 0.67
+  delegation:
+    enabled: true
+    max_depth: 5
+    transparent_chains: true
+    revocable_anytime: true
+  privacy:
+    zero_knowledge_tallying: true
+    coercion_resistance: true
+    vote_secrecy: true
+    verifiable_results: true
+  indigenous_sovereignty:
+    fpic_required: true
+    recognized_territories:
+      - "AKIMEL_OODHAM_TERRITORY"
+      - "PIIPAASH_TERRITORY"
+      - "SALT_RIVER_RESERVATION"
+    veto_rights: true
+    co_design_required: true
+
+dispute_resolution:
+  tier_system:
+    tier_1:
+      name: "AI Mediation"
+      resolution_days: 7
+      binding: false
+    tier_2:
+      name: "Citizen Jury"
+      resolution_days: 14
+      jury_size: 12
+      binding: true
+    tier_3:
+      name: "Expert Arbitration"
+      resolution_days: 21
+      expert_panel_size: 5
+      binding: true
+    tier_4:
+      name: "Community Referendum"
+      resolution_days: 30
+      quorum_required: 0.30
+      binding: true
+  restorative_justice:
+    incarceration_prohibited: true
+    restitution_focus: true
+    community_service_option: true
+    reconciliation_priority: true
+  indigenous_peacemaking:
+    elder_participation: true
+    traditional_practices_integrated: true
+    akimel_peacemakers: true
+    piipaash_peacemakers: true
+  confidentiality:
+    zero_knowledge_evidence: true
+    pseudonymous_parties: true
+    public_outcomes: true
+
+policy_management:
+  versioning:
+    format: "MAJOR.MINOR.PATCH"
+    git_style: true
+    forward_compatible_only: true
+    rollback_prohibited: true
+    changelog_required: true
+  creation_process:
+    citizen_sponsorship_min: 1000
+    public_comment_days: 30
+    impact_simulation_required: true
+    indigenous_co_design: true
+    multilingual_accessibility: ["en", "es", "ood"]
+  amendment_types:
+    patch:
+      approval: "EXPERT_ARBITRATION"
+      public_comment_days: 7
+    minor:
+      approval: "CITIZEN_JURY"
+      public_comment_days: 14
+    major:
+      approval: "COMMUNITY_REFERENDUM"
+      public_comment_days: 30
+  emergency_protocol:
+    activation_timeline_hours: 72
+    sunset_days: 90
+    expert_panel_required: true
+    indigenous_notification: true
+    post_emergency_review: true
+
+citizen_participation:
+  action_types:
+    - "VOTE"
+    - "PETITION"
+    - "PUBLIC_COMMENT"
+    - "BUDGET_PROPOSAL"
+    - "POLICY_INITIATIVE"
+    - "COMMUNITY_MEETING"
+    - "VOLUNTEER_SERVICE"
+    - "CITIZEN_AUDIT"
+    - "GRIEVANCE_FILING"
+    - "INDIGENOUS_CONSULTATION"
+  accessibility:
+    wcag_level: "2.2_AAA"
+    multilingual: ["en", "es", "ood"]
+    offline_capable_hours: 72
+    screen_reader_optimized: true
+    keyboard_navigable: true
+  privacy:
+    zero_knowledge_submission: true
+    did_bound_identity: true
+    content_encryption: true
+    coercion_detection: true
+  indigenous_consultation:
+    fpic_required: true
+    elder_council_notification: true
+    traditional_knowledge_integration: true
+    benefit_sharing_percent: 5.0
+
+governance_charter:
+  articles:
+    - number: 1
+      title: "Citizen Rights"
+      sections: 5
+    - number: 2
+      title: "Indigenous Sovereignty"
+      sections: 5
+    - number: 3
+      title: "Ecological Stewardship"
+      sections: 5
+    - number: 4
+      title: "Economic Justice"
+      sections: 5
+  amendment_process:
+    citizen_initiative: true
+    sponsorship_required: 1000
+    referendum_threshold: 0.67
+    indigenous_veto: true
+
+audit_requirements:
+  immutable_logs: true
+  cryptographic_proofs: true
+  birth_sign_propagation: true
+  public_dashboards: true
+  real_time_reporting: true
+  quarterly_reviews: true
+  annual_charter_review: true
+
+compliance_hooks:
+  ale_comp_core:
+    birth_sign_propagation: "ALL_CIVIC_ACTIONS"
+    fpic_indigenous_territories: "ALL_TERRITORY_ACTIONS"
+    voting_integrity: "REAL_TIME"
+    dispute_confidentiality: "ZERO_KNOWLEDGE"
+    policy_impact_simulation: "PRE_IMPLEMENTATION"
+  audit_requirements:
+    immutable_logs: true
+    cryptographic_proofs: true
+    public_dashboards: true
+    real_time_reporting: true
+
+ci_cd_requirements:
+  preflight_checks:
+    - "verify-voting-cryptographic-integrity"
+    - "verify-dispute-confidentiality"
+    - "verify-policy-impact-simulation"
+    - "verify-civic-accessibility"
+    - "verify-fpic-territory-overlays"
+    - "verify-birthsign-propagation"
+  test_coverage_min: 0.90
+  documentation_ratio_min: 0.33
+  security_audit_frequency: "MONTHLY"
+
+references:
+  erm_layer_mappings: "/aletheion-core/architecture/erm/ERM_LAYER_MAPPINGS.md"
+  ale_comp_core_spec: "/aletheion-core/compliance/ALE_COMP_CORE_SPEC.md"
+  voting_engine: "/aletheion-gov/voting/liquid_democracy_engine.rs"
+  dispute_resolution: "/aletheion-gov/dispute/dispute_resolution_system.cpp"
+  policy_management: "/aletheion-gov/policy/policy_management_protocol.aln"
+  civic_platform: "/aletheion-gov/civic/citizen_participation_platform.js"
+  governance_charter: "/aletheion-gov/charter/governance_charter.md"
+
+# END OF GOVERNANCE LAYER MANIFEST
