@@ -1319,4 +1319,3 @@ engine.register_evacuee(evacuee).unwrap();
 let result = engine.run_smart_cycle(35.0, 200.0);
 assert!(result.is_ok());
 }
-}
