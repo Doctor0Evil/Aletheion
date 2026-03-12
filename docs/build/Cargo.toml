@@ -1,0 +1,60 @@
+# Aletheion Core Workspace Configuration
+# Status: Production | Security: PQ-Secure | Compliance: No-Blacklist
+[workspace]
+members = [
+"aletheion-core",
+"aletheion-sec",
+"aletheion-mob",
+"aletheion-agri",
+"aletheion-sov"
+]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "BioticTreaty-Compliant"
+authors = ["Aletheion Autonomous Factory"]
+
+[workspace.dependencies]
+# Post-Quantum Cryptography (NIST Standardized)
+pqcrypto = "0.1.0"
+dilithium = "0.1.0"
+kyber = "0.1.0"
+
+# Data Sovereignty & Identity
+did-document = "1.0.0"
+verifiable-credentials = "1.0.0"
+
+# Embedded & Real-Time
+no-std-compat = "0.4.0"
+embedded-hal = "0.2.7"
+cortex-m = "0.7.7"
+
+# Serialization (No JSON for critical paths)
+flatbuffers = "23.0.0"
+cbor4ii = "0.3.0"
+
+# Build Tools (No Python)
+cbindgen = "0.26.0"
+corrosion = "0.4.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
+panic = "unwind"
+
+# Blacklist Enforcement
+[workspace.metadata.blacklist]
+forbidden_crates = [
+"sha2", "blake3", "argon2", "python-sys", "pyo3"
+]
+forbidden_features = [
+"python-embed", "unsafe-alloc"
+]
