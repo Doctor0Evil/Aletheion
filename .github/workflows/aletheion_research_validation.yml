@@ -1,0 +1,22 @@
+name: Aletheion Research Validation
+
+on:
+  push:
+    paths:
+      - 'aletheion/tools/research/**'
+      - 'aletheion-agri/**'
+      - 'aletheion-env/**'
+
+jobs:
+  validate-research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Validate FPIC Records
+        run: cargo run --bin validate_fpic --manifest-path aletheion/tools/research/Cargo.toml
+      - name: Check Research Gap Status
+        run: cargo run --bin check_research_gaps --manifest-path aletheion/tools/research/Cargo.toml
+      - name: Generate Filler-Outputs
+        run: cargo run --bin generate_filler_outputs --manifest-path aletheion/tools/research/Cargo.toml
+      - name: Update Registry
+        run: cargo run --bin update_registry --manifest-path aletheion/tools/registry/Cargo.toml
