@@ -1,0 +1,34 @@
+// ALETHEION-SCHEMA MofWaterHarvestingSample
+// readiness: {{FILLER_READINESS}}
+// file_id: {{FILE_ID}}
+// research_gap_id: {{RESEARCH_GAP_ID}}
+// manifest_path: {{RESEARCH_MANIFEST_PATH}}
+
+class MofWaterHarvestingSample {
+    constructor(args = {}) {
+        this.sampleId = args.sampleId || null;
+        this.location = args.location || null;
+        this.relativeHumidity = args.relativeHumidity || null;
+        this.temperatureC = args.temperatureC || null;
+        this.energyInputWh = args.energyInputWh || null;
+        this.yieldLiters = args.yieldLiters || null;
+        this.metadata = args.metadata || {};
+    }
+
+    isValid() {
+        return false;
+    }
+}
+
+function estimateDailyYield(samples) {
+    return {
+        totalLiters: 0,
+        samplesProcessed: 0,
+        errors: ["UNIMPLEMENTED"],
+    };
+}
+
+module.exports = {
+    MofWaterHarvestingSample,
+    estimateDailyYield,
+};
