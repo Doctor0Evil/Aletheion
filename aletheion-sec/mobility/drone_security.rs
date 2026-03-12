@@ -1119,4 +1119,3 @@ let _ = engine.receive_telemetry(telemetry);
 let result = engine.run_smart_cycle();
 assert!(result.is_ok());
 }
-}
