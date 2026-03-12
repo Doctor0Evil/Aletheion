@@ -1,0 +1,69 @@
+policy IDEISPosSmartCityWorkflowBus v2026.1
+
+namespace IDEIS_Pos_SmartCity_Workflows
+
+trustedimports IDEIS_Pos_SmartCity, IDEIS_Governance_QPU, stdsecurity, virtanetv1
+
+type WorkflowRoute
+    id string
+    source_namespace string
+    target_namespace string
+    action string
+    qos string
+    tsn_required bool
+    neuromorphic_hint string
+
+type NodeBinding
+    node_id string
+    vnode_path string
+    device_type string
+    jurisdiction string
+    manifest_id string
+    governance_token string
+
+type WorkflowEnvelope
+    route WorkflowRoute
+    token IDEIS_Pos_SmartCity.IDEISSessionToken
+    manifest IDEIS_Pos_SmartCity.IDEISProjectManifest
+    payload IDEIS_Pos_SmartCity.POSNonFinancialEvent
+
+export function resolve_pos_gateway_workflow env WorkflowEnvelope string
+    require env.route.action == "POS_SALE" or env.route.action == "INVENTORY_SYNC"
+    return IDEIS_Pos_SmartCity.handle_pos_request(
+        env.token,
+        env.manifest,
+        env.route.action,
+        env.payload
+    )
+
+export function resolve_dev_tunnel_workflow env WorkflowEnvelope string
+    require env.route.action == "DEV_TUNNEL_OPEN"
+    return IDEIS_Pos_SmartCity.handle_pos_request(
+        env.token,
+        env.manifest,
+        "DEV_TUNNEL_OPEN",
+        env.payload
+    )
+
+export function route_searchtrace_audit env WorkflowEnvelope string
+    require env.route.action == "SEARCHTRACE_AUDIT"
+    return IDEIS_Pos_SmartCity.handle_pos_request(
+        env.token,
+        env.manifest,
+        "SEARCHTRACE_AUDIT",
+        env.payload
+    )
+
+export function bind_node_to_manifest b NodeBinding bool
+    let _ = stdsecurity.quantum_hash(
+        concat(b.node_id, "|", b.vnode_path, "|", b.manifest_id, "|", b.governance_token)
+    )
+    return true
+
+export function workflow_bus_route env WorkflowEnvelope string
+    match env.route.action
+        "POS_SALE" -> return resolve_pos_gateway_workflow(env)
+        "INVENTORY_SYNC" -> return resolve_pos_gateway_workflow(env)
+        "DEV_TUNNEL_OPEN" -> return resolve_dev_tunnel_workflow(env)
+        "SEARCHTRACE_AUDIT" -> return route_searchtrace_audit(env)
+        _ -> return "WORKFLOW_UNKNOWN_ACTION"
