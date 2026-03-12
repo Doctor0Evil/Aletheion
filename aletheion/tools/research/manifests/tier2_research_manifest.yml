@@ -1,0 +1,36 @@
+tier2_research:
+  version: 1.0.0
+  last_updated: 2026-03-13T00:00:00Z
+  
+  research_gaps:
+    - id: RG-001
+      name: Maricopa_County_Soil_Data
+      status: pending
+      owner: Ag_Team
+      deadline: 2026-04-10
+      affected_files: [151, 152, 161, 162]
+      
+    - id: RG-002
+      name: Piipaash_FPIC_Consultation
+      status: pending
+      owner: Treaty_Office
+      deadline: 2026-05-01
+      affected_files: [165, 166, 190]
+      
+    - id: RG-003
+      name: MOF_Water_Harvesting_Validation
+      status: pending
+      owner: Env_Team
+      deadline: 2026-04-20
+      affected_files: [153, 154]
+  
+  filler_outputs:
+    - file_id: 151
+      path: aletheion-agri/soil/water/soil_microbiome.rs
+      status: incomplete_pending_research
+      research_dependency: RG-001
+      
+    - file_id: 165
+      path: aletheion-agri/crops/ecology/indigenous_agriculture.rs
+      status: incomplete_pending_fpic
+      research_dependency: RG-002
