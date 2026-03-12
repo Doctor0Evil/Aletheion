@@ -1,0 +1,202 @@
+policy IDEISPosSmartCityCore v2026.1
+
+namespace IDEIS_Pos_SmartCity
+
+trustedimports stdsecurity, stdquantum, sysneurodefense, systemregex, virtanetv1, aln.prometheus.v01
+
+type IDEISProjectManifest
+    id string
+    name string
+    repos list[string]
+    jurisdictions list[string]
+    actions list[string]
+    checksum string
+
+type IDEISJurisdictionProfile
+    code string
+    name string
+    region string
+    regulations list[string]
+    policy_profiles list[string]
+
+type IDEISSessionToken
+    session_id string
+    subject_did string
+    device_id string
+    issued_at timestamp
+    expires_at timestamp
+    jurisdiction string
+    policy_profile string
+    auth_context string
+
+type POSNonFinancialEvent
+    event_id string
+    sku string
+    quantity int
+    actor_did string
+    device_id string
+    timestamp timestamp
+    policy_profile string
+
+type SearchTraceRecord
+    trace_id string
+    source_policy string
+    action string
+    payload_hash string
+    jurisdiction string
+    created_at timestamp
+    level string
+    immutable_cursor string
+
+type DevTunnelDescriptor
+    tunnel_id string
+    source_repo string
+    target_repo string
+    source_jurisdiction string
+    target_jurisdiction string
+    created_at timestamp
+    expires_at timestamp
+    policy_profile string
+
+type InventoryDelta
+    sku string
+    quantity int
+    origin_device string
+    origin_did string
+    event_id string
+    ts timestamp
+
+type SwarmInventoryAggregate
+    sku string
+    total_quantity int
+    node_count int
+    last_update timestamp
+
+const LEGAL_MANDATE_URBAN_SYSTEMS string =
+    "PII must comply with GDPR Article 5, CCPA, NIST SP 800-53, PCI-DSS, ISO27001 using explicit consent, immutable audit, recurring ethics, and no tradable or gambling semantics."
+
+const TARGET_COMPLIANCE_SCORE float = 0.99
+
+export function validate_session_token tok IDEISSessionToken, m IDEISProjectManifest unit
+    require stdsecurity.is_not_expired(tok.expires_at)
+    require stdsecurity.match_device(tok.device_id)
+    require virtanetv1.jurisdiction_allowed(tok.jurisdiction, m.jurisdictions)
+    require contains(m.actions, tok.policy_profile)
+
+export function compute_manifest_checksum m IDEISProjectManifest string
+    let flat = concat(m.id, "|", m.name, "|", join(m.repos, ","), "|", join(m.jurisdictions, ","), "|", join(m.actions, ","))
+    return stdsecurity.quantum_hash(flat)
+
+export function verify_manifest_integrity m IDEISProjectManifest unit
+    let calculated = compute_manifest_checksum(m)
+    require calculated == m.checksum
+
+export function check_action_compliance m IDEISProjectManifest, action string bool
+    if !contains(m.actions, action)
+        return false
+    if systemregex.contains_pattern(action, "PAY|TOKEN|CREDIT|DEBIT|WAGER|BET")
+        return false
+    return aln.prometheus.v01.legal_score(action, LEGAL_MANDATE_URBAN_SYSTEMS) >= TARGET_COMPLIANCE_SCORE
+
+export function safe_pos_record m IDEISProjectManifest, payload POSNonFinancialEvent string
+    let _ = verify_manifest_integrity(m)
+    let _ = ensure_non_financial_semantics(payload)
+    let _ = SearchTrace_append_rowimmutable("POSNonFinancialEvent", payload.event_id, payload)
+    return "POS_NONFINANCIAL_OK"
+
+export function swarm_aggregate_inventory m IDEISProjectManifest, tok IDEISSessionToken, payload POSNonFinancialEvent string
+    let _ = validate_session_token(tok, m)
+    let delta = event_to_delta(payload)
+    let aggregate = swarm_reduce_inventory(m.repos, delta)
+    let _ = SearchTrace_append_rowimmutable("INVENTORY_SYNC", payload.event_id, aggregate)
+    return "INVENTORY_SYNC_OK"
+
+export function open_cross_repo_tunnel m IDEISProjectManifest, tok IDEISSessionToken, payload POSNonFinancialEvent string
+    let _ = validate_session_token(tok, m)
+    let desc = build_dev_tunnel_descriptor(m, tok)
+    let _ = virtanetv1.tsnsdn_open_zero_trust_tunnel(desc.tunnel_id, desc.source_repo, desc.target_repo, desc.policy_profile)
+    let _ = SearchTrace_append_rowimmutable("DEV_TUNNEL_OPEN", desc.tunnel_id, desc)
+    return "DEV_TUNNEL_OPEN_OK"
+
+export function immutable_searchtrace_log m IDEISProjectManifest, payload POSNonFinancialEvent string
+    let rec = build_searchtrace_record("SEARCHTRACE_AUDIT", m, payload.event_id)
+    let _ = SearchTrace_append_rowimmutable("SEARCHTRACE_AUDIT", rec.trace_id, rec)
+    return "SEARCHTRACE_AUDIT_OK"
+
+export function handle_pos_request tok IDEISSessionToken, m IDEISProjectManifest, action string, payload POSNonFinancialEvent string
+    validate_session_token(tok, m)
+    verify_manifest_integrity(m)
+    if !check_action_compliance(m, action)
+        return "Action blocked by IDE-IS compliance engine."
+    match action
+        "POS_SALE" -> return safe_pos_record(m, payload)
+        "INVENTORY_SYNC" -> return swarm_aggregate_inventory(m, tok, payload)
+        "DEV_TUNNEL_OPEN" -> return open_cross_repo_tunnel(m, tok, payload)
+        "SEARCHTRACE_AUDIT" -> return immutable_searchtrace_log(m, payload)
+        _ -> return "Unknown action"
+
+function ensure_non_financial_semantics payload POSNonFinancialEvent unit
+    require payload.quantity != 0
+    require !systemregex.contains_pattern(payload.sku, "TOKEN|COIN|LOTTERY|BET|ODDS")
+    require !systemregex.contains_pattern(payload.policy_profile, "FINANCE|DERIVATIVE|FOREX")
+
+function event_to_delta payload POSNonFinancialEvent InventoryDelta
+    return InventoryDelta{
+        sku = payload.sku,
+        quantity = payload.quantity,
+        origin_device = payload.device_id,
+        origin_did = payload.actor_did,
+        event_id = payload.event_id,
+        ts = payload.timestamp
+    }
+
+function swarm_reduce_inventory repos list[string], delta InventoryDelta SwarmInventoryAggregate
+    let partials = virtanetv1.swarm_broadcast_reduce("INVENTORY", repos, delta)
+    return fold_inventory_partials(partials)
+
+function fold_inventory_partials partials list[SwarmInventoryAggregate] SwarmInventoryAggregate
+    let total_q = sum(map(partials, p -> p.total_quantity))
+    let nodes = len(partials)
+    let last_ts = max_timestamp(map(partials, p -> p.last_update))
+    return SwarmInventoryAggregate{
+        sku = if len(partials) > 0 then partials[0].sku else "",
+        total_quantity = total_q,
+        node_count = nodes,
+        last_update = last_ts
+    }
+
+function build_dev_tunnel_descriptor m IDEISProjectManifest, tok IDEISSessionToken DevTunnelDescriptor
+    let tid = stdsecurity.random_ulid()
+    let src_repo = head(m.repos)
+    let tgt_repo = virtanetv1.select_dev_tunnel_target(m.repos)
+    let now = stdsecurity.now()
+    return DevTunnelDescriptor{
+        tunnel_id = tid,
+        source_repo = src_repo,
+        target_repo = tgt_repo,
+        source_jurisdiction = tok.jurisdiction,
+        target_jurisdiction = tok.jurisdiction,
+        created_at = now,
+        expires_at = stdsecurity.add_minutes(now, 90),
+        policy_profile = tok.policy_profile
+    }
+
+function build_searchtrace_record action string, m IDEISProjectManifest, correlation string SearchTraceRecord
+    let now = stdsecurity.now()
+    let tid = stdsecurity.random_ulid()
+    let ph = stdsecurity.quantum_hash(concat(m.id, "|", action, "|", correlation))
+    let cursor = SearchTrace_next_cursor()
+    return SearchTraceRecord{
+        trace_id = tid,
+        source_policy = "IDEISPosSmartCityCore",
+        action = action,
+        payload_hash = ph,
+        jurisdiction = join(m.jurisdictions, ","),
+        created_at = now,
+        level = "INFO",
+        immutable_cursor = cursor
+    }
+
+external function SearchTrace_append_rowimmutable topic string, key string, payload any unit
+external function SearchTrace_next_cursor string
+external function max_timestamp xs list[timestamp] timestamp
