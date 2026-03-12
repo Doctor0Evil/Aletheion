@@ -1,0 +1,28 @@
+policy IDEISDevTunnelWorkflow v2026.1
+
+namespace IDEIS_DevTunnel_QPU
+
+trustedimports IDEIS_Pos_SmartCity_Workflows, IDEIS_Pos_SmartCity, stdsecurity, virtanetv1
+
+type DevTunnelWorkflowRequest
+    route_id string
+    manifest IDEIS_Pos_SmartCity.IDEISProjectManifest
+    token IDEIS_Pos_SmartCity.IDEISSessionToken
+    payload IDEIS_Pos_SmartCity.POSNonFinancialEvent
+
+export function open_manifest_tunnel r DevTunnelWorkflowRequest string
+    let env = IDEIS_Pos_SmartCity_Workflows.WorkflowEnvelope{
+        route = IDEIS_Pos_SmartCity_Workflows.WorkflowRoute{
+            id = r.route_id,
+            source_namespace = "IDEIS_Pos_SmartCity",
+            target_namespace = "IDEIS_DevTunnel_QPU",
+            action = "DEV_TUNNEL_OPEN",
+            qos = "HEI0",
+            tsn_required = false,
+            neuromorphic_hint = "NONE"
+        },
+        token = r.token,
+        manifest = r.manifest,
+        payload = r.payload
+    }
+    return IDEIS_Pos_SmartCity_Workflows.workflow_bus_route(env)
