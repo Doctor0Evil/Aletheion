@@ -1,0 +1,35 @@
+-- ALETHEION-SCHEMA SoilMicrobiomeData
+-- readiness: {{FILLER_READINESS}}
+-- file_id: {{FILE_ID}}
+-- research_gap_id: {{RESEARCH_GAP_ID}}
+-- manifest_path: {{RESEARCH_MANIFEST_PATH}}
+
+local SoilMicrobiomeData = {}
+SoilMicrobiomeData.__index = SoilMicrobiomeData
+
+function SoilMicrobiomeData.new(args)
+    local instance = {
+        sample_id = args and args.sample_id or nil,
+        location = args and args.location or nil,
+        depth_cm = args and args.depth_cm or nil,
+        moisture_content = args and args.moisture_content or nil,
+        ph = args and args.ph or nil,
+        organic_matter_pct = args and args.organic_matter_pct or nil,
+        metadata = args and args.metadata or {},
+    }
+    setmetatable(instance, SoilMicrobiomeData)
+    return instance
+end
+
+function SoilMicrobiomeData:is_valid()
+    return false
+end
+
+local function process_soil_sample(sample)
+    return nil, "UNIMPLEMENTED"
+end
+
+return {
+    SoilMicrobiomeData = SoilMicrobiomeData,
+    process_soil_sample = process_soil_sample,
+}
