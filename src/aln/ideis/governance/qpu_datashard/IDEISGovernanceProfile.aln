@@ -1,0 +1,43 @@
+policy IDEISGovernanceProfile v2026.1
+
+namespace IDEIS_Governance_QPU
+
+type GovernanceToken
+    token_id string
+    role string
+    issued_to_did string
+    issued_at timestamp
+    expires_at timestamp
+    revocation_cursor string
+
+type GovernanceRoleWeights
+    maintainer_weight int
+    contributor_weight int
+    auditor_weight int
+
+const HEI_TIER0_ROLES GovernanceRoleWeights = GovernanceRoleWeights{
+    maintainer_weight = 5,
+    contributor_weight = 3,
+    auditor_weight = 4
+}
+
+export function assign_maintainer_token did string GovernanceToken
+    return new_token("MAINTAINER", did)
+
+export function assign_contributor_token did string GovernanceToken
+    return new_token("CONTRIBUTOR", did)
+
+export function assign_auditor_token did string GovernanceToken
+    return new_token("AUDITOR", did)
+
+function new_token role string, did string GovernanceToken
+    let now = stdsecurity.now()
+    let tid = stdsecurity.random_ulid()
+    return GovernanceToken{
+        token_id = tid,
+        role = role,
+        issued_to_did = did,
+        issued_at = now,
+        expires_at = stdsecurity.add_days(now, 365),
+        revocation_cursor = ""
+    }
