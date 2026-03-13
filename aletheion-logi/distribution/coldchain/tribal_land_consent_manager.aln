@@ -1,0 +1,95 @@
+// aletheion-logi/distribution/coldchain/tribal_land_consent_manager.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 202
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-002 (Piipaash FPIC Consultation)
+// DEPENDENCY_TYPE: Free, Prior, Informed Consent
+// ESTIMATED_UNBLOCK: 2026-05-01
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Tribal Land Distribution Consent Management System
+// Compliance: Akimel O'odham & Piipaash Sovereignty
+// Security: PQ-Secure Consent Verification
+
+schema Distribution_Consent_Record {
+  field consent_id           : [u8; 32];
+  field tribe_name           : String;      // "Akimel O'odham" or "Piipaash"
+  field territory_id         : String;      // "GILA-RIVER-01", "SALT-RIVER-02"
+  field fpic_record_id       : [u8; 32];    // MANDATORY
+  field distribution_type    : Enum<Food, Water, Medical, Emergency>;
+  field vehicle_access       : Vec<VehiclePermit>;
+  field time_restrictions    : Vec<TimeWindow>;
+  field data_sharing_limits  : Vec<DataRestriction>;
+  field tribal_signatory     : [u8; 64];    // PQ-Signature
+  field city_signatory       : [u8; 64];    // PQ-Signature
+  field status               : Enum<Pending, Granted, Denied, Revoked, Expired>;
+  field issue_date           : Instant;
+  field expiry_date          : Instant;
+  field renewal_required     : Bool;
+}
+
+schema VehiclePermit {
+  field permit_id            : [u8; 32];
+  field vehicle_type         : String;      // "EV_Truck", "Drone", "Cargo_Bike"
+  field emission_standard    : String;      // "Zero-Emission" required
+  field driver_id            : [u8; 32];
+  field background_check     : Bool;
+  field tribal_escort_required : Bool;
+}
+
+schema TimeWindow {
+  field start_time           : Instant;
+  field end_time             : Instant;
+  field days_of_week         : Vec<String>;
+  field seasonal_restrictions: Vec<String>; // e.g., "No_Monsoon_Season"
+}
+
+schema DataRestriction {
+  field data_type            : String;      // "Location", "Cargo", "Recipient"
+  field retention_period_days: u32;
+  field sharing_allowed      : Bool;
+  field encryption_required  : Bool;
+  field tribal_audit_right   : Bool;       // Tribe can audit data usage
+}
+
+rule FPIC_Mandatory_For_Distribution_Consent(consent: Distribution_Consent_Record) {
+  if (consent.tribe_name == "Akimel O'odham" || consent.tribe_name == "Piipaash") {
+    assert consent.fpic_record_id != null
+      else "FPIC Consultation Record Required for Distribution Consent";
+    assert consent.status == "Granted"
+      else "Distribution Consent Invalid without Granted FPIC Status";
+    assert consent.data_sharing_limits.tribal_audit_right == true
+      else "Tribal Audit Rights Must Be Preserved";
+  }
+}
+
+rule Zero_Emission_Vehicle_Requirement(consent: Distribution_Consent_Record, vehicle: VehiclePermit) {
+  // Environmental protection on Indigenous lands
+  if (consent.territory_id.contains("GILA-RIVER") || consent.territory_id.contains("SALT-RIVER")) {
+    assert vehicle.emission_standard == "Zero-Emission"
+      else "Only Zero-Emission Vehicles Allowed on Tribal Lands";
+    assert vehicle.tribal_escort_required == true
+      else "Tribal Escort Required for Non-Tribal Drivers";
+  }
+}
+
+rule Data_Sovereignty_Protection(consent: Distribution_Consent_Record, restriction: DataRestriction) {
+  // Indigenous data ownership
+  assert restriction.encryption_required == true
+    else "All Tribal Land Data Must Be PQ-Secure Encrypted";
+  assert restriction.tribal_audit_right == true
+    else "Tribe Must Retain Audit Rights Over Data Usage";
+  assert restriction.retention_period_days <= 90
+    else "Data Retention Cannot Exceed 90 Days Without Renewal";
+}
+
+rule Seasonal_Monsoon_Restriction(consent: Distribution_Consent_Record, window: TimeWindow) {
+  // Monsoon safety (Aug-Sept flash flood risk)
+  if (window.seasonal_restrictions.contains("No_Monsoon_Season")) {
+    assert window.days_of_week.not_contains("Saturday") // Peak monsoon day
+      else "Distribution Restricted During Peak Monsoon Periods";
+  }
+}
+
+// End of File: tribal_land_consent_manager.aln
