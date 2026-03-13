@@ -1,0 +1,108 @@
+// aletheion-sec/agri/indigenous/cultural_site_protection.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 221
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-002 (Piipaash FPIC Consultation)
+// DEPENDENCY_TYPE: Free, Prior, Informed Consent
+// ESTIMATED_UNBLOCK: 2026-05-01
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Indigenous Cultural Site Protection & Preservation System
+// Compliance: Akimel O'odham & Piipaash Cultural Heritage Rights
+// Security: PQ-Secure Site Registry with Access Control
+
+schema Cultural_Site_Record {
+  field site_id              : [u8; 32];
+  field site_name            : String;      // Indigenous name (O'odham/Piipaash)
+  field site_type            : Enum<Archaeological, Ceremonial, Burial, Historical, Natural>;
+  field tribe_name           : String;      // "Akimel O'odham" or "Piipaash"
+  field territory_id         : String;      // "GILA-RIVER-01", "SALT-RIVER-02"
+  field fpic_record_id       : [u8; 32];    // MANDATORY
+  field coordinates_geo      : [f64; 2];    // Protected (not public)
+  field boundary_radius_m    : f32;         // Protection buffer zone
+  field access_level         : Enum<Public, Restricted, Sacred, Closed>;
+  field knowledge_keepers    : Vec<[u8; 32]>; // Authorized Indigenous elders
+  field tribal_signatory     : [u8; 64];    // PQ-Signature
+  field city_signatory       : [u8; 64];    // PQ-Signature
+  field status               : Enum<Active, Protected, Under_Review, Violated>;
+  field registration_date    : Instant;
+  field last_survey_date     : Option<Instant>;
+}
+
+schema Site_Violation_Report {
+  field violation_id         : [u8; 32];
+  field site_id              : [u8; 32];
+  field violation_type       : Enum<Unauthorized_Entry, Damage, Looting, Development, Desecration>;
+  field severity             : Enum<Low, Medium, High, Critical>;
+  field timestamp            : Instant;
+  field reporter_id          : [u8; 32];
+  field evidence_hash        : [u8; 64];    // PQ-Hash of photos/documents
+  field tribal_authority_notified : Bool;
+  field law_enforcement_notified : Bool;
+  field remediation_status   : Enum<Pending, In_Progress, Resolved, Unresolved>;
+}
+
+schema Protection_Permit {
+  field permit_id            : [u8; 32];
+  field site_id              : [u8; 32];
+  field permit_type          : Enum<Research, Preservation, Ceremonial, Education>;
+  field holder_id            : [u8; 32];
+  field holder_affiliation   : String;      // Tribe, University, Museum
+  field start_date           : Instant;
+  field end_date             : Instant;
+  field activities_allowed   : Vec<String>;
+  field tribal_escort_required : Bool;
+  field fpic_verified        : Bool;
+  field status               : Enum<Pending, Granted, Denied, Revoked, Expired>;
+}
+
+rule FPIC_Mandatory_For_Cultural_Site(site: Cultural_Site_Record) {
+  // Indigenous cultural sites require FPIC consent
+  if (site.tribe_name == "Akimel O'odham" || site.tribe_name == "Piipaash") {
+    assert site.fpic_record_id != null
+      else "FPIC Consultation Record Required for Cultural Site Registration";
+    assert site.tribal_signatory != null
+      else "Tribal Signatory Required for Cultural Site Protection";
+    assert site.access_level != "Public" || site.knowledge_keepers.len() > 0
+      else "Public Cultural Sites Must Have Designated Knowledge Keepers";
+  }
+}
+
+rule Sacred_Site_Access_Restriction(site: Cultural_Site_Record, permit: Protection_Permit) {
+  // Sacred sites have highest protection level
+  if (site.access_level == "Sacred" || site.access_level == "Closed") {
+    assert permit.permit_type == "Ceremonial" || permit.permit_type == "Preservation"
+      else "Sacred Sites Only Allow Ceremonial or Preservation Permits";
+    assert permit.tribal_escort_required == true
+      else "Sacred Sites Require Tribal Escort at All Times";
+    assert permit.holder_affiliation.contains(site.tribe_name)
+      else "Sacred Site Access Restricted to Tribal Members";
+  }
+}
+
+rule Violation_Response_Protocol(violation: Site_Violation_Report) {
+  // Ensure rapid response to cultural site violations
+  if (violation.severity == "Critical" || violation.severity == "High") {
+    assert violation.tribal_authority_notified == true
+      else "Tribal Authorities Must Be Notified of High-Severity Violations";
+    assert violation.remediation_status != "Unresolved"
+      else "High-Severity Violations Cannot Remain Unresolved";
+  }
+  if (violation.violation_type == "Looting" || violation.violation_type == "Desecration") {
+    assert violation.law_enforcement_notified == true
+      else "Law Enforcement Must Be Notified of Criminal Violations";
+  }
+}
+
+rule Development_Buffer_Zone(site: Cultural_Site_Record, development_proposal: Development_Plan) {
+  // Protect cultural sites from nearby development
+  if (development_proposal.distance_from_site_m < site.boundary_radius_m) {
+    assert development_proposal.status == "Denied"
+      else "Development Within Cultural Site Buffer Zone Forbidden";
+    assert development_proposal.tribal_review_completed == true
+      else "Tribal Review Required for Near-Site Development Proposals";
+  }
+}
+
+// End of File: cultural_site_protection.aln
