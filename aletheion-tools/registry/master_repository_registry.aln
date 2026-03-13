@@ -1,0 +1,71 @@
+// aletheion-tools/registry/master_repository_registry.aln
+// FILE_ID: 241
+// STATUS: PRODUCTION_READY
+// COMPLIANCE: Repository Integrity, Dependency Tracking
+// SECURITY: PQ-Secure Registry Hash
+
+// Schema: Master Repository Registry for Aletheion Smart City
+// Purpose: Single Source of Truth for All 250+ Tier 2 Files
+// Integration: Links All Modules (Agri, Logi, Sec, Env, Tools)
+
+schema Repository_File_Entry {
+  field file_id              : u32;
+  field file_path            : String;
+  field language             : Enum<Rust, Lua, Javascript, Kotlin, Cpp, ALN>;
+  field status               : Enum<Production, Filler, Deprecated>;
+  field research_gap_id      : Option<String>;
+  field compliance_flags     : Vec<ComplianceFlag>;
+  field dependency_ids       : Vec<u32>;
+  field pq_hash              : [u8; 64];
+  field last_modified        : Instant;
+  field author_id            : [u8; 32];
+}
+
+schema ComplianceFlag {
+  field flag_type            : Enum<FPIC, BioticTreaty, Neurorights, Equity, Safety>;
+  field verified             : Bool;
+  field verifier_id          : [u8; 32];
+  field verification_date    : Instant;
+}
+
+schema Repository_Manifest {
+  field manifest_version     : String;      // "2.0.0"
+  field total_files          : u32;         // 250
+  field production_ready     : u32;
+  field structural_fillers   : u32;
+  field research_gaps_open   : u32;
+  field tier_level           : u32;         // 2
+  field city_target          : String;      // "Phoenix_AZ"
+  field indigenous_territory : String;      // "Akimel_O'odham_Piipaash"
+  field registry_signature   : [u8; 64];    // PQ-Signature
+}
+
+rule Repository_Integrity_Check(entry: Repository_File_Entry) {
+  // Ensure every file is tracked
+  assert entry.file_id > 0
+    else "File ID Must Be Positive";
+  assert entry.file_path.contains("aletheion-")
+    else "File Path Must Be Within Aletheion Namespace";
+  assert entry.pq_hash != null
+    else "Every File Must Have PQ-Secure Hash";
+}
+
+rule Compliance_Verification_Required(entry: Repository_File_Entry) {
+  // Ensure compliance flags are set for all files
+  assert entry.compliance_flags.len() >= 1
+    else "Every File Must Have At Least One Compliance Flag";
+  if (entry.file_path.contains("indigenous")) {
+    assert entry.compliance_flags.contains(FPIC)
+      else "Indigenous Modules Must Have FPIC Compliance Flag";
+  }
+}
+
+rule Research_Gap_Tracking(entry: Repository_File_Entry) {
+  // Ensure filler files track their research dependencies
+  if (entry.status == "Filler") {
+    assert entry.research_gap_id != null
+      else "Filler Files Must Track Research Gap ID";
+  }
+}
+
+// End of File: master_repository_registry.aln
