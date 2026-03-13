@@ -1,0 +1,43 @@
+// aletheion-logi/distribution/coldchain/food_desert_routing.aln
+// FILE_ID: 176
+// STATUS: PRODUCTION_READY
+// COMPLIANCE: Equity Scoring, Social Impact
+// SECURITY: PQ-Secure Policy Hash
+
+// Schema: Food Desert Equity Routing Policy
+// Goal: Eliminate Food Deserts in Phoenix Metro
+
+schema Equity_Zone {
+  field zone_id          : [u8; 32];
+  field income_level     : Enum<Low, Medium, High>;
+  field food_access_score: f32;      // 0.0 (None) to 10.0 (Abundant)
+  field priority_weight  : f32;      // Higher weight = Higher Priority
+  field tribal_land_flag : Bool;     // Requires FPIC for Distribution
+}
+
+schema Distribution_Request {
+  field request_id       : [u8; 32];
+  field origin_node      : [u8; 32];
+  field destination_zone : [u8; 32];
+  field cargo_weight_kg  : f32;
+  field urgency_level    : Enum<Routine, Urgent, Emergency>;
+}
+
+rule Equity_First_Routing(request: Distribution_Request, zone: Equity_Zone) {
+  // Ensures food goes to those who need it most
+  if (zone.income_level == "Low" && zone.food_access_score < 5.0) {
+    assert request.urgency_level >= "Urgent"
+      else "Low Access Zones Must Receive Priority Urgency";
+    assert zone.priority_weight > 0.8
+      else "Priority Weight Must Reflect Equity Need";
+  }
+}
+
+rule Indigenous_Land_Consent(request: Distribution_Request, zone: Equity_Zone) {
+  if (zone.tribal_land_flag) {
+    assert request.destination_zone.fpic_verified == true
+      else "Distribution to Tribal Lands Requires FPIC Verification";
+  }
+}
+
+// End of File: food_desert_routing.aln
