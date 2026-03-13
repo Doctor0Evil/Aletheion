@@ -1,0 +1,86 @@
+// aletheion-sec/agri/indigenous/biosecurity_border_control.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 212
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-BIO-002 (Biosecurity Inspection Protocol)
+// DEPENDENCY_TYPE: Border Control Schema
+// ESTIMATED_UNBLOCK: 2026-04-20
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Biosecurity Border Control for Agricultural Products
+// Purpose: Prevent Invasive Species & Pathogen Introduction
+// Compliance: Tribal Land Protection, BioticTreaty Ecosystem Defense
+
+schema Biosecurity_Inspection_Record {
+  field inspection_id      : [u8; 32];
+  field entry_point_id     : [u8; 32];      // Border crossing, distribution center
+  field inspector_id       : [u8; 32];
+  field timestamp          : Instant;
+  field cargo_type         : String;        // "Plants", "Seeds", "Soil", "Equipment"
+  field origin_location    : String;        // Country, State, or Tribal Territory
+  field destination_zone   : [u8; 32];
+  field inspection_result  : Enum<Pass, Fail, Quarantine, Conditional>;
+  field pathogens_detected : Vec<PathogenRecord>;
+  field tribal_land_flag   : Bool;
+  field fpic_verification  : Option<[u8; 32]>;
+  field sovereignty_proof  : [u8; 64];      // PQ-Signature
+}
+
+schema PathogenRecord {
+  field pathogen_id        : [u8; 32];
+  field pathogen_name      : String;        // e.g., "Phytophthora_ramorum"
+  field risk_level         : Enum<Low, Medium, High, Critical>;
+  field quarantine_required: Bool;
+  field treatment_available: Bool;
+  field native_to_region   : Bool;          // Non-native = higher risk
+}
+
+schema Quarantine_Order {
+  field order_id           : [u8; 32];
+  field inspection_id      : [u8; 32];
+  field quarantine_zone    : [u8; 32];
+  field start_date         : Instant;
+  field end_date           : Option<Instant>;
+  field monitored_by       : [u8; 32];
+  field tribal_authority   : Bool;          // Tribal Biosecurity Office involvement
+  field status             : Enum<Active, Resolved, Violated>;
+}
+
+rule Indigenous_Land_Biosecurity_Priority(record: Biosecurity_Inspection_Record) {
+  // Stricter biosecurity for Indigenous territories
+  if (record.tribal_land_flag == true) {
+    assert record.fpic_verification != null
+      else "FPIC Verification Required for Tribal Land Biosecurity Inspection";
+    assert record.inspection_result != "Pass" || record.pathogens_detected.len() == 0
+      else "Tribal Land Entry Denied: Pathogens Detected";
+  }
+}
+
+rule Non_Native_Pathogen_Quarantine(record: Biosecurity_Inspection_Record, pathogen: PathogenRecord) {
+  // Automatic quarantine for non-native pathogens
+  if (pathogen.native_to_region == false && pathogen.risk_level == "High") {
+    assert record.inspection_result == "Quarantine"
+      else "Non-Native High-Risk Pathogen Requires Mandatory Quarantine";
+  }
+}
+
+rule Tribal_Biosecurity_Authority(quarantine: Quarantine_Order) {
+  // Ensure Tribal Biosecurity Office has authority on tribal lands
+  if (quarantine.tribal_authority == true) {
+    assert quarantine.monitored_by.tribal_certified == true
+      else "Tribal Biosecurity Monitor Must Be Tribal-Certified";
+    assert quarantine.status != "Resolved" || quarantine.end_date != null
+      else "Quarantine Resolution Requires Documented End Date";
+  }
+}
+
+rule BioticTreaty_Ecosystem_Protection(record: Biosecurity_Inspection_Record) {
+  // Prevent ecosystem disruption from invasive species
+  if (record.inspection_result == "Fail") {
+    assert record.cargo_type != "Soil" || record.origin_location == "Local"
+      else "Non-Local Soil Import Forbidden: Ecosystem Protection";
+  }
+}
+
+// End of File: biosecurity_border_control.aln
