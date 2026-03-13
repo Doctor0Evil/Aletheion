@@ -1,0 +1,57 @@
+// aletheion-sec/agri/indigenous/tribal_land_monitoring.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 184
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-002 (Piipaash FPIC Consultation)
+// DEPENDENCY_TYPE: Free, Prior, Informed Consent
+// ESTIMATED_UNBLOCK: 2026-05-01
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Tribal Land Monitoring & Protection Policy
+// Compliance: Akimel O'odham & Piipaash Sovereignty
+// Security: PQ-Secure Access Control
+
+schema Tribal_Land_Monitor_Permit {
+  field permit_id          : [u8; 32];
+  field tribe_name         : String;      // "Akimel O'odham" or "Piipaash"
+  field territory_id       : String;      // "GILA-RIVER-01", "SALT-RIVER-02"
+  field fpic_record_id     : [u8; 32];    // MANDATORY
+  field monitoring_type    : Enum<Environmental, Security, Agricultural, Cultural>;
+  field sensor_deployment  : Vec<SensorNode>;
+  field data_ownership     : String;      // "Tribal" (Non-negotiable)
+  field sharing_permissions: Vec<DidDocument>;
+  field tribal_signatory   : [u8; 64];    // PQ-Signature
+  field city_signatory     : [u8; 64];    // PQ-Signature
+  field status             : Enum<Pending, Granted, Denied, Revoked>;
+  field expiry_date        : Instant;
+}
+
+schema SensorNode {
+  field node_id            : [u8; 32];
+  field sensor_type        : String;      // "Air", "Water", "Soil", "Camera"
+  field location_geo       : [f64; 2];
+  field data_encryption    : String;      // "PQ-Secure"
+  field transmission_freq  : String;      // "Local-Only" or "Tribal-Net"
+}
+
+rule FPIC_Mandatory_For_Tribal_Monitoring(permit: Tribal_Land_Monitor_Permit) {
+  if (permit.tribe_name == "Akimel O'odham" || permit.tribe_name == "Piipaash") {
+    assert permit.fpic_record_id != null
+      else "FPIC Consultation Record Required for Tribal Land Monitoring";
+    assert permit.data_ownership == "Tribal"
+      else "Data Sovereignty Violation: Tribal Data Must Be Tribal-Owned";
+    assert permit.status == "Granted"
+      else "Monitoring Permit Invalid without Granted FPIC Status";
+  }
+}
+
+rule Sensor_Deployment_Consent(permit: Tribal_Land_Monitor_Permit, node: SensorNode) {
+  // Each sensor requires explicit consent
+  assert node.data_encryption == "PQ-Secure"
+    else "Sensor Data Must Be PQ-Secure Encrypted";
+  assert node.transmission_freq != "Public-Internet"
+    else "Tribal Land Sensors Cannot Transmit on Public Internet";
+}
+
+// End of File: tribal_land_monitoring.aln
