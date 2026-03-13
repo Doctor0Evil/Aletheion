@@ -1,0 +1,43 @@
+// aletheion-agri/crops/ecology/indigenous_agriculture.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 165
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-002 (Piipaash FPIC Consultation)
+// DEPENDENCY_TYPE: Free, Prior, Informed Consent
+// ESTIMATED_UNBLOCK: 2026-05-01
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Indigenous Agriculture Sovereignty Policy
+// Compliance: Akimel O'odham & Piipaash Land Consent
+// Security: Sovereignty Proof Required
+
+schema Indigenous_Agriculture_Permit {
+  field permit_id        : [u8; 32];
+  field tribe_name       : String;      // "Akimel O'odham" or "Piipaash"
+  field territory_id     : String;      // "GILA-RIVER-01", "SALT-RIVER-02"
+  field fpic_record_id   : [u8; 32];    // MANDATORY
+  field crop_types       : Vec<String>; // Traditional Crops Only (e.g., Tepary Bean)
+  field water_rights     : [u8; 32];    // Linked to Water Sovereignty Ledger
+  field status           : Enum<Pending, Granted, Denied, Revoked>;
+  field tribal_signatory : [u8; 64];    // PQ-Signature
+  field city_signatory   : [u8; 64];    // PQ-Signature
+  field expiry_date      : Instant;
+}
+
+rule FPIC_Mandatory_For_Indigenous_Ag(permit: Indigenous_Agriculture_Permit) {
+  if (permit.tribe_name == "Akimel O'odham" || permit.tribe_name == "Piipaash") {
+    assert permit.fpic_record_id != null
+      else "FPIC Consultation Record Required for Indigenous Agriculture";
+    assert permit.status == "Granted"
+      else "Agriculture Permit Invalid without Granted FPIC Status";
+  }
+}
+
+rule Traditional_Crop_Priority(permit: Indigenous_Agriculture_Permit) {
+  // Ensures cultural preservation
+  assert permit.crop_types.contains("Tepary_Bean") || permit.crop_types.contains("O'odham_Squash")
+    else "Indigenous Agriculture Must Prioritize Traditional Crops";
+}
+
+// End of File: indigenous_agriculture.aln
