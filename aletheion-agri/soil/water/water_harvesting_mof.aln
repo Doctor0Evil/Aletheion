@@ -1,0 +1,47 @@
+// aletheion-agri/soil/water/water_harvesting_mof.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 153
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-003 (MOF Water Harvesting Validation)
+// DEPENDENCY_TYPE: Performance Metrics (L/kg-MOF/day)
+// ESTIMATED_UNBLOCK: 2026-04-20
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Metal-Organic Framework Water Harvesting Policy
+// Compliance: BioticTreaties, Water Sovereignty
+
+schema MOF_Harvesting_Unit {
+  field unit_id          : [u8; 32];
+  field mof_type         : String;      // e.g., "MOF-303" (Pending Validation)
+  field capacity_liters  : f64;         // Pending RG-003 Validation (0.7-1.3 L/kg/day)
+  field energy_consumption : f64;       // kWh per Liter
+  field location_node    : [u8; 32];
+  field water_rights_id  : [u8; 32];    // Linked to Water Sovereignty Ledger
+  field status           : Enum<Offline, Active, Blocked_Research>;
+  field compliance_hash  : [u8; 64];    // PQ-Secure Hash of Compliance Record
+}
+
+schema Water Sovereignty Record {
+  field rights_id        : [u8; 32];
+  field territory_id     : String;      // e.g., "GILA-RIVER-01"
+  field allocation_limit : f64;         // Liters per day
+  field fpic_record_id   : [u8; 32];    // Mandatory for Tribal Territories
+  field audit_trail      : Vec<AuditEntry>;
+}
+
+rule MOF_Requires_Validation(unit: MOF_Harvesting_Unit) {
+  if (unit.status == "Active") {
+    assert unit.capacity_liters > 0.0
+      else "MOF Capacity must be validated by RG-003 before activation";
+  }
+}
+
+rule Water_Rights_Check(unit: MOF_Harvesting_Unit, rights: Water Sovereignty Record) {
+  if (unit.location_node.territory == rights.territory_id) {
+    assert unit.water_rights_id == rights.rights_id
+      else "Water Harvesting Unit must match Sovereignty Record";
+  }
+}
+
+// End of File: water_harvesting_mof.aln
