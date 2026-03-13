@@ -1,0 +1,91 @@
+// aletheion-sec/agri/indigenous/land_use_permission.aln
+// ALETHEION-FILLER-START
+// FILE_ID: 217
+// STATUS: BLOCKED_BY_RESEARCH
+// RESEARCH_GAP: RG-002 (Piipaash FPIC Consultation)
+// DEPENDENCY_TYPE: Free, Prior, Informed Consent
+// ESTIMATED_UNBLOCK: 2026-05-01
+// COMPLIANCE: DO_NOT_IMPLEMENT_LOGIC_UNTIL_GAP_RESOLVED
+// ALETHEION-FILLER-END
+
+// Schema: Land Use Permission System for Indigenous Territories
+// Compliance: Akimel O'odham & Piipaash Sovereignty, FPIC Enforcement
+// Security: PQ-Secure Permission Ledger
+
+schema Land_Use_Permit {
+  field permit_id            : [u8; 32];
+  field tribe_name           : String;      // "Akimel O'odham" or "Piipaash"
+  field territory_id         : String;      // "GILA-RIVER-01", "SALT-RIVER-02"
+  field fpic_record_id       : [u8; 32];    // MANDATORY
+  field land_use_type        : Enum<Agriculture, Residential, Commercial, Conservation, Cultural>;
+  field parcel_coordinates   : Vec<[f64; 2]>;
+  field duration_years       : u32;
+  field renewal_required     : Bool;
+  field environmental_review : EnvironmentalImpactAssessment;
+  field tribal_conditions    : Vec<Condition>;
+  field tribal_signatory     : [u8; 64];    // PQ-Signature
+  field city_signatory       : [u8; 64];    // PQ-Signature
+  field status               : Enum<Pending, Granted, Denied, Revoked, Expired>;
+  field issue_date           : Instant;
+  field expiry_date          : Instant;
+}
+
+schema EnvironmentalImpactAssessment {
+  field assessment_id        : [u8; 32];
+  field assessor_id          : [u8; 32];
+  field water_impact         : String;      // "Low", "Medium", "High"
+  field wildlife_impact      : String;
+  field cultural_site_impact : String;
+  field mitigation_required  : Vec<String>;
+  field tribal_review_flag   : Bool;        // Tribal Environmental Office must review
+  field approval_status      : Enum<Pending, Approved, Denied>;
+}
+
+schema Condition {
+  field condition_id         : [u8; 32];
+  field condition_type       : String;      // "Water_Use", "Noise", "Hours", "Access"
+  field description          : String;
+  field enforcement_level    : Enum<Warning, Fine, Permit_Revocation>;
+  field tribal_enforcement   : Bool;        // Tribal authorities can enforce
+}
+
+rule FPIC_Mandatory_For_Land_Use(permit: Land_Use_Permit) {
+  if (permit.tribe_name == "Akimel O'odham" || permit.tribe_name == "Piipaash") {
+    assert permit.fpic_record_id != null
+      else "FPIC Consultation Record Required for Land Use Permit";
+    assert permit.status == "Granted"
+      else "Land Use Permit Invalid without Granted FPIC Status";
+    assert permit.tribal_signatory != null
+      else "Tribal Signatory Required for Land Use Permit";
+  }
+}
+
+rule Tribal_Environmental_Review(permit: Land_Use_Permit, assessment: EnvironmentalImpactAssessment) {
+  // Tribal Environmental Office must review all permits on tribal lands
+  if (permit.territory_id.contains("GILA-RIVER") || permit.territory_id.contains("SALT-RIVER")) {
+    assert assessment.tribal_review_flag == true
+      else "Tribal Environmental Review Required";
+    assert assessment.approval_status == "Approved"
+      else "Land Use Permit Requires Approved Environmental Assessment";
+  }
+}
+
+rule Cultural_Site_Protection(permit: Land_Use_Permit, assessment: EnvironmentalImpactAssessment) {
+  // Protect Indigenous cultural sites from development
+  if (assessment.cultural_site_impact != "None") {
+    assert permit.land_use_type == "Conservation" || permit.land_use_type == "Cultural"
+      else "Development Forbidden Near Cultural Sites";
+    assert assessment.mitigation_required.len() > 0
+      else "Cultural Site Impact Requires Mitigation Plan";
+  }
+}
+
+rule Tribal_Enforcement_Authority(condition: Condition) {
+  // Ensure Tribal authorities can enforce permit conditions
+  if (condition.tribal_enforcement == true) {
+    assert condition.enforcement_level != "Warning"
+      else "Tribal Enforcement Must Have Teeth (Fine or Revocation)";
+  }
+}
+
+// End of File: land_use_permission.aln
