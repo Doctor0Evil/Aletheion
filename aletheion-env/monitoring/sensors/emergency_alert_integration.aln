@@ -1,0 +1,105 @@
+// aletheion-env/monitoring/sensors/emergency_alert_integration.aln
+// FILE_ID: 240
+// STATUS: PRODUCTION_READY
+// COMPLIANCE: Emergency Management, Public Safety, Tribal Emergency Protocols
+// SECURITY: PQ-Secure Alert Distribution
+
+// Schema: Multi-Hazard Emergency Alert Integration System
+// Purpose: Coordinate Alerts Across All Environmental Monitoring Systems
+// Integration: Files 223-239 (All Environmental Sensors)
+
+schema Emergency_Alert_Record {
+  field alert_id               : [u8; 32];
+  field alert_type             : Enum<Excessive_Heat, Haboob, Flash_Flood, Air_Quality, 
+                                      Earthquake, Power_Outage, Water_Contamination, 
+                                      Biosecurity, Civil_Emergency>;
+  field severity               : Enum<Watch, Warning, Emergency, Critical>;
+  field source_sensor_ids      : Vec<[u8; 32]>; // Triggering sensors
+  field start_timestamp        : Instant;
+  field end_timestamp          : Option<Instant>;
+  field affected_zones         : Vec<[u8; 32]>;
+  field tribal_land_affected   : Bool;
+  field recommended_actions    : Vec<String>;
+  field distribution_channels  : Vec<String>; // "SMS", "Email", "Siren", "App", "Radio"
+  field languages              : Vec<String>; // "English", "Spanish", "O'odham", "Piipaash"
+  field sovereignty_proof      : [u8; 64];    // PQ-Signature
+}
+
+schema Alert_Distribution_Log {
+  field log_id                 : [u8; 32];
+  field alert_id               : [u8; 32];
+  field distribution_timestamp : Instant;
+  field channel                : String;
+  field recipients_count       : u32;
+  field delivery_success_rate  : f32;
+  field tribal_notification    : Bool;          // Tribal Emergency Management notified
+  field audit_signature        : [u8; 64];     // PQ-Signature
+}
+
+schema Emergency_Response_Protocol {
+  field protocol_id            : [u8; 32];
+  field alert_type             : String;
+  field severity_threshold     : String;
+  field auto_trigger_actions   : Vec<String>;
+  field manual_approval_required : Bool;
+  field tribal_coordination_required : Bool;
+  field estimated_response_time_min : u32;
+}
+
+rule Multi_Hazard_Coordination(alert: Emergency_Alert_Record) {
+  // Ensure coordinated response across multiple hazard types
+  if (alert.severity == "Critical" || alert.severity == "Emergency") {
+    assert alert.distribution_channels.len() >= 4
+      else "Critical Alerts Require Minimum 4 Distribution Channels";
+    assert alert.languages.contains("English") && alert.languages.contains("Spanish")
+      else "Alerts Must Be Distributed in English and Spanish";
+    if (alert.tribal_land_affected) {
+      assert alert.languages.contains("O'odham") || alert.languages.contains("Piipaash")
+        else "Tribal Land Alerts Must Include Indigenous Languages";
+    }
+  }
+}
+
+rule Tribal_Emergency_Coordination(alert: Emergency_Alert_Record, protocol: Emergency_Response_Protocol) {
+  // Ensure Tribal Emergency Management is coordinated for tribal land impacts
+  if (alert.tribal_land_affected) {
+    assert protocol.tribal_coordination_required == true
+      else "Tribal Coordination Required for Tribal Land Emergencies";
+    assert alert.distribution_channels.contains("Tribal_Emergency_Network")
+      else "Tribal Emergency Network Must Be Notified";
+  }
+}
+
+rule Alert_Distribution_Audit(log: Alert_Distribution_Log) {
+  // Ensure all alert distributions are audited
+  assert log.delivery_success_rate >= 0.95
+    else "Alert Delivery Success Rate Below 95% Threshold";
+  assert log.audit_signature != null
+    else "Alert Distribution Must Be PQ-Signed for Audit";
+  if (log.tribal_notification) {
+    assert log.delivery_success_rate == 1.0
+      else "Tribal Emergency Notification Must Have 100% Delivery";
+  }
+}
+
+rule Auto_Trigger_Safety_Protocol(alert: Emergency_Alert_Record, protocol: Emergency_Response_Protocol) {
+  // Ensure automatic safety actions are triggered for critical alerts
+  if (alert.severity == "Critical") {
+    assert protocol.auto_trigger_actions.len() >= 3
+      else "Critical Alerts Require Minimum 3 Auto-Trigger Actions";
+    assert protocol.manual_approval_required == false
+      else "Critical Alerts Must Auto-Trigger Without Manual Approval";
+  }
+}
+
+rule Multi_Language_Accessibility(alert: Emergency_Alert_Record) {
+  // Ensure emergency alerts are accessible to all Phoenix residents
+  assert alert.languages.len() >= 2
+    else "Alerts Must Be Distributed in Minimum 2 Languages";
+  if (alert.affected_zones.contains_tribal_land) {
+    assert alert.languages.len() >= 3
+      else "Tribal Land Alerts Require Minimum 3 Languages (English, Spanish, Indigenous)";
+  }
+}
+
+// End of File: emergency_alert_integration.aln
