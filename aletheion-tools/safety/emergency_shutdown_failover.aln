@@ -1,0 +1,62 @@
+// aletheion-tools/safety/emergency_shutdown_failover.aln
+// FILE_ID: 249
+// STATUS: PRODUCTION_READY
+// COMPLIANCE: Public Safety, Emergency Management
+// SECURITY: PQ-Secure Emergency Authorization
+
+// Schema: Emergency Shutdown & Failover System
+// Purpose: Safe City-Wide Shutdown During Critical Emergencies
+// Context: Haboobs, Heatwaves, Grid Failure, Security Breaches
+
+schema Emergency_Shutdown_Order {
+  field order_id               : [u8; 32];
+  field authorization_id       : [u8; 32]; // Multi-sig required
+  field emergency_type         : Enum<Heatwave, Haboob, Flood, Cyber_Attack, Grid_Failure>;
+  field severity               : Enum<Level_1, Level_2, Level_3, Level_4_Critical>;
+  field shutdown_scope         : Enum<Partial, Zonal, City_Wide>;
+  field timestamp              : Instant;
+  field expiry_timestamp       : Instant;
+  field tribal_authority_sign  : Option<[u8; 64]>; // Required for tribal land impacts
+  field city_authority_sign    : [u8; 64];
+  field pq_signature           : [u8; 64];
+}
+
+schema Failover_Protocol {
+  field protocol_id            : [u8; 32];
+  field system_type            : String;      // "Power", "Water", "Comms", "Transport"
+  field primary_status         : Enum<Online, Offline, Compromised>;
+  field backup_status          : Enum<Standby, Active, Failed>;
+  field auto_failover_enabled  : Bool;
+  field manual_override_allowed: Bool;
+  field tribal_land_impact     : Bool;
+}
+
+rule Multi_Sig_Authorization_Required(order: Emergency_Shutdown_Order) {
+  // Prevent unilateral shutdown authority
+  if (order.severity == "Level_4_Critical") {
+    assert order.authorization_id.multi_sig_count >= 3
+      else "Critical Shutdown Requires 3+ Authorized Signatories";
+    if (order.tribal_land_impact) {
+      assert order.tribal_authority_sign != null
+        else "Tribal Authority Signatures Required for Tribal Land Shutdown";
+    }
+  }
+}
+
+rule Failover_Safety_Guarantee(protocol: Failover_Protocol) {
+  // Ensure backup systems are ready before primary failure
+  if (protocol.primary_status == "Compromised") {
+    assert protocol.backup_status == "Active" || protocol.backup_status == "Standby"
+      else "Failover Blocked: No Backup System Available";
+    assert protocol.auto_failover_enabled == true
+      else "Auto-Failover Must Be Enabled for Critical Systems";
+  }
+}
+
+rule Emergency_Communication_Maintenance(order: Emergency_Shutdown_Order) {
+  // Ensure emergency comms remain active during shutdown
+  assert order.shutdown_scope != "City_Wide" || order.except_systems.contains("Emergency_Comms")
+    else "Emergency Communication Systems Must Remain Active During City-Wide Shutdown";
+}
+
+// End of File: emergency_shutdown_failover.aln
