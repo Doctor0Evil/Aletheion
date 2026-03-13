@@ -1,0 +1,86 @@
+// aletheion-logi/distribution/coldchain/distribution_equity_auditor.aln
+// FILE_ID: 208
+// STATUS: PRODUCTION_READY
+// COMPLIANCE: Equity Scoring, Social Justice, Indigenous Priority
+// SECURITY: PQ-Secure Audit Trail
+
+// Schema: Distribution Equity Audit & Enforcement System
+// Goal: Eliminate Food Deserts, Prioritize Underserved Communities
+
+schema Equity_Audit_Record {
+  field audit_id             : [u8; 32];
+  field audit_period_start   : Instant;
+  field audit_period_end     : Instant;
+  field distribution_events  : Vec<DistributionEvent>;
+  field equity_metrics       : EquityMetrics;
+  field violations           : Vec<EquityViolation>;
+  field auditor_id           : [u8; 32];
+  field tribal_review_flag   : Bool;          // Indigenous communities can review
+  field sovereignty_proof    : [u8; 64];      // PQ-Signature
+}
+
+schema DistributionEvent {
+  field event_id             : [u8; 32];
+  field location_zone_id     : [u8; 32];
+  field timestamp            : Instant;
+  field volume_kg            : f64;
+  field recipient_income_level : Enum<Low, Medium, High>;
+  field food_access_score    : f32;          // 0.0 (None) to 10.0 (Abundant)
+  field tribal_land_flag     : Bool;
+  field wait_time_min        : f32;
+}
+
+schema EquityMetrics {
+  field low_income_percentage : f32;         // % of distribution to low-income zones
+  field food_desert_percentage : f32;        // % to food desert zones
+  field tribal_land_percentage : f32;        // % to Indigenous territories
+  field average_wait_time_min : f32;
+  field gini_coefficient      : f32;         // Distribution inequality measure (0=perfect equality)
+}
+
+schema EquityViolation {
+  field violation_id         : [u8; 32];
+  field violation_type       : String;       // "Under-Serving", "Excessive_Wait", "Discrimination"
+  field severity             : Enum<Low, Medium, High, Critical>;
+  field affected_zone_id     : [u8; 32];
+  field remediation_required : String;
+  field deadline             : Instant;
+}
+
+rule Food_Desert_Priority_Target(audit: Equity_Audit_Record) {
+  // Ensure food deserts receive priority distribution
+  assert audit.equity_metrics.food_desert_percentage >= 0.40
+    else "Food Desert Distribution Below 40% Target: Remediation Required";
+}
+
+rule Indigenous_Land_Priority(audit: Equity_Audit_Record) {
+  // Ensure Indigenous territories receive fair share
+  assert audit.equity_metrics.tribal_land_percentage >= 0.15
+    else "Indigenous Land Distribution Below 15% Target: FPIC Review Required";
+  assert audit.tribal_review_flag == true
+    else "Indigenous Communities Must Have Review Rights";
+}
+
+rule Low_Income_Access_Guarantee(audit: Equity_Audit_Record) {
+  // Ensure low-income communities are not underserved
+  assert audit.equity_metrics.low_income_percentage >= 0.50
+    else "Low-Income Distribution Below 50% Target: Equity Violation";
+  assert audit.equity_metrics.average_wait_time_min <= 30.0
+    else "Average Wait Time Exceeds 30 Minutes: Service Quality Violation";
+}
+
+rule Distribution_Inequality_Limit(audit: Equity_Audit_Record) {
+  // Gini coefficient measures distribution inequality (0=perfect, 1=maximum inequality)
+  assert audit.equity_metrics.gini_coefficient <= 0.30
+    else "Distribution Inequality Exceeds Acceptable Threshold (0.30)";
+}
+
+rule Violation_Remediation_Enforcement(violation: EquityViolation) {
+  // All violations must have remediation plans
+  assert violation.remediation_required != ""
+    else "Equity Violation Requires Documented Remediation Plan";
+  assert violation.deadline != null
+    else "Remediation Must Have Enforceable Deadline";
+}
+
+// End of File: distribution_equity_auditor.aln
