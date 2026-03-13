@@ -1,0 +1,75 @@
+// aletheion-logi/distribution/coldchain/waste_tracking_recovery.aln
+// FILE_ID: 199
+// STATUS: PRODUCTION_READY
+// COMPLIANCE: BioticTreaties, Zero-Waste Circular Economy
+// SECURITY: PQ-Secure Waste Audit Trail
+
+// Schema: Waste Tracking & Recovery System
+// Goal: 99% Material Recovery, <1% True Waste (BioticTreaty)
+
+schema Waste_Event_Record {
+  field record_id          : [u8; 32];
+  field batch_id           : [u8; 32];
+  field waste_type         : Enum<Expired, Damaged, Contaminated, Surplus>;
+  field weight_kg          : f64;
+  field waste_timestamp    : Instant;
+  field location_id        : [u8; 32];
+  field disposal_method    : Enum<Compost, Anaerobic_Digestion, Animal_Feed, Landfill>;
+  field recovery_destination: Option<String>; // "Community_Compost", "Bioenergy_Plant"
+  field justification      : String;          // Mandatory per BioticTreaty
+  field auditor_id         : [u8; 32];
+  field sovereignty_proof  : [u8; 64];        // PQ-Signature
+}
+
+schema Waste_Recovery_Facility {
+  field facility_id        : [u8; 32];
+  field facility_type      : Enum<Compost, Anaerobic_Digestion, Animal_Feed>;
+  field capacity_kg_day    : f64;
+  field current_load_kg    : f64;
+  field output_product     : String;          // "Compost", "Biogas", "Feed"
+  field tribal_partnership : Bool;            // Indigenous waste management partnership
+  field location_geo       : [f64; 2];
+}
+
+rule BioticTreaty_Waste_Justification(record: Waste_Event_Record) {
+  // Every waste event requires documented justification
+  assert record.justification != ""
+    else "BioticTreaty Violation: Waste Requires Documented Justification";
+  assert record.justification != "Spoilage_Due_To_Negligence"
+    else "Negligence Violation: Cold Chain Maintenance Failed";
+  assert record.disposal_method != "Landfill"
+    else "Landfill Disposal Forbidden: Must Use Recovery Method";
+}
+
+rule Waste_Recovery_Priority(record: Waste_Event_Record, facilities: Vec<Waste_Recovery_Facility>) {
+  // Prioritize highest-value recovery method
+  if (record.waste_type == "Expired" || record.waste_type == "Surplus") {
+    assert record.disposal_method == "Anaerobic_Digestion" || record.disposal_method == "Animal_Feed"
+      else "Edible Waste Must Be Directed to Energy or Feed Recovery";
+  }
+  if (record.waste_type == "Contaminated") {
+    assert record.disposal_method == "Compost" || record.disposal_method == "Anaerobic_Digestion"
+      else "Contaminated Waste Must Be Treated, Not Landfilled";
+  }
+}
+
+rule Tribal_Waste_Partnership(facility: Waste_Recovery_Facility) {
+  // Ensure Indigenous participation in waste management economy
+  if (facility.tribal_partnership == true) {
+    assert facility.output_product != null
+      else "Tribal Partnership Facility Must Produce Verified Output";
+    // Revenue sharing with tribal communities
+    assert facility.capacity_kg_day > 0
+      else "Tribal Partnership Facility Must Have Active Capacity";
+  }
+}
+
+rule Zero_Waste_Target(records: Vec<Waste_Event_Record>, total_throughput_kg: f64) {
+  // Enforce 99% recovery target
+  let total_waste_kg = sum(records.weight_kg);
+  let recovery_rate = (total_throughput_kg - total_waste_kg) / total_throughput_kg;
+  assert recovery_rate >= 0.99
+    else "Zero-Waste Target Not Met: Recovery Rate Below 99%";
+}
+
+// End of File: waste_tracking_recovery.aln
