@@ -1,0 +1,41 @@
+# .github/workflows/ALE-COMPLIANCE-PREFLIGHT-001.yml
+# CI pipeline that enforces canonical workflow grammar and trust schema across the repo. [file:2][file:5]
+
+name: Aletheion Compliance Preflight
+
+on:
+  pull_request:
+    paths:
+      - "aletheion/**/*.rs"
+      - "aletheion/**/*.aln"
+      - "aletheion/**/*.lua"
+      - "aletheion/**/*.cpp"
+      - "aletheion/**/*.kt"
+      - "aletheion/**/*.js"
+      - "aletheion/**/*.yaml"
+  push:
+    branches: ["main"]
+
+jobs:
+  check-grammar-and-trust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install ALN toolchain
+        run: |
+          echo "Install ALN compiler/validator here"
+
+      - name: Validate canonical workflow grammar
+        run: |
+          aln-validate aletheion/grammar/workflows/ALE-GRAMMAR-WORKFLOW-CANONICAL-001.aln
+
+      - name: Validate Googolswarm trust schema
+        run: |
+          yaml-lint aletheion/trust/googolswarm/ALE-TRUST-GOOGOLSWARM-SCHEMA-001.yaml
+
+      - name: Enforce no-untagged workflows
+        run: |
+          # Placeholder: scan workflow modules and ensure they reference canonical grammar + Birth-Signs.
+          echo "Static checks for workflow binding go here"
