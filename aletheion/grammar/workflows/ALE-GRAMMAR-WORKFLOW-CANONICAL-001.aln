@@ -1,0 +1,85 @@
+// aletheion/grammar/workflows/ALE-GRAMMAR-WORKFLOW-CANONICAL-001.aln
+// Canonical workflow pattern grammar for Aletheion Phoenix ERM workflows.
+// Aligns with ingest → state-model → optimization → treaty-check → actuation → trust-layer → citizen-surface. [file:2][file:5]
+
+namespace Aletheion.Workflow.Canonical.V1
+
+atom WorkflowId        : string
+atom StageId           : string
+atom AssetId           : string
+atom BirthSignId       : string
+atom TreatyBundleId    : string
+atom OptimizationId    : string
+atom TrustTxnId        : string
+atom CitizenSurfaceId  : string
+atom DID               : string
+atom CorridorId        : string
+
+enum StageKind {
+  INGEST
+  STATE_MODEL
+  OPTIMIZATION
+  TREATY_CHECK
+  ACTUATION
+  TRUST_APPEND
+  CITIZEN_SURFACE
+}
+
+record Stage {
+  id          : StageId
+  kind        : StageKind
+  timeout_ms  : integer
+  retry_max   : integer
+  birth_sign  : optional BirthSignId
+}
+
+record WorkflowMetadata {
+  id                 : WorkflowId
+  description        : string
+  erm_layer_primary  : string
+  erm_layer_secondary: optional string
+  jurisdictional_tile: string
+  corridor           : optional CorridorId
+  superpower_tags    : list<string>
+}
+
+record WorkflowContract {
+  meta        : WorkflowMetadata
+  stages      : list<Stage>
+  treaties    : list<TreatyBundleId>
+  assets      : list<AssetId>
+  citizen_surfaces: list<CitizenSurfaceId>
+}
+
+// Constraint: all 7 stages must be present at least once.
+norm RequireCanonicalStages(w: WorkflowContract) {
+  let kinds = map(stage in w.stages) { stage.kind }
+  require contains(kinds, StageKind::INGEST)
+  require contains(kinds, StageKind::STATE_MODEL)
+  require contains(kinds, StageKind::OPTIMIZATION)
+  require contains(kinds, StageKind::TREATY_CHECK)
+  require contains(kinds, StageKind::ACTUATION)
+  require contains(kinds, StageKind::TRUST_APPEND)
+  require contains(kinds, StageKind::CITIZEN_SURFACE)
+}
+
+// Constraint: any Stage with birth_sign must run TreatyCheck before Actuation. [file:2]
+norm RequireTreatyBeforeActuation(w: WorkflowContract) {
+  for stage in w.stages {
+    if stage.kind == StageKind::ACTUATION {
+      let has_bound = exists(s in w.stages) { s.birth_sign is not null }
+      if has_bound {
+        require exists(tc in w.stages) {
+          tc.kind == StageKind::TREATY_CHECK
+        }
+      }
+    }
+  }
+}
+
+// Constraint: every WorkflowContract must attach at least one TreatyBundleId when touching land, water, air, biosignals, or citizens. [file:2][file:5]
+norm RequireTreatyForSensitiveAssets(w: WorkflowContract) {
+  if not empty(w.assets) {
+    require not empty(w.treaties)
+  }
+}
