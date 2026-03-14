@@ -1,0 +1,65 @@
+# aletheion/trust/googolswarm/ALE-TRUST-GOOGOLSWARM-SCHEMA-001.yaml
+# Canonical transaction schema for Aletheion workflows writing to Googolswarm. [file:2]
+
+version: 1
+title: Aletheion Phoenix Trust Transaction
+type: object
+required:
+  - tx_id
+  - workflow_id
+  - birth_sign_id
+  - applied_alns
+  - did_subject
+  - timestamp_utc
+  - inputs
+  - outputs
+  - outcome
+properties:
+  tx_id:
+    type: string
+    description: Globally unique transaction identifier (TrustTxnId).
+  workflow_id:
+    type: string
+    description: Canonical WorkflowId from ALN grammar. [file:2][file:5]
+  birth_sign_id:
+    type: string
+    description: BirthSignId applied at decision time.
+  applied_alns:
+    type: array
+    items:
+      type: string
+    description: List of ALN identifiers invoked for this decision.
+  did_subject:
+    type: string
+    description: DID of the primary affected entity (citizen, group, or asset owner).
+  timestamp_utc:
+    type: string
+    format: date-time
+  inputs:
+    type: object
+    description: Minimal, non-identifying snapshot of state inputs used in decision.
+  outputs:
+    type: object
+    description: Actuation commands or configuration changes produced by the workflow.
+  outcome:
+    type: string
+    enum: ["ACCEPTED", "REJECTED", "PENALIZED"]
+  reason_codes:
+    type: array
+    items:
+      type: string
+    description: Human-readable reason codes suitable for audit and appeals. [file:5]
+  corridor_id:
+    type: string
+    nullable: true
+    description: Optional corridor identifier for routing/heat/waste flows. [file:3]
+  superpower_tags:
+    type: array
+    items:
+      type: string
+    description: Non-personal tags for which city superpowers participated in this decision. [file:6]
+  signatures:
+    type: array
+    items:
+      type: object
+    description: Multi-sig attestations used by Googolswarm for ordering and integrity.
