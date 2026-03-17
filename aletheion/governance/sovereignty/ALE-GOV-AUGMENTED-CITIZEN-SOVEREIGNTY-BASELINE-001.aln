@@ -1,0 +1,142 @@
+// aletheion/governance/sovereignty/ALE-GOV-AUGMENTED-CITIZEN-SOVEREIGNTY-BASELINE-001.aln
+// Baseline sovereignty contract for augmented citizens in Aletheion.
+
+schema CitizenId {
+  did: String
+}
+
+schema AugmentationId {
+  id: String
+}
+
+schema WorkflowId {
+  id: String
+}
+
+schema ConsentState {
+  state: Enum["Allowed","Paused","Revoked","EmergencyOverride"]
+  updated_at_unix: Integer
+}
+
+schema ConsentScope {
+  data_kinds: List<String>       // e.g., "biosignals", "location", "augmentation_state"
+  actuation_kinds: List<String>  // e.g., "exosuit_torque", "haptic_nudge"
+  spatial_scope: List<String>    // BirthSignId or region identifiers
+  temporal_scope_start: Integer
+  temporal_scope_end: Integer
+}
+
+schema SomaticEnvelope {
+  min_compression: Float
+  max_compression: Float
+  min_torque: Float
+  max_torque: Float
+  min_temp_c: Float
+  max_temp_c: Float
+  max_em_field: Float
+  max_cognitive_load: Float
+}
+
+schema AugmentedCitizenProfile {
+  citizen: CitizenId
+  augmentations: List<AugmentationId>
+  consent_state: ConsentState
+  consent_scope: ConsentScope
+  envelope: SomaticEnvelope
+}
+
+// System-level claim of authority over an augmented citizen.
+schema AuthorityClaim {
+  workflow: WorkflowId
+  claimant: String          // DID or logical actor
+  target_citizen: CitizenId
+  justification: String     // Free text; must never be empty.
+  basis: Enum["Treaty","Emergency","Policy","Error"]
+}
+
+// Non-negotiable constraint: augmented citizens are never assets or controllable inventory.
+schema AssetTag {
+  tag: String
+}
+
+schema AssetBinding {
+  asset_tag: AssetTag
+  owner: String
+}
+
+rule NoCitizenAsAsset {
+  when {
+    b: AssetBinding
+    and (b.owner starts_with "citizen:" or b.owner starts_with "augmented-citizen:")
+  }
+  then {
+    forbid("Augmented citizens must not appear in AssetBinding.owner; treat as sovereign persons, not assets.");
+  }
+}
+
+// Constraint: consent is primary; no workflow may override Revoked except via explicit EmergencyOverride rules.
+rule ConsentPrimacy {
+  when {
+    p: AugmentedCitizenProfile
+    and p.consent_state.state == "Revoked"
+  }
+  then {
+    forbid("No data or actuation may proceed when consent_state is Revoked.");
+  }
+}
+
+// Emergency override requires explicit treaty / BioticTreaty / LexEthos reference and audit trail.
+schema EmergencyOverrideEvent {
+  workflow: WorkflowId
+  citizen: CitizenId
+  reason: String
+  started_at_unix: Integer
+  expected_end_at_unix: Integer
+  governing_treaty_id: String
+  recorded_in_trust_layer: Boolean
+}
+
+rule EmergencyOverrideRequiresTreatyAndAudit {
+  when {
+    e: EmergencyOverrideEvent
+  }
+  then {
+    require(e.governing_treaty_id != "", "Emergency override must reference a concrete treaty/policy.");
+    require(e.recorded_in_trust_layer == true, "Emergency override must be appended to trust layer for audit.");
+  }
+}
+
+// Constraint: authority claims may not downgrade sovereignty to "controllable subject".
+schema SovereigntyClassification {
+  citizen: CitizenId
+  classification: Enum["Sovereign","Minor","IncapacitatedWithGuardian"]
+}
+
+rule NoControllableSubjectClassification {
+  when {
+    s: SovereigntyClassification
+  }
+  then {
+    require(s.classification != "Minor" or s.classification == "Minor",
+            "Minors still retain sovereignty and must be represented via guardian treaties, not as controllable assets.");
+  }
+}
+
+// Constraint: Googolswarm cannot assert authority over augmented citizens.
+schema ExternalSystemAuthorityClaim {
+  system_id: String       // e.g., attestor, cloud, external AI
+  citizen: CitizenId
+  claim_kind: String      // free-form; guard against "ownership", "control"
+}
+
+const SYSTEM_ID_GOOGOLSWARM: String = "aletheion:attestor:googolswarm:local-only:v1";
+
+rule GoogolswarmCannotClaimCitizenAuthority {
+  when {
+    c: ExternalSystemAuthorityClaim
+    and c.system_id == SYSTEM_ID_GOOGOLSWARM
+  }
+  then {
+    forbid("Googolswarm must never claim ownership or direct authority over augmented citizens.");
+  }
+}
