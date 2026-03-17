@@ -3,816 +3,779 @@
 // Domain: Trust / Googolswarm / Transaction Provenance
 // Compliance: BioticTreaties, Indigenous FPIC, EJ Zones, SMART Chain
 
-aln_version 1.0
-namespace Aletheion.Trust.Schemas.GovernedDecision
+aln_version "1.0.0"
+aln_namespace "aletheion.trust.governed_decision.v1"
 
-import Aletheion.TreatyOS
-import Aletheion.ERM.Ecosafety.Biodegrade
-import Aletheion.Governance.Lexethos.Biodegrade
+import "aletheion/governance/aln/ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln" as RightsGrammar
+import "aletheion/governance/birthsigns/ALE-GOV-BIRTH-SIGN-MODEL-001.aln" as BirthSignsModel
 
-// =============================================================================
-// 1. Core Transaction Identifiers
-// =============================================================================
+// -----------------------------------------------------------------------------
+// 1. Core scalar and enum types
+// -----------------------------------------------------------------------------
 
-type TxId = string
-type WorkflowId = string
-type NodeId = string
-type DID = string
-type PQSignature = string
-type Hash256 = string
-type Hash512 = string
-type IsoTimestamp = string
-type Decimal = number
-type Int = integer
-type Bool = boolean
+type TxId           = string(pattern="^tx:[a-zA-Z0-9:_-]+$")
+type TrustTxId      = TxId
+type WorkflowId     = string(min_length=3, max_length=256)
+type NodeId         = string(pattern="^node:[a-zA-Z0-9._:-]+$")
+type DID            = string(pattern="^did:[a-z0-9]+:[a-zA-Z0-9._:-]+$")
+type PQSignature    = string(min_length=64, max_length=4096)
+type Hash256        = string(min_length=32, max_length=128)
+type Hash512        = string(min_length=64, max_length=256)
+type IsoTimestamp   = string(format="date-time")
+type Decimal        = number
+type Int            = integer
+type Bool           = boolean
+type Id             = string(min_length=1, max_length=256)
 
-enum TransactionStatus {
-    PENDING
-    VALIDATED
-    APPENDED
-    REJECTED
-    FLAGGED
-    UNDER_REVIEW
-}
+type WorkflowStage =
+  | "Ingest"
+  | "StateModelUpdate"
+  | "Optimization"
+  | "GovernancePreflight"
+  | "Actuation"
+  | "EmergencyOverride"
+  | "TrustAppend"
+  | "CitizenSurface"
 
-enum DecisionOutcome {
-    ALLOW
-    BLOCK
-    ALLOW_WITH_OVERRIDE
-    ALLOW_WITH_DERATE
-    REQUIRE_HUMAN_REVIEW
-    EMERGENCY_OVERRIDE
-}
+type GovernanceDomain =
+  | "Land"
+  | "Water"
+  | "Air"
+  | "Materials"
+  | "Mobility"
+  | "Biosignals"
+  | "Augmentation"
+  | "Energy"
+  | "Culture"
+  | "Emergency"
 
-enum OverrideLevel {
-    NONE
-    MUNICIPAL
-    REGIONAL
-    TREATY_JOINT_BODY
-    INDIGENOUS_COUNCIL
-    EMERGENCY_AUTHORITY
-}
+type EnvelopeDecisionOutcome =
+  | "Approved"
+  | "ApprovedWithDerating"
+  | "Rejected"
+  | "PendingFpic"
 
-enum TreatyCheckResult {
-    PASS
-    FAIL
-    PASS_WITH_CONDITIONS
-    NOT_APPLICABLE
-}
+type ConstraintMode =
+  | "Hard"
+  | "HighPenalty"
 
-// =============================================================================
+type FpicStatus =
+  | "NotRequired"
+  | "Granted"
+  | "Pending"
+  | "Denied"
+
+type TransactionStatus =
+  | "PENDING"
+  | "VALIDATED"
+  | "APPENDED"
+  | "REJECTED"
+  | "FLAGGED"
+  | "UNDER_REVIEW"
+
+type OverrideLevel =
+  | "NONE"
+  | "MUNICIPAL"
+  | "REGIONAL"
+  | "TREATY_JOINT_BODY"
+  | "INDIGENOUS_COUNCIL"
+  | "EMERGENCY_AUTHORITY"
+
+type TreatyCheckResult =
+  | "PASS"
+  | "FAIL"
+  | "PASS_WITH_CONDITIONS"
+  | "NOT_APPLICABLE"
+
+type Severity =
+  | "INFO"
+  | "WARNING"
+  | "ERROR"
+  | "CRITICAL"
+
+// Delegated identifiers from shared grammars.
+type BirthSignId    = BirthSignsModel.BirthSignId
+type AlnNormId      = RightsGrammar.AlnNormId
+type BioticTreatyId = RightsGrammar.BioticTreatyId
+type MicroTreatyId  = RightsGrammar.MicroTreatyId
+
+// -----------------------------------------------------------------------------
 // 2. Birth-Sign & ALN Norm Bindings
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record BirthSignRef {
-    birth_sign_id         : Id
-    tile_id               : Id
-    domain                : string
-    version               : Int
-    valid_from            : IsoTimestamp
-    valid_until           : IsoTimestamp
-    constraint_bundle_ref : Id
+entity BirthSignRef {
+  birth_sign_id:         BirthSignId
+  tile_id:               Id
+  domain:                string
+  version:               Int
+  valid_from:            IsoTimestamp
+  valid_until:           IsoTimestamp
+  constraint_bundle_ref: Id
 }
 
-record AlnNormRef {
-    norm_id               : Id
-    namespace             : string
-    version               : Int
-    norm_type             : string
-    enforcement_mode      : EnforcementMode
-    severity              : Severity
+type EnforcementMode =
+  | "Hard"
+  | "Soft"
+  | "Advisory"
+
+type Modality =
+  | "Obligation"
+  | "Permission"
+  | "Prohibition"
+
+entity AlnNormRef {
+  norm_id:          AlnNormId
+  namespace:        string
+  version:          Int
+  norm_type:        string
+  enforcement_mode: EnforcementMode
+  severity:         Severity
 }
 
-record TreatyAtomRef {
-    treaty_atom_id        : Id
-    treaty_type           : string
-    domain                : string
-    modality              : Modality
-    violated              : Bool
+entity TreatyAtomRef {
+  treaty_atom_id:   Id
+  treaty_type:      string
+  domain:           string
+  modality:         Modality
+  violated:         Bool
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 3. Multi-Signature Attestation
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record AttestorSignature {
-    attestor_did          : DID
-    attestor_role         : string
-    signature_algorithm   : string
-    pq_signature          : PQSignature
-    signed_at             : IsoTimestamp
-    signature_valid       : Bool
+entity AttestorSignature {
+  attestor_did:        DID
+  attestor_role:       string
+  signature_algorithm: string
+  pq_signature:        PQSignature
+  signed_at:           IsoTimestamp
+  signature_valid:     Bool
 }
 
-record MultiSigAttestation {
-    attestation_id        : Id
-    required_signatures   : Int
-    collected_signatures  : Int
-    threshold_met         : Bool
-    attestors             : [AttestorSignature]
-    attestation_complete  : Bool
-    completed_at          : IsoTimestamp?
+entity MultiSigAttestation {
+  attestation_id:      Id
+  required_signatures: Int
+  collected_signatures:Int
+  threshold_met:       Bool
+  attestors:           list(AttestorSignature)
+  attestation_complete:Bool
+  completed_at:        optional(IsoTimestamp)
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 4. Input/Output Data Hashes (Integrity Verification)
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record InputDataHash {
-    input_id              : Id
-    input_type            : string
-    source_ref            : Id
-    hash_algorithm        : string
-    hash_value            : Hash512
-    timestamp             : IsoTimestamp
+entity InputDataHash {
+  input_id:       Id
+  input_type:     string
+  source_ref:     Id
+  hash_algorithm: string
+  hash_value:     Hash512
+  timestamp:      IsoTimestamp
 }
 
-record OutputDataHash {
-    output_id             : Id
-    output_type           : string
-    destination_ref       : Id
-    hash_algorithm        : string
-    hash_value            : Hash512
-    timestamp             : IsoTimestamp
+entity OutputDataHash {
+  output_id:      Id
+  output_type:    string
+  destination_ref:Id
+  hash_algorithm: string
+  hash_value:     Hash512
+  timestamp:      IsoTimestamp
 }
 
-record DataIntegrityProof {
-    proof_id              : Id
-    merkle_root           : Hash512
-    input_hashes          : [InputDataHash]
-    output_hashes         : [OutputDataHash]
-    verification_status   : Bool
-    verified_at           : IsoTimestamp
-    verifier_did          : DID
+entity DataIntegrityProof {
+  proof_id:            Id
+  merkle_root:         Hash512
+  input_hashes:        list(InputDataHash)
+  output_hashes:       list(OutputDataHash)
+  verification_status: Bool
+  verified_at:         IsoTimestamp
+  verifier_did:        DID
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 5. Treaty Check Transcript
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record TreatyModuleCheck {
-    module_id             : Id
-    module_name           : string
-    check_result          : TreatyCheckResult
-    violated_atoms        : [TreatyAtomRef]
-    applied_norms         : [AlnNormRef]
-    explanation           : string
-    severity              : Severity
-    timestamp             : IsoTimestamp
+entity TreatyModuleCheck {
+  module_id:        Id
+  module_name:      string
+  check_result:     TreatyCheckResult
+  violated_atoms:   list(TreatyAtomRef)
+  applied_norms:    list(AlnNormRef)
+  explanation:      string
+  severity:         Severity
+  timestamp:        IsoTimestamp
 }
 
-record TreatyCheckTranscript {
-    transcript_id         : Id
-    workflow_id           : WorkflowId
-    action_id             : Id
-    modules_evaluated     : [TreatyModuleCheck]
-    indigenous_rights_result : TreatyCheckResult
-    biotic_treaty_result     : TreatyCheckResult
-    ej_zone_result           : TreatyCheckResult
-    water_compact_result     : TreatyCheckResult
-    neurorights_result       : TreatyCheckResult
-    municipal_code_result    : TreatyCheckResult
-    overall_compliance    : Bool
-    violated_atom_count   : Int
-    applied_norm_count    : Int
-    explanation_summary   : string
-    grievance_reference   : Id
-    timestamp             : IsoTimestamp
+entity TreatyCheckTranscript {
+  transcript_id:         Id
+  workflow_id:           WorkflowId
+  action_id:             Id
+  modules_evaluated:     list(TreatyModuleCheck)
+  indigenous_rights_result: TreatyCheckResult
+  biotic_treaty_result:     TreatyCheckResult
+  ej_zone_result:           TreatyCheckResult
+  water_compact_result:     TreatyCheckResult
+  neurorights_result:       TreatyCheckResult
+  municipal_code_result:    TreatyCheckResult
+  overall_compliance:    Bool
+  violated_atom_count:   Int
+  applied_norm_count:    Int
+  explanation_summary:   string
+  grievance_reference:   Id
+  timestamp:             IsoTimestamp
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 6. Simulation & Optimization Summary
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record SimulationOption {
-    option_id             : Id
-    method                : string
-    energy_cost           : Decimal
-    impact_score          : Decimal
-    treaty_compliance_score : Decimal
-    time_to_complete      : string
-    selected              : Bool
+entity SimulationOption {
+  option_id:               Id
+  method:                  string
+  energy_cost:             Decimal
+  impact_score:            Decimal
+  treaty_compliance_score: Decimal
+  time_to_complete:        string
+  selected:                Bool
 }
 
-record SimulationSummary {
-    summary_id            : Id
-    workflow_id           : WorkflowId
-    intent                : string
-    options_evaluated     : [SimulationOption]
-    recommended_option    : Id
-    selected_option       : Id
-    optimization_criteria : [string]
-    constraints_applied   : [string]
-    simulation_duration_ms : Int
-    timestamp             : IsoTimestamp
+entity SimulationSummary {
+  summary_id:          Id
+  workflow_id:         WorkflowId
+  intent:              string
+  options_evaluated:   list(SimulationOption)
+  recommended_option:  Id
+  selected_option:     Id
+  optimization_criteria:list(string)
+  constraints_applied: list(string)
+  simulation_duration_ms: Int
+  timestamp:           IsoTimestamp
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 7. Actuation Record
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record ActuationCommand {
-    command_id            : Id
-    actuator_id           : Id
-    actuator_type         : string
-    command_type          : string
-    parameters            : [string]
-    derate_factor         : Decimal?
-    valid_until           : IsoTimestamp
-    signed                : Bool
-    signature_ref         : PQSignature
+entity ActuationCommand {
+  command_id:           Id
+  actuator_id:          Id
+  actuator_type:        string
+  command_type:         string
+  parameters:           list(string)
+  derate_factor:        optional(Decimal)
+  valid_until:          IsoTimestamp
+  signed:               Bool
+  signature_ref:        PQSignature
 }
 
-record ActuationResult {
-    result_id             : Id
-    command_id            : Id
-    execution_status      : string
-    executed_at           : IsoTimestamp
-    execution_duration_ms : Int
-    error_code            : string?
-    error_message         : string?
-    compensating_action_id : Id?
+entity ActuationResult {
+  result_id:            Id
+  command_id:           Id
+  execution_status:     string
+  executed_at:          IsoTimestamp
+  execution_duration_ms:Int
+  error_code:           optional(string)
+  error_message:        optional(string)
+  compensating_action_id: optional(Id)
 }
 
-record ActuationRecord {
-    record_id             : Id
-    workflow_id           : WorkflowId
-    commands              : [ActuationCommand]
-    results               : [ActuationResult]
-    all_successful        : Bool
-    reversibility_available : Bool
-    timestamp             : IsoTimestamp
+entity ActuationRecord {
+  record_id:            Id
+  workflow_id:          WorkflowId
+  commands:             list(ActuationCommand)
+  results:              list(ActuationResult)
+  all_successful:       Bool
+  reversibility_available: Bool
+  timestamp:            IsoTimestamp
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 8. Citizen Explanation & Notification
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record CitizenExplanation {
-    explanation_id        : Id
-    language              : string
-    title                 : string
-    body                  : string
-    what_happened         : string
-    why_it_happened       : string
-    treaties_applied      : [string]
-    alternatives_rejected : [string]
-    impact_summary        : string
-    timestamp             : IsoTimestamp
+entity CitizenExplanation {
+  explanation_id:      Id
+  language:            string
+  title:               string
+  body:                string
+  what_happened:       string
+  why_it_happened:     string
+  treaties_applied:    list(string)
+  alternatives_rejected:list(string)
+  impact_summary:      string
+  timestamp:           IsoTimestamp
 }
 
-record NotificationRecord {
-    notification_id       : Id
-    citizen_explanation_ref : Id
-    notification_channels : [string]
-    sent_at               : IsoTimestamp
-    delivery_status       : string
-    recipients_count      : Int
-    grievance_link        : string
+entity NotificationRecord {
+  notification_id:        Id
+  citizen_explanation_ref:Id
+  notification_channels:  list(string)
+  sent_at:                IsoTimestamp
+  delivery_status:        string
+  recipients_count:       Int
+  grievance_link:         string
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 9. Grievance & Appeal Reference
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record GrievanceReference {
-    grievance_id          : Id
-    transaction_id        : TxId
-    filed_by_did          : DID?
-    filed_at              : IsoTimestamp?
-    status                : string
-    grounds               : [string]?
-    hearing_scheduled     : IsoTimestamp?
-    decision              : string?
-    decided_at            : IsoTimestamp?
+entity GrievanceReference {
+  grievance_id:          Id
+  transaction_id:        TxId
+  filed_by_did:          optional(DID)
+  filed_at:              optional(IsoTimestamp)
+  status:                string
+  grounds:               optional(list(string))
+  hearing_scheduled:     optional(IsoTimestamp)
+  decision:              optional(string)
+  decided_at:            optional(IsoTimestamp)
 }
 
-record AppealRecord {
-    appeal_id             : Id
-    grievance_id          : Id
-    transaction_id        : TxId
-    filed_by_did          : DID?
-    filed_at              : IsoTimestamp?
-    grounds               : [string]?
-    review_body_id        : Id?
-    decision              : string?
-    decided_at            : IsoTimestamp?
+entity AppealRecord {
+  appeal_id:            Id
+  grievance_id:         Id
+  transaction_id:       TxId
+  filed_by_did:         optional(DID)
+  filed_at:             optional(IsoTimestamp)
+  grounds:              optional(list(string))
+  review_body_id:       optional(Id)
+  decision:             optional(string)
+  decided_at:           optional(IsoTimestamp)
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 10. Energy & Resource Accounting
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record EnergyAccount {
-    account_id            : Id
-    workflow_id           : WorkflowId
-    energy_consumed_kwh   : Decimal
-    energy_source         : string
-    carbon_equivalent_kg  : Decimal
-    renewable_fraction    : Decimal
-    timestamp             : IsoTimestamp
+entity EnergyAccount {
+  account_id:           Id
+  workflow_id:          WorkflowId
+  energy_consumed_kwh:  Decimal
+  energy_source:        string
+  carbon_equivalent_kg: Decimal
+  renewable_fraction:   Decimal
+  timestamp:            IsoTimestamp
 }
 
-record ResourceAccount {
-    account_id            : Id
-    workflow_id           : WorkflowId
-    resource_type         : string
-    resource_amount       : Decimal
-    unit                  : string
-    source_ref            : Id
-    timestamp             : IsoTimestamp
+entity ResourceAccount {
+  account_id:           Id
+  workflow_id:          WorkflowId
+  resource_type:        string
+  resource_amount:      Decimal
+  unit:                 string
+  source_ref:           Id
+  timestamp:            IsoTimestamp
 }
 
-// =============================================================================
+// -----------------------------------------------------------------------------
 // 11. Googolswarm Ledger Append Record
-// =============================================================================
+// -----------------------------------------------------------------------------
 
-record LedgerAppendRecord {
-    append_id             : Id
-    transaction_id        : TxId
-    ledger_name           : string
-    block_height          : Int
-    block_hash            : Hash512
-    transaction_index     : Int
-    appended_at           : IsoTimestamp
-    confirmation_count    : Int
-    finality_status       : string
-    ledger_signature      : PQSignature
+entity LedgerAppendRecord {
+  append_id:            Id
+  transaction_id:       TxId
+  ledger_name:          string
+  block_height:         Int
+  block_hash:           Hash512
+  transaction_index:    Int
+  appended_at:          IsoTimestamp
+  confirmation_count:   Int
+  finality_status:      string
+  ledger_signature:     PQSignature
 }
 
-// =============================================================================
-// 12. Canonical Governed Decision Transaction Envelope
-// =============================================================================
+// -----------------------------------------------------------------------------
+// 12. Constraint evaluation & governance evaluation
+// -----------------------------------------------------------------------------
 
-record GovernedDecisionTxEnvelope {
-    // Transaction Identity
-    tx_id                 : TxId
-    workflow_id           : WorkflowId
-    envelope_version      : Int
-    schema_ref            : Id
-    
-    // Spatial-Temporal Context
-    node_id               : NodeId
-    birth_sign_ids        : [Id]
-    geo_tile_ref          : Id
-    domain                : string
-    timestamp_unix        : Int
-    timestamp_iso         : IsoTimestamp
-    
-    // Decision Core
-    decision_outcome      : DecisionOutcome
-    override_level        : OverrideLevel
-    override_justification : string?
-    override_authorized_by : DID?
-    override_approved_at  : IsoTimestamp?
-    
-    // Treaty & Rights Compliance
-    treaty_check_transcript_ref : Id
-    treaty_modules_evaluated : [Id]
-    violated_atom_ids     : [Id]
-    applied_norm_ids      : [Id]
-    overall_compliance    : Bool
-    fpic_status           : FPICStatus
-    fpic_grant_ids        : [Id]
-    indigenous_attestation_ref : Id?
-    
-    // Data Integrity
-    input_data_hashes     : [InputDataHash]
-    output_data_hashes    : [OutputDataHash]
-    data_integrity_proof_ref : Id
-    
-    // Multi-Signature Attestation
-    multi_sig_attestation_ref : Id
-    required_attestors    : Int
-    collected_attestors   : Int
-    attestation_complete  : Bool
-    
-    // Simulation & Optimization
-    simulation_summary_ref : Id
-    optimization_criteria : [string]
-    selected_option_id    : Id
-    
-    // Actuation
-    actuation_record_ref  : Id
-    actuation_successful  : Bool
-    reversibility_available : Bool
-    
-    // Citizen Transparency
-    citizen_explanation_ref : Id
-    notification_record_ref : Id
-    languages_available   : [string]
-    grievance_reference   : GrievanceReference
-    
-    // Energy & Resource Accounting
-    energy_account_ref    : Id?
-    resource_accounts     : [ResourceAccount]
-    
-    // Ledger Append
-    ledger_append_ref     : LedgerAppendRecord?
-    ledger_transaction_id : Id?
-    ledger_block_height   : Int?
-    
-    // Cryptographic Integrity
-    envelope_hash         : Hash512
-    pq_signature          : PQSignature
-    signature_algorithm   : string
-    signer_did            : DID
-    signed_at             : IsoTimestamp
-    
-    // Status & Lifecycle
-    status                : TransactionStatus
-    created_at            : IsoTimestamp
-    validated_at          : IsoTimestamp?
-    appended_at           : IsoTimestamp?
-    retention_expiry      : IsoTimestamp?
-    
-    // Audit & Compliance
-    audit_trail_ref       : Id
-    compliance_verified   : Bool
-    compliance_verified_at : IsoTimestamp?
-    compliance_verifier_did : DID?
+entity ConstraintOutcome {
+  alnnorm:   AlnNormId
+  mode:      ConstraintMode
+  message:   string(max_length=2048)
+  severity:  Severity
 }
 
-// =============================================================================
-// 13. Transaction Validation Schema
-// =============================================================================
-
-record TxValidationRule {
-    rule_id               : Id
-    rule_name             : string
-    rule_type             : string
-    required_fields       : [string]
-    validation_logic      : string
-    severity_on_failure   : Severity
+entity GovernanceEvaluation {
+  birthsign_id:    BirthSignId
+  domains:         list(GovernanceDomain, min_items=1)
+  constraint_mode: ConstraintMode
+  fpic_status:     FpicStatus
+  outcomes:        list(ConstraintOutcome, min_items=1)
 }
 
-record TxValidationResult {
-    validation_id         : Id
-    tx_id                 : TxId
-    validator_did         : DID
-    validated_at          : IsoTimestamp
-    rules_evaluated       : [TxValidationRule]
-    rules_passed          : Int
-    rules_failed          : Int
-    validation_passed     : Bool
-    failure_details       : [string]
-    validator_signature   : PQSignature
+// -----------------------------------------------------------------------------
+// 13. Participants and attestors (envelope-level)
+// -----------------------------------------------------------------------------
+
+entity ParticipantSet {
+  subject_did:  optional(DID)
+  operator_did: optional(DID)
+  node_profile: optional(Id)
 }
 
-// =============================================================================
-// 14. Transaction Query & Index Schema
-// =============================================================================
-
-record GovernedDecisionTxIndex {
-    index_id              : Id
-    tx_id                 : TxId
-    workflow_id           : WorkflowId
-    node_id               : NodeId
-    domain                : string
-    decision_outcome      : DecisionOutcome
-    overall_compliance    : Bool
-    treaty_violations     : Int
-    fpic_status           : FPICStatus
-    ej_zone_flag          : Bool
-    indigenous_territory_flag : Bool
-    biotic_corridor_flag  : Bool
-    timestamp_unix        : Int
-    ledger_block_height   : Int
-    ledger_transaction_id : Id
-    search_tags           : [string]
+entity EnvelopeAttestorSignature {
+  attestor_did: DID
+  role:
+    | "GoogolswarmLocalAttestor"
+    | "CityRegulator"
+    | "IndigenousAuthority"
+    | "SystemOperator"
+    | "CitizenWitness"
+  signature:   string(min_length=64, max_length=4096)
+  signed_at:   IsoTimestamp
 }
 
-record GovernedDecisionTxQuery {
-    query_id              : Id
-    query_timestamp       : IsoTimestamp
-    requester_did         : DID
-    query_type            : string
-    filters               : [string]
-    tx_ids                : [TxId]?
-    workflow_ids          : [WorkflowId]?
-    node_ids              : [NodeId]?
-    domains               : [string]?
-    decision_outcomes     : [DecisionOutcome]?
-    compliance_filter     : Bool?
-    date_range_start      : IsoTimestamp?
-    date_range_end        : IsoTimestamp?
-    result_count          : Int
-    result_tx_ids         : [TxId]
-    query_signature       : PQSignature
+// -----------------------------------------------------------------------------
+// 14. Canonical Governed Decision Envelope (primary object)
+// -----------------------------------------------------------------------------
+
+entity GovernedDecisionEnvelope {
+  // Identity and routing
+  tx_id:          TrustTxId
+  created_at:     IsoTimestamp
+  workflow_id:    WorkflowId
+  workflow_stage: WorkflowStage
+
+  // Spatial and jurisdictional context
+  domains:        list(GovernanceDomain, min_items=1)
+  birthsign_ids:  list(BirthSignId, min_items=1)
+
+  // Norm provenance
+  applied_aln_norms:       list(AlnNormId)
+  applied_biotic_treaties: list(BioticTreatyId)
+  applied_micro_treaties:  list(MicroTreatyId)
+
+  // Participants and node security context
+  participants: ParticipantSet
+
+  // Inputs/outputs hashes for replay and audit
+  inputs_hash:   Hash256
+  outputs_hash:  Hash256
+
+  // Aggregate governance evaluation and outcome
+  evaluation:    GovernanceEvaluation
+  outcome:       EnvelopeDecisionOutcome
+
+  // Human-facing narrative
+  explanation:   optional(string(max_length=4096))
+
+  // Domain-specific tags (e.g., "water.volume_ml" -> "25000")
+  tags:          map(string(max_length=128), string(max_length=4096))
+
+  // Multi-sig attestations required by Googolswarm
+  attestors:     list(EnvelopeAttestorSignature, min_items=1)
 }
 
-// =============================================================================
-// 15. Canonical Transaction Examples
-// =============================================================================
+// -----------------------------------------------------------------------------
+// 15. Canonical Governed Decision Transaction Envelope (extended)
+// -----------------------------------------------------------------------------
 
-// Example 1: Water Diversion with Full Treaty Compliance
-record Example_WaterDiversion_CompliantTx {
-    envelope : GovernedDecisionTxEnvelope = {
-        tx_id                         = "TX-GOV-WATER-001234"
-        workflow_id                   = "WORKFLOW-WATER-DIVERSION-001"
-        envelope_version              = 1
-        schema_ref                    = "ALE-TRUST-GOVERNED-DECISION-TX-001"
-        node_id                       = "XR-NODE-PHX-CANAL-001"
-        birth_sign_ids                = ["BIRTHSIGN-AKIMEL-OODHAM-BASIN"]
-        geo_tile_ref                  = "GEO-TILE-PHX-CANAL-SEGMENT-001"
-        domain                        = "WATER"
-        timestamp_unix                = 1710023020
-        timestamp_iso                 = "2025-03-15T14:30:20Z"
-        decision_outcome              = ALLOW
-        override_level                = NONE
-        override_justification        = null
-        treaty_check_transcript_ref   = "TRANSCRIPT-TREATY-001234"
-        treaty_modules_evaluated      = ["treaty_indigenous", "treaty_water", "treaty_ej"]
-        violated_atom_ids             = []
-        applied_norm_ids              = ["ALE-RIGHTS-WATER-INDIGENOUS-001"]
-        overall_compliance            = true
-        fpic_status                   = GRANTED
-        fpic_grant_ids                = ["FPIC-GRANT-AKIMEL-001"]
-        indigenous_attestation_ref    = "INDIGENOUS-ATTEST-001"
-        input_data_hashes             = []
-        output_data_hashes            = []
-        data_integrity_proof_ref      = "PROOF-INTEGRITY-001234"
-        multi_sig_attestation_ref     = "MULTISIG-ATTEST-001234"
-        required_attestors            = 3
-        collected_attestors           = 3
-        attestation_complete          = true
-        simulation_summary_ref        = "SIM-SUMMARY-001234"
-        optimization_criteria         = ["minimize_water_waste", "respect_indigenous_rights"]
-        selected_option_id            = "OPTION-001"
-        actuation_record_ref          = "ACTUATION-001234"
-        actuation_successful          = true
-        reversibility_available       = true
-        citizen_explanation_ref       = "EXPLANATION-001234"
-        notification_record_ref       = "NOTIFICATION-001234"
-        languages_available           = ["en", "es", "ood"]
-        grievance_reference           = { grievance_id = "GRIEV-WATER-001234" }
-        energy_account_ref            = "ENERGY-001234"
-        resource_accounts             = []
-        ledger_append_ref             = { append_id = "APPEND-001234" }
-        ledger_transaction_id         = "TX-GOOGOL-001234"
-        ledger_block_height           = 150234
-        envelope_hash                 = "pq-hash-0x7f8a9b..."
-        pq_signature                  = "pq-sig-0x3c4d5e..."
-        signature_algorithm           = "CRYSTALS-Dilithium"
-        signer_did                    = "did:aletheion:xr-node-001"
-        signed_at                     = "2025-03-15T14:30:25Z"
-        status                        = APPENDED
-        created_at                    = "2025-03-15T14:30:20Z"
-        validated_at                  = "2025-03-15T14:30:23Z"
-        appended_at                   = "2025-03-15T14:30:25Z"
-        retention_expiry              = "2035-03-15T14:30:25Z"
-        audit_trail_ref               = "AUDIT-001234"
-        compliance_verified           = true
-        compliance_verified_at        = "2025-03-15T14:30:24Z"
-        compliance_verifier_did       = "did:aletheion:compliance-001"
-    }
+entity GovernedDecisionTxEnvelope {
+  // Transaction Identity
+  tx_id:                 TxId
+  workflow_id:           WorkflowId
+  envelope_version:      Int
+  schema_ref:            Id
+
+  // Spatial-Temporal Context
+  node_id:               NodeId
+  birth_sign_ids:        list(BirthSignId)
+  geo_tile_ref:          Id
+  domain:                string
+  timestamp_unix:        Int
+  timestamp_iso:         IsoTimestamp
+
+  // Decision Core
+  decision_outcome:      EnvelopeDecisionOutcome
+  override_level:        OverrideLevel
+  override_justification:optional(string)
+  override_authorized_by:optional(DID)
+  override_approved_at:  optional(IsoTimestamp)
+
+  // Treaty & Rights Compliance
+  treaty_check_transcript_ref: Id
+  treaty_modules_evaluated:    list(Id)
+  violated_atom_ids:           list(Id)
+  applied_norm_ids:            list(Id)
+  overall_compliance:          Bool
+  fpic_status:                 FpicStatus
+  fpic_grant_ids:              list(Id)
+  indigenous_attestation_ref:  optional(Id)
+
+  // Data Integrity
+  input_data_hashes:      list(InputDataHash)
+  output_data_hashes:     list(OutputDataHash)
+  data_integrity_proof_ref: Id
+
+  // Multi-Signature Attestation
+  multi_sig_attestation_ref: Id
+  required_attestors:    Int
+  collected_attestors:   Int
+  attestation_complete:  Bool
+
+  // Simulation & Optimization
+  simulation_summary_ref: Id
+  optimization_criteria: list(string)
+  selected_option_id:    Id
+
+  // Actuation
+  actuation_record_ref:  optional(Id)
+  actuation_successful:  Bool
+  reversibility_available: Bool
+
+  // Citizen Transparency
+  citizen_explanation_ref: Id
+  notification_record_ref: Id
+  languages_available:   list(string)
+  grievance_reference:   GrievanceReference
+
+  // Energy & Resource Accounting
+  energy_account_ref:    optional(Id)
+  resource_accounts:     list(ResourceAccount)
+
+  // Ledger Append
+  ledger_append_ref:     optional(LedgerAppendRecord)
+  ledger_transaction_id: optional(Id)
+  ledger_block_height:   optional(Int)
+
+  // Cryptographic Integrity
+  envelope_hash:         Hash512
+  pq_signature:          PQSignature
+  signature_algorithm:   string
+  signer_did:            DID
+  signed_at:             IsoTimestamp
+
+  // Status & Lifecycle
+  status:                TransactionStatus
+  created_at:            IsoTimestamp
+  validated_at:          optional(IsoTimestamp)
+  appended_at:           optional(IsoTimestamp)
+  retention_expiry:      optional(IsoTimestamp)
+
+  // Audit & Compliance
+  audit_trail_ref:       Id
+  compliance_verified:   Bool
+  compliance_verified_at:optional(IsoTimestamp)
+  compliance_verifier_did:optional(DID)
 }
 
-// Example 2: EJ Zone Block with Treaty Violation
-record Example_EJZone_BlockedTx {
-    envelope : GovernedDecisionTxEnvelope = {
-        tx_id                         = "TX-GOV-EJ-002345"
-        workflow_id                   = "WORKFLOW-AIR-QUALITY-002"
-        envelope_version              = 1
-        schema_ref                    = "ALE-TRUST-GOVERNED-DECISION-TX-001"
-        node_id                       = "XR-NODE-PHX-SOUTHMTN-001"
-        birth_sign_ids                = ["BIRTHSIGN-EJ-SOUTHMTN-001"]
-        geo_tile_ref                  = "GEO-TILE-PHX-EJ-001"
-        domain                        = "AIR"
-        timestamp_unix                = 1710109420
-        timestamp_iso                 = "2025-03-16T14:30:20Z"
-        decision_outcome              = BLOCK
-        override_level                = NONE
-        override_justification        = null
-        treaty_check_transcript_ref   = "TRANSCRIPT-TREATY-002345"
-        treaty_modules_evaluated      = ["treaty_ej", "treaty_air", "treaty_health"]
-        violated_atom_ids             = ["ALE-RIGHTS-AIR-EJ-CAP-001"]
-        applied_norm_ids              = ["ALE-RIGHTS-AIR-EJ-CAP-001"]
-        overall_compliance            = false
-        fpic_status                   = NOT_APPLICABLE
-        fpic_grant_ids                = []
-        indigenous_attestation_ref    = null
-        input_data_hashes             = []
-        output_data_hashes            = []
-        data_integrity_proof_ref      = "PROOF-INTEGRITY-002345"
-        multi_sig_attestation_ref     = "MULTISIG-ATTEST-002345"
-        required_attestors            = 3
-        collected_attestors           = 3
-        attestation_complete          = true
-        simulation_summary_ref        = "SIM-SUMMARY-002345"
-        optimization_criteria         = ["minimize_pollution", "protect_ej_zones"]
-        selected_option_id            = "OPTION-BLOCK"
-        actuation_record_ref          = null
-        actuation_successful          = false
-        reversibility_available       = false
-        citizen_explanation_ref       = "EXPLANATION-002345"
-        notification_record_ref       = "NOTIFICATION-002345"
-        languages_available           = ["en", "es"]
-        grievance_reference           = { grievance_id = "GRIEV-EJ-002345" }
-        energy_account_ref            = "ENERGY-002345"
-        resource_accounts             = []
-        ledger_append_ref             = { append_id = "APPEND-002345" }
-        ledger_transaction_id         = "TX-GOOGOL-002345"
-        ledger_block_height           = 150345
-        envelope_hash                 = "pq-hash-0x8a9b0c..."
-        pq_signature                  = "pq-sig-0x4d5e6f..."
-        signature_algorithm           = "CRYSTALS-Dilithium"
-        signer_did                    = "did:aletheion:xr-node-002"
-        signed_at                     = "2025-03-16T14:30:25Z"
-        status                        = APPENDED
-        created_at                    = "2025-03-16T14:30:20Z"
-        validated_at                  = "2025-03-16T14:30:23Z"
-        appended_at                   = "2025-03-16T14:30:25Z"
-        retention_expiry              = "2035-03-16T14:30:25Z"
-        audit_trail_ref               = "AUDIT-002345"
-        compliance_verified           = true
-        compliance_verified_at        = "2025-03-16T14:30:24Z"
-        compliance_verifier_did       = "did:aletheion:compliance-002"
-    }
+// -----------------------------------------------------------------------------
+// 16. Transaction validation, lifecycle, audit, registry
+// -----------------------------------------------------------------------------
+
+entity TxValidationRule {
+  rule_id:             Id
+  rule_name:           string
+  rule_type:           string
+  required_fields:     list(string)
+  validation_logic:    string
+  severity_on_failure: Severity
 }
 
-// Example 3: Biotic Corridor Derate with Conditions
-record Example_BioticCorridor_DerateTx {
-    envelope : GovernedDecisionTxEnvelope = {
-        tx_id                         = "TX-GOV-BIOTIC-003456"
-        workflow_id                   = "WORKFLOW-LIGHTING-003"
-        envelope_version              = 1
-        schema_ref                    = "ALE-TRUST-GOVERNED-DECISION-TX-001"
-        node_id                       = "XR-NODE-PHX-RIPARIAN-001"
-        birth_sign_ids                = ["BIRTHSIGN-CANAL-RIPARIAN-001"]
-        geo_tile_ref                  = "GEO-TILE-PHX-RIPARIAN-001"
-        domain                        = "BIOTIC"
-        timestamp_unix                = 1710195820
-        timestamp_iso                 = "2025-03-17T14:30:20Z"
-        decision_outcome              = ALLOW_WITH_DERATE
-        override_level                = NONE
-        override_justification        = null
-        treaty_check_transcript_ref   = "TRANSCRIPT-TREATY-003456"
-        treaty_modules_evaluated      = ["treaty_biotic", "treaty_darkness"]
-        violated_atom_ids             = []
-        applied_norm_ids              = ["ALE-BIOTIC-BAT-CANAL-CORRIDOR-001"]
-        overall_compliance            = true
-        fpic_status                   = NOT_APPLICABLE
-        fpic_grant_ids                = []
-        indigenous_attestation_ref    = null
-        input_data_hashes             = []
-        output_data_hashes            = []
-        data_integrity_proof_ref      = "PROOF-INTEGRITY-003456"
-        multi_sig_attestation_ref     = "MULTISIG-ATTEST-003456"
-        required_attestors            = 3
-        collected_attestors           = 3
-        attestation_complete          = true
-        simulation_summary_ref        = "SIM-SUMMARY-003456"
-        optimization_criteria         = ["minimize_light_pollution", "protect_bat_corridor"]
-        selected_option_id            = "OPTION-DERATE"
-        actuation_record_ref          = "ACTUATION-003456"
-        actuation_successful          = true
-        reversibility_available       = true
-        citizen_explanation_ref       = "EXPLANATION-003456"
-        notification_record_ref       = "NOTIFICATION-003456"
-        languages_available           = ["en"]
-        grievance_reference           = { grievance_id = "GRIEV-BIOTIC-003456" }
-        energy_account_ref            = "ENERGY-003456"
-        resource_accounts             = []
-        ledger_append_ref             = { append_id = "APPEND-003456" }
-        ledger_transaction_id         = "TX-GOOGOL-003456"
-        ledger_block_height           = 150456
-        envelope_hash                 = "pq-hash-0x9b0c1d..."
-        pq_signature                  = "pq-sig-0x5e6f7a..."
-        signature_algorithm           = "CRYSTALS-Dilithium"
-        signer_did                    = "did:aletheion:xr-node-003"
-        signed_at                     = "2025-03-17T14:30:25Z"
-        status                        = APPENDED
-        created_at                    = "2025-03-17T14:30:20Z"
-        validated_at                  = "2025-03-17T14:30:23Z"
-        appended_at                   = "2025-03-17T14:30:25Z"
-        retention_expiry              = "2035-03-17T14:30:25Z"
-        audit_trail_ref               = "AUDIT-003456"
-        compliance_verified           = true
-        compliance_verified_at        = "2025-03-17T14:30:24Z"
-        compliance_verifier_did       = "did:aletheion:compliance-003"
-    }
+entity TxValidationResult {
+  validation_id:     Id
+  tx_id:             TxId
+  validator_did:     DID
+  validated_at:      IsoTimestamp
+  rules_evaluated:   list(TxValidationRule)
+  rules_passed:      Int
+  rules_failed:      Int
+  validation_passed: Bool
+  failure_details:   list(string)
+  validator_signature: PQSignature
 }
 
-// =============================================================================
-// 16. Transaction Lifecycle & Retention
-// =============================================================================
-
-record TxLifecycle {
-    lifecycle_id          : Id
-    tx_id                 : TxId
-    created_at            : IsoTimestamp
-    validated_at          : IsoTimestamp
-    appended_at           : IsoTimestamp
-    last_accessed_at      : IsoTimestamp
-    retention_period_days : Int
-    retention_expiry      : IsoTimestamp
-    archival_status       : string
-    deletion_eligible     : Bool
-    deletion_timestamp    : IsoTimestamp?
-    deletion_authorized_by : DID?
+entity TxLifecycle {
+  lifecycle_id:          Id
+  tx_id:                 TxId
+  created_at:            IsoTimestamp
+  validated_at:          IsoTimestamp
+  appended_at:           IsoTimestamp
+  last_accessed_at:      IsoTimestamp
+  retention_period_days: Int
+  retention_expiry:      IsoTimestamp
+  archival_status:       string
+  deletion_eligible:     Bool
+  deletion_timestamp:    optional(IsoTimestamp)
+  deletion_authorized_by:optional(DID)
 }
 
-record TxRetentionRule {
-    rule_id               : Id
-    domain                : string
-    decision_outcome      : DecisionOutcome?
-    treaty_violation_flag : Bool?
-    retention_period_days : Int
-    archival_required     : Bool
-    indigenous_body_copy_required : Bool
-    regulatory_body_copy_required : Bool
-    public_access_after_days : Int
-    deletion_conditions   : [string]
+entity TxRetentionRule {
+  rule_id:                 Id
+  domain:                  string
+  decision_outcome:        optional(EnvelopeDecisionOutcome)
+  treaty_violation_flag:   optional(Bool)
+  retention_period_days:   Int
+  archival_required:       Bool
+  indigenous_body_copy_required: Bool
+  regulatory_body_copy_required: Bool
+  public_access_after_days: Int
+  deletion_conditions:     list(string)
 }
 
-// =============================================================================
-// 17. Audit & Compliance Records
-// =============================================================================
-
-record TxAuditRecord {
-    audit_id              : Id
-    tx_id                 : TxId
-    audit_timestamp       : IsoTimestamp
-    auditor_did           : DID
-    audit_type            : string
-    data_integrity_verified : Bool
-    treaty_compliance_verified : Bool
-    fpic_verified         : Bool
-    ej_compliance_verified : Bool
-    biotic_compliance_verified : Bool
-    indigenous_rights_verified : Bool
-    violations_found      : Int
-    violations_refs       : [Id]
-    remediation_required  : Bool
-    remediation_deadline  : IsoTimestamp?
-    audit_signature       : PQSignature
-    ledger_reference      : Id
+entity TxAuditRecord {
+  audit_id:                 Id
+  tx_id:                    TxId
+  audit_timestamp:          IsoTimestamp
+  auditor_did:              DID
+  audit_type:               string
+  data_integrity_verified:  Bool
+  treaty_compliance_verified: Bool
+  fpic_verified:            Bool
+  ej_compliance_verified:   Bool
+  biotic_compliance_verified: Bool
+  indigenous_rights_verified: Bool
+  violations_found:         Int
+  violations_refs:          list(Id)
+  remediation_required:     Bool
+  remediation_deadline:     optional(IsoTimestamp)
+  audit_signature:          PQSignature
+  ledger_reference:         Id
 }
 
-// =============================================================================
-// 18. Cross-Transaction Linking
-// =============================================================================
-
-record TxCrossReference {
-    reference_id          : Id
-    source_tx_id          : TxId
-    target_tx_id          : TxId
-    reference_type        : string
-    relationship          : string
-    created_at            : IsoTimestamp
-    created_by_did        : DID
+entity GovernedDecisionTxIndex {
+  index_id:                 Id
+  tx_id:                    TxId
+  workflow_id:              WorkflowId
+  node_id:                  NodeId
+  domain:                   string
+  decision_outcome:         EnvelopeDecisionOutcome
+  overall_compliance:       Bool
+  treaty_violations:        Int
+  fpic_status:              FpicStatus
+  ej_zone_flag:             Bool
+  indigenous_territory_flag:Bool
+  biotic_corridor_flag:     Bool
+  timestamp_unix:           Int
+  ledger_block_height:      Int
+  ledger_transaction_id:    Id
+  search_tags:              list(string)
 }
 
-record TxLineage {
-    lineage_id            : Id
-    root_tx_id            : TxId
-    descendant_tx_ids     : [TxId]
-    lineage_type          : string
-    workflow_chain        : [WorkflowId]
-    birth_sign_chain      : [Id]
-    created_at            : IsoTimestamp
-    updated_at            : IsoTimestamp
+entity GovernedDecisionTxQuery {
+  query_id:          Id
+  query_timestamp:   IsoTimestamp
+  requester_did:     DID
+  query_type:        string
+  filters:           list(string)
+  tx_ids:            optional(list(TxId))
+  workflow_ids:      optional(list(WorkflowId))
+  node_ids:          optional(list(NodeId))
+  domains:           optional(list(string))
+  decision_outcomes: optional(list(EnvelopeDecisionOutcome))
+  compliance_filter: optional(Bool)
+  date_range_start:  optional(IsoTimestamp)
+  date_range_end:    optional(IsoTimestamp)
+  result_count:      Int
+  result_tx_ids:     list(TxId)
+  query_signature:   PQSignature
 }
 
-// =============================================================================
-// 19. Export & Interoperability
-// =============================================================================
-
-record TxExportPackage {
-    package_id            : Id
-    tx_ids                : [TxId]
-    export_timestamp      : IsoTimestamp
-    exported_by_did       : DID
-    export_format         : string
-    export_purpose        : string
-    recipient_did         : DID
-    encryption_applied    : Bool
-    access_expiry         : IsoTimestamp?
-    usage_restrictions    : [string]
-    treaty_compliance_attached : Bool
-    ledger_reference      : Id
+entity TxCrossReference {
+  reference_id:  Id
+  source_tx_id:  TxId
+  target_tx_id:  TxId
+  reference_type:string
+  relationship:  string
+  created_at:    IsoTimestamp
+  created_by_did:DID
 }
 
-// =============================================================================
-// 20. Schema Registry & Versioning
-// =============================================================================
-
-record GovernedDecisionSchemaRegistry {
-    registry_id           : Id
-    version               : string
-    schema_ref            : Id
-    valid_from            : IsoTimestamp
-    valid_until           : IsoTimestamp
-    total_transactions    : Int
-    transactions_by_domain : [string]
-    transactions_by_outcome : [string]
-    compliance_rate       : Decimal
-    treaty_violation_rate : Decimal
-    fpic_bound_rate       : Decimal
-    last_updated_at       : IsoTimestamp
-    registry_signature    : PQSignature
-    ledger_reference      : Id
+entity TxLineage {
+  lineage_id:      Id
+  root_tx_id:      TxId
+  descendant_tx_ids: list(TxId)
+  lineage_type:    string
+  workflow_chain:  list(WorkflowId)
+  birth_sign_chain:list(BirthSignId)
+  created_at:      IsoTimestamp
+  updated_at:      IsoTimestamp
 }
 
-// End of Aletheion Trust Schemas Governed Decision Transaction Envelope
+entity TxExportPackage {
+  package_id:             Id
+  tx_ids:                 list(TxId)
+  export_timestamp:       IsoTimestamp
+  exported_by_did:        DID
+  export_format:          string
+  export_purpose:         string
+  recipient_did:          DID
+  encryption_applied:     Bool
+  access_expiry:          optional(IsoTimestamp)
+  usage_restrictions:     list(string)
+  treaty_compliance_attached: Bool
+  ledger_reference:       Id
+}
+
+entity GovernedDecisionSchemaRegistry {
+  registry_id:            Id
+  version:                string
+  schema_ref:             Id
+  valid_from:             IsoTimestamp
+  valid_until:            IsoTimestamp
+  total_transactions:     Int
+  transactions_by_domain: list(string)
+  transactions_by_outcome:list(string)
+  compliance_rate:        Decimal
+  treaty_violation_rate:  Decimal
+  fpic_bound_rate:        Decimal
+  last_updated_at:        IsoTimestamp
+  registry_signature:     PQSignature
+  ledger_reference:       Id
+}
+
+// -----------------------------------------------------------------------------
+// 17. Validation rules (local, no superpowers)
+// -----------------------------------------------------------------------------
+
+rule birthsign_nonempty(e: GovernedDecisionEnvelope) {
+  assert size(e.birthsign_ids) > 0
+}
+
+rule domains_nonempty(e: GovernedDecisionEnvelope) {
+  assert size(e.domains) > 0
+}
+
+rule fpic_pending_blocks_approval(e: GovernedDecisionEnvelope) {
+  if e.evaluation.fpic_status == "Pending" {
+    assert e.outcome == "PendingFpic"
+  }
+}
+
+rule fpic_denied_blocks_approval(e: GovernedDecisionEnvelope) {
+  if e.evaluation.fpic_status == "Denied" {
+    assert e.outcome == "Rejected"
+  }
+}
+
+rule hard_violation_blocks_approval(e: GovernedDecisionEnvelope) {
+  let has_hard =
+    exists o in e.evaluation.outcomes where o.severity == "CRITICAL" or o.severity == "ERROR"
+  if has_hard {
+    assert e.outcome == "Rejected"
+  }
+}
+
+rule soft_violation_requires_derating_or_reject(e: GovernedDecisionEnvelope) {
+  let has_soft =
+    exists o in e.evaluation.outcomes where o.severity == "WARNING"
+  if has_soft && e.evaluation.constraint_mode == "HighPenalty" {
+    assert e.outcome == "ApprovedWithDerating" || e.outcome == "Rejected"
+  }
+}
+
+rule attestors_required(e: GovernedDecisionEnvelope) {
+  let has_googolswarm =
+    exists a in e.attestors where a.role == "GoogolswarmLocalAttestor"
+  let has_other =
+    exists a in e.attestors where a.role != "GoogolswarmLocalAttestor"
+  assert has_googolswarm && has_other
+}
+
+// Root type for this schema
+root GovernedDecisionTxEnvelope
