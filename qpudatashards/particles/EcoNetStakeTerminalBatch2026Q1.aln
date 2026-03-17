@@ -1,0 +1,144 @@
+# EcoNet Stakeholder Terminal Participation Batch - Phoenix 2026 Q1
+# Schema: machine-readable, ALN-compatible, Rust/C++ ingestable
+
+[Meta]
+version         = "2026.1"
+region          = "Phoenix-AZ-US"
+timespan_start  = "2026-01-01T00:00:00Z"
+timespan_end    = "2026-03-31T23:59:59Z"
+spec_hex        = "0xa1b2c3d4e5f67890f1e2d3c4b5a6978899aa77cc55ee3311"
+
+[Columns]
+# identity, hardware, corridors, CEIM mass, ecoimpact, KER, trust
+fields = [
+  "identity_id",        # DID/ALN/Bostrom id
+  "bostrom_addr",       # Bostrom address (primary or alternate)
+  "host_class",         # EDGE_NODE | DESKTOP | LAB_NODE
+  "cpu_cores",          # integer, total logical cores
+  "cpu_frac_max",       # max fraction allowed for EcoNet (0..1)
+  "ram_mb_max",         # max RAM allowed for EcoNet tasks
+  "power_w_cap",        # soft power cap attributable to EcoNet tasks
+  "corridor_cpu_ok",    # TRUE if cpu use within corridor
+  "corridor_ram_ok",    # TRUE if ram use within corridor
+  "corridor_power_ok",  # TRUE if power within corridor
+  "ceim_mass_kg",       # total validated pollutant or CO2 mass [kg]
+  "ceim_mass_hex",      # hex proof tying to upstream CEIM run
+  "ecoimpact_score",    # normalized EcoNet ecoimpact (0..1)
+  "ker_K",              # Knowledge factor (0..1)
+  "ker_E",              # Eco-impact factor (0..1)
+  "ker_R",              # Risk-of-harm (0..1)
+  "dt_sensor_trust",    # sensor/telemetry trust scalar (0..1)
+  "rsigma_uncert",      # uncertainty coordinate (0..1)
+  "lane",               # PROD | EXP
+  "karma_units",        # EcoNet Karma minted for this batch
+  "karma_hex",          # hex of Karma Update proof
+  "evidence_hex"        # aggregated hex of underlying qpudatashards
+]
+
+[Rows]
+# Example 1: Phoenix edge node validating Gila + Lake Pleasant shards
+row = [
+  "BOSTROM-PHX-01",
+  "bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7",
+  "EDGE_NODE",
+  4,
+  0.15,
+  1024,
+  12.0,
+  TRUE,
+  TRUE,
+  TRUE,
+  1850.0,
+  "0x1122334455667788",
+  0.88,
+  0.94,
+  0.90,
+  0.13,
+  0.96,
+  0.18,
+  "PROD",
+  1239.5,
+  "0x99aabbccddeeff00",
+  "0xa1b2c3d4e5f67890"
+]
+
+# Example 2: Desktop validator in Glendale on EXP lane (higher uncertainty)
+row = [
+  "BOSTROM-GLENDALE-02",
+  "bostrom1ldgmtf20d6604a24ztr0jxht7xt7az4jhkmsrc",
+  "DESKTOP",
+  8,
+  0.10,
+  2048,
+  20.0,
+  TRUE,
+  TRUE,
+  TRUE,
+  430.0,
+  "0x4a3b2c1d9e8f7f6e",   # corrected to hex-only
+  0.81,
+  0.91,
+  0.88,
+  0.18,
+  0.92,
+  0.32,
+  "EXP",
+  171.7,
+  "0x1234567890abcdef",
+  "0x8f7e6d5c4b3a2910"
+]
+
+text EcoNetStakeTerminalBatch2026Q1
+  aln_version          1.0.0
+  shard_type           EcoNetStakeTerminalBatch
+  region               Phoenix-AZ-US
+  ceim_kernel          CEIM-XJ-v1.1
+  karma_factor_ton     0.67          # Karma units per metric ton avoided
+  dt_window_start      2026-01-01T00:00:00Z
+  dt_window_end        2026-03-31T23:59:59Z
+
+  # Identity and host hardware
+  field identity_id        string   # e.g., "BOSTROM-PHX-01"
+  field bostrom_addr       string   # primary or alternate Bostrom address
+  field host_class         enum     # EDGE_NODE | DESKTOP | LAB_NODE | SERVER
+  field cpu_cores          int
+  field cpu_frac_max       float    # 0..1 fraction corridor
+  field ram_mb_max         int
+  field power_w_cap        float
+
+  # Corridor compliance flags (aligned with ecosafety grammar spine)
+  field corridor_cpu_ok    bool     # TRUE if cpu use within corridor
+  field corridor_ram_ok    bool     # TRUE if ram use within corridor
+  field corridor_power_ok  bool     # TRUE if power within corridor
+
+  # CEIM mass and proof (must map to CEIM kernels used in Phoenix ERM water/waste flows)
+  field ceim_mass_kg       float
+  field ceim_mass_hex      string   # hash pointer to CEIM mass shard
+
+  # EcoNet ecoimpact + KER tuple for this participant
+  field ecoimpact_score    float    # 0..1
+  field ker_K              float    # 0..1
+  field ker_E              float    # 0..1
+  field ker_R              float    # 0..1
+
+  # Telemetry trust + uncertainty (hooks into rsigma/ecosafety spine)
+  field dt_sensor_trust    float    # 0..1
+  field rsigma_uncert      float    # 0..1
+
+  # Operational lane
+  field lane               enum     # PROD | EXP | SANDBOX
+
+  # Karma issuance and proofs (Googolswarm / trust-layer hooks)
+  field karma_units        float
+  field karma_hex          string   # hash of Karma computation
+  field evidence_hex       string   # aggregate hash over included qpudatashards
+
+  # Ecosafety-style invariants for PROD rows
+  invariant K_min          0.90
+  invariant E_min          0.90
+  invariant R_max          0.13
+
+  # All PROD-lane stake terminals must satisfy ecosafety corridor for KER
+  invariant lane_prod      (lane == "PROD") -> ((ker_K >= K_min) & (ker_E >= E_min) & (ker_R <= R_max))
+
+end
