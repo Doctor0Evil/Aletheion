@@ -1,0 +1,179 @@
+// aletheion/trust/attestors/ALE-TRUST-GOOGOLSWARM-LOCAL-ATTESTOR-001.aln
+// Canonical contract describing Googolswarm as a local-only, offline-capable attestor.
+// Scope: Trust layer only. No optimization, governance, or actuation authority.
+
+schema AttestorId {
+  id: String
+}
+
+schema WorkflowId {
+  id: String
+}
+
+schema BirthSignId {
+  id: String
+}
+
+schema TxDomain {
+  kind: Enum["Water","Energy","Materials","Thermal","Mobility","Waste","Treaty","Health","Augmentation","Other"]
+}
+
+schema TxHash {
+  value: String
+}
+
+schema MultiSigKey {
+  did: String          // DID of signer (citizen, node, or institutional).
+  weight: Integer      // Weight in multi-sig set.
+}
+
+schema MultiSigPolicy {
+  threshold: Integer
+  keys: List<MultiSigKey>
+}
+
+schema LocalAttestorProfile {
+  attestor: AttestorId
+  allowed_domains: List<TxDomain>    // Domains for which this attestor may sign.
+  max_offline_window_hours: Integer  // Max duration between local attestation and sync.
+  requires_birthsign_binding: Boolean
+  multisig_policy: MultiSigPolicy
+}
+
+// Hard-coded identifier for Googolswarm local attestor role.
+const GOOGOLSWARM_LOCAL_ATTESTOR: AttestorId = { id: "aletheion:attestor:googolswarm:local-only:v1" }
+
+// Role classification — strictly "Attestor", never "Controller" or "Governor".
+schema RoleKind {
+  kind: Enum["Attestor","Observer"]
+}
+
+schema AttestorRole {
+  attestor: AttestorId
+  role: RoleKind
+}
+
+// Canonical governed decision envelope reference, not redefined here.
+schema GovernedDecisionRef {
+  tx_id: String            // TrustTxId
+  workflow: WorkflowId
+  birthsigns: List<BirthSignId>
+  domains: List<TxDomain>
+  hash: TxHash
+}
+
+// Local-only attestation record.
+schema LocalAttestation {
+  attestor: AttestorId
+  decision: GovernedDecisionRef
+  signed_at_unix: Integer
+  offline_mode: Boolean     // true if node was disconnected from any external network.
+  signatures: List<String>  // Encoded signatures meeting MultiSigPolicy.
+}
+
+// Global constraint: Googolswarm is restricted to attestor role only.
+rule GoogolswarmRoleIsAttestorOnly {
+  when {
+    r: AttestorRole.role == "Controller" or AttestorRole.role == "Governor"
+    and r.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+  }
+  then {
+    forbid("Googolswarm may not assume Controller or Governor roles; attestation-only.");
+  }
+}
+
+// Global constraint: Googolswarm cannot be the sole source of truth for any workflow.
+schema WorkflowTruthSource {
+  workflow: WorkflowId
+  primary_sources: List<String>  // e.g., "StateModel", "CitizenGrievance", "On-Device Logs"
+  attestor_sources: List<AttestorId>
+}
+
+rule GoogolswarmCannotBePrimaryTruthSource {
+  when {
+    w: WorkflowTruthSource
+    and GOOGOLSWARM_LOCAL_ATTESTOR in w.attestor_sources
+    and ( "Googolswarm" in w.primary_sources or size(w.primary_sources) == 0 )
+  }
+  then {
+    forbid("Googolswarm may not be the sole or primary truth source for any workflow.");
+  }
+}
+
+// Constraint: Googolswarm must be offline-capable and default to local/host-only mode.
+schema AttestorConnectivityProfile {
+  attestor: AttestorId
+  allows_external_rpc: Boolean
+  external_endpoints: List<String>
+}
+
+rule GoogolswarmLocalOnlyConnectivity {
+  when {
+    p: AttestorConnectivityProfile.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+    and (p.allows_external_rpc == true or size(p.external_endpoints) > 0)
+  }
+  then {
+    forbid("Googolswarm local attestor may not expose external RPC/HTTP endpoints.");
+  }
+}
+
+// Constraint: Attestation does not grant actuation or optimization authority.
+schema CapabilityClaim {
+  attestor: AttestorId
+  capability: Enum["Ingest","StateModelWrite","Optimize","Govern","Actuate","Attest","AuditView"]
+}
+
+rule GoogolswarmCapabilityRestriction {
+  when {
+    c: CapabilityClaim.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+    and (c.capability == "Optimize" or c.capability == "Govern" or c.capability == "Actuate")
+  }
+  then {
+    forbid("Googolswarm attestor cannot optimize, govern, or actuate; attestation only.");
+  }
+}
+
+// Constraint: Attestation must always reference BirthSigns and ALN evaluation.
+schema AlnNormId {
+  id: String
+}
+
+schema AttestationGovernanceContext {
+  decision: GovernedDecisionRef
+  applied_norms: List<AlnNormId>
+}
+
+rule AttestationRequiresBirthSignAndNorms {
+  when {
+    a: LocalAttestation.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+  }
+  then {
+    require(size(a.decision.birthsigns) > 0,
+            "Attested decisions must be bound to at least one BirthSign.");
+  }
+}
+
+// Constraint: Multi-sig attestation must meet local policy.
+rule AttestationMustMeetMultiSigPolicy {
+  when {
+    a: LocalAttestation.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+    p: LocalAttestorProfile.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+  }
+  then {
+    require(size(a.signatures) >= p.multisig_policy.threshold,
+            "Googolswarm attestation requires multi-sig threshold.");
+  }
+}
+
+// Constraint: Offline-only usage must not exceed configured window.
+rule OfflineWindowLimited {
+  when {
+    a: LocalAttestation.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+    and a.offline_mode == true
+    p: LocalAttestorProfile.attestor == GOOGOLSWARM_LOCAL_ATTESTOR
+  }
+  then {
+    // Abstract check; runtime must enforce based on timestamps.
+    note("Runtime must verify offline window <= max_offline_window_hours before accepting attestation.");
+  }
+}
