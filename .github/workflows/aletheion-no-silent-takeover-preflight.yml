@@ -1,0 +1,201 @@
+name: Aletheion No-Silent-Takeover Preflight
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches:
+      - main
+      - trunk
+      - release/**
+      - governance/**
+      - trust/**
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  no-silent-takeover-guard:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUSTFLAGS: "-D warnings"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Build guard CLI
+        run: |
+          set -euo pipefail
+          mkdir -p ci/guards
+          cat > ci/guards/aletheion-no-silent-takeover-cli.rs << 'EOF'
+          use std::fs;
+          use std::path::Path;
+          use std::collections::HashMap;
+
+          // Import the guard types from the governance module.
+          mod guard;
+          use guard::{
+              ModuleId, RepoPath, RoleBinding, CapabilityBinding,
+              WorkflowManifest, check_no_silent_takeover, GuardViolationKind,
+          };
+
+          fn main() {
+              let manifests = discover_manifests(".");
+              let report = check_no_silent_takeover(&manifests);
+              if report.violations.is_empty() {
+                  println!("No-silent-takeover guard: OK ({} manifests checked)", manifests.len());
+                  return;
+              }
+
+              eprintln!("No-silent-takeover guard: VIOLATIONS DETECTED");
+              for v in report.violations {
+                  eprintln!(
+                      "- [{:?}] module={} path={} msg={}",
+                      v.kind,
+                      (v.module_id).0,
+                      (v.repo_path).0,
+                      v.message
+                  );
+              }
+              std::process::exit(1);
+          }
+
+          // Discover manifest files for high-risk domains and construct minimal WorkflowManifest structs.
+          fn discover_manifests(root: &str) -> Vec<WorkflowManifest> {
+              let mut manifests = Vec::new();
+              let root_path = Path::new(root);
+
+              let high_risk_roots = &[
+                  "aletheion/rm/water",
+                  "aletheion/rm/energy",
+                  "aletheion/rm/materials",
+                  "aletheion/infra",
+                  "aletheion/governance",
+                  "aletheion/trust",
+                  "aletheion/compliance",
+                  "aletheion/neurobiome",
+                  "aletheion/somaplex",
+                  "aletheion/citizen",
+              ];
+
+              for hr in high_risk_roots {
+                  let candidate = root_path.join(hr);
+                  if !candidate.exists() {
+                      continue;
+                  }
+                  visit_path(&candidate, &mut manifests);
+              }
+
+              manifests
+          }
+
+          fn visit_path(path: &Path, out: &mut Vec<WorkflowManifest>) {
+              if path.is_file() {
+                  if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                      if ext == "rs" || ext == "aln" || ext == "lua" || ext == "js" || ext == "kt" {
+                          if let Some(m) = build_manifest_from_file(path) {
+                              out.push(m);
+                          }
+                      }
+                  }
+                  return;
+              }
+
+              let Ok(read_dir) = fs::read_dir(path) else { return; };
+              for entry in read_dir.flatten() {
+                  visit_path(&entry.path(), out);
+              }
+          }
+
+          fn build_manifest_from_file(path: &Path) -> Option<WorkflowManifest> {
+              let repo_path_str = path.to_string_lossy().to_string();
+              let file_name = path.file_name()?.to_string_lossy().to_string();
+
+              let content = fs::read_to_string(path).unwrap_or_default();
+              let lowered = content.to_ascii_lowercase();
+
+              // Derive rough capabilities and scopes from simple heuristics.
+              let mut capabilities = Vec::new();
+              let mut declared_roles = Vec::new();
+              let mut imports = Vec::new();
+              let mut annotations: HashMap<String, String> = HashMap::new();
+
+              if lowered.contains("govern") || lowered.contains("treaty") || lowered.contains("lexethos") {
+                  annotations.insert("governance".into(), "true".into());
+              }
+              if lowered.contains("birthsign") {
+                  annotations.insert("birthsign".into(), "present".into());
+              }
+              if lowered.contains("googolswarm") {
+                  declared_roles.push(RoleBinding {
+                      role_id: crate::guard::RoleId("Attestor".into()),
+                      principal: crate::guard::GOOGOLSWARM_LOCAL_ATTESTOR_ID.into(),
+                  });
+              }
+              if lowered.contains("actuate") || lowered.contains("pump") || lowered.contains("valve") {
+                  capabilities.push(CapabilityBinding {
+                      principal: "aletheion:system:actuator".into(),
+                      capability: crate::guard::CapabilityId("Actuate".into()),
+                      scope: "Water".into(),
+                  });
+              }
+              if lowered.contains("biosignal") || lowered.contains("augmentation") {
+                  capabilities.push(CapabilityBinding {
+                      principal: "aletheion:system:bio".into(),
+                      capability: crate::guard::CapabilityId("Govern".into()),
+                      scope: "Biosignals".into(),
+                  });
+              }
+
+              // Simple import detection.
+              if lowered.contains("ale-gov-rights-treaty-grammar-001") {
+                  imports.push("ALE-GOV-RIGHTS-TREATY-GRAMMAR-001".into());
+              }
+              if lowered.contains("ale-gov-birth-sign-model-001") {
+                  imports.push("ALE-GOV-BIRTH-SIGN-MODEL-001".into());
+              }
+              if lowered.contains("ale-trust-governed-decision-tx-001") {
+                  imports.push("ALE-TRUST-GOVERNED-DECISION-TX-001".into());
+              }
+
+              Some(WorkflowManifest {
+                  module_id: ModuleId(file_name),
+                  repo_path: RepoPath(repo_path_str),
+                  declared_roles,
+                  capabilities,
+                  imports,
+                  annotations,
+              })
+          }
+
+          // Inline minimal guard module wrapper to the real file location.
+          mod guard {
+              pub use aletheion::governance::guards::ALE_GOV_NO_SILENT_TAKEOVER::*;
+          }
+          EOF
+
+          # Compile the CLI as a single binary
+          rustc \
+            -O \
+            -L target/debug \
+            -o ci/guards/aletheion-no-silent-takeover-cli \
+            ci/guards/aletheion-no-silent-takeover-cli.rs
+
+      - name: Run no-silent-takeover guard
+        run: |
+          set -euo pipefail
+          ci/guards/aletheion-no-silent-takeover-cli
