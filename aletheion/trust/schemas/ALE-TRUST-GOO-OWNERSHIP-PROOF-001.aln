@@ -1,0 +1,304 @@
+# File: aletheion/trust/schemas/ALE-TRUST-GOO-OWNERSHIP-PROOF-001.aln
+# Role: Canonical schema for Googolswarm‑verified ownership proofs, bound to
+#       Bostrom and safe alternate addresses, and scoped inside governed
+#       decision envelopes (ALE-TRUST-GOVERNED-DECISION-TX-001) with BirthSign
+#       and multi-sig constraints. [file:2][file:5]
+
+schema ALE_TRUST_GOO_OWNERSHIP_PROOF_001 {
+
+  import ALE_TRUST_GOVERNED_DECISION_TX_001  # governed decision envelope, BirthSigns, DIDs, NodeSecurityTier, etc. [file:2]
+
+  # ---------------------------------------------------------------------------
+  # 1. Core identifiers and enums
+  # ---------------------------------------------------------------------------
+
+  enum OwnershipSubjectType {
+    WorkflowModule,        # e.g., ERM module, optimizer, orchestrator [file:5]
+    FirmwareImage,         # edge firmware or VM image participating in Aletheion
+    MaterialLedgerEntry,   # materials/provenance record on the trust layer [file:5]
+    PolicyBundle,          # ALN schemas, rights grammars, LexEthos micro-treaties [file:2][file:5]
+    DataSchema,
+    MetricsDefinition
+  }
+
+  enum HolderNetwork {
+    Googolswarm,   # Aletheion / Googolswarm native ledger [file:5]
+    BostromChain,  # Bostrom address namespace (primary + alternates) [web:1]
+    EvmCompatible  # e.g., Ethereum / ERC‑20 compatible [web:1]
+  }
+
+  enum AttestorRole {
+    System,          # automated verifier bound to Googolswarm tx history [file:5]
+    HumanSteward,    # individual steward DID (you or delegate) [file:5]
+    Community,       # co-op, lab, or collective
+    Regulator,       # municipal / Indigenous / oversight body
+    Auditor          # external audit node
+  }
+
+  enum OwnershipScope {
+    LocalAttestorEnvelope,  # ONLY valid inside Aletheion domain + governed decision envelope [file:2]
+    ExternalReference       # pointer to off-chain or external proofs; must NOT be trusted without LocalAttestorEnvelope
+  }
+
+  enum OwnershipStatus {
+    Active,
+    Superseded,
+    Revoked,
+    Pending,
+    Invalid
+  }
+
+  # ---------------------------------------------------------------------------
+  # 2. Primitive types for identities and addresses
+  # ---------------------------------------------------------------------------
+
+  type HolderAddress = string   # chain-specific address in string form
+  type SubjectId      = string  # canonical identifier: commit hash, firmware hash, ledger entry id, etc.
+  type TagKey         = string
+  type TagValue       = string
+
+  # We reuse Did, BirthSignId, GovernanceDomain, NodeSecurityTier, TrustTxId from the imported schema. [file:2]
+
+  # ---------------------------------------------------------------------------
+  # 3. Ownership subject and claim
+  # ---------------------------------------------------------------------------
+
+  entity OwnershipSubject {
+    subject_id: SubjectId
+    subject_type: OwnershipSubjectType
+
+    # Optional classification; e.g., repo path, module name, or URL fragment. [file:5]
+    label?: string
+
+    # Arbitrary tags for cross-referencing ERM layers (water, thermal, energy, etc.). [file:5]
+    tags?: map<TagKey, TagValue>
+  }
+
+  entity OwnershipClaim {
+    holder_network: HolderNetwork
+    holder_address: HolderAddress
+    holder_did?: Did
+
+    valid_from: datetime
+    valid_until?: datetime
+
+    status: OwnershipStatus
+
+    # Explicit flag that this proof is scoped to the Aletheion local attestor envelope
+    # and MUST NOT be interpreted as a global or financial entitlement. [file:2]
+    scope: OwnershipScope = LocalAttestorEnvelope
+  }
+
+  # ---------------------------------------------------------------------------
+  # 4. Attestation and consensus proof (Googolswarm)
+  # ---------------------------------------------------------------------------
+
+  entity OwnershipAttestation {
+    attestor_did: Did
+    attestor_role: AttestorRole
+
+    # Signature over a canonical serialization of:
+    #   OwnershipSubject, OwnershipClaim, GovernedDecisionEnvelopeRef. [file:5]
+    signature: string
+
+    attested_at: datetime
+  }
+
+  entity ConsensusProof {
+    goo_tx_id: TrustTxId        # Googolswarm transaction id [file:5]
+    block_height: uint64
+    block_hash: string
+
+    # Whether multi-sig criteria were satisfied for this proof. [file:5]
+    multisig_satisfied: bool
+    multisig_explanation?: string
+  }
+
+  # ---------------------------------------------------------------------------
+  # 5. Governed decision link and whitelist bindings
+  # ---------------------------------------------------------------------------
+
+  entity GovernedDecisionEnvelopeRef {
+    governed_tx_id: TrustTxId         # refers to ALE-TRUST-GOVERNED-DECISION-TX-001 record [file:2]
+    workflow_id: WorkflowId           # which workflow produced this decision [file:2]
+    workflow_stage: string            # e.g., "Optimization", "Actuation", "FirmwareDeployment" [file:2]
+
+    birth_sign_ids: list<BirthSignId> # jurisdiction tiles that applied [file:2]
+    aln_norms: list<AlnNormId>        # ALN norms invoked (rights, treaties, FPIC, etc.) [file:2]
+
+    decision_outcome: DecisionOutcome # Approved, ApprovedWithDerating, Rejected, PendingFpic [file:2]
+  }
+
+  # Canonical whitelist of holder addresses that can appear in an
+  # ALN-specified OwnershipClaim WITHOUT a higher-level governance upgrade. [web:1]
+  #
+  # NOTE: This is not a runtime value list but a schema-level constraint: any
+  # claim MUST satisfy one of these patterns or be rejected by validation.
+  #
+  # - Primary Bostrom address: bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+  # - Alternate (secure, Google-linked, requires RT monitoring):
+  #     bostrom1ldgmtf20d6604a24ztr0jxht7xt7az4jhkmsrc
+  # - Safe alternates:
+  #     zeta12x0up66pzyeretzyku8p4ccuxrjqtqpdc4y4x8
+  #     0x519fC0eB4111323Cac44b70e1aE31c30e405802D
+  #
+  # We encode this as a reusable constraint function and apply it below.
+
+  fn is_whitelisted_holder(claim: OwnershipClaim) -> bool {
+    match (claim.holder_network, claim.holder_address) {
+      (BostromChain, "bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7") => true,
+      (BostromChain, "bostrom1ldgmtf20d6604a24ztr0jxht7xt7az4jhkmsrc") => true,
+      (Googolswarm, "zeta12x0up66pzyeretzyku8p4ccuxrjqtqpdc4y4x8") => true,
+      (EvmCompatible, "0x519fC0eB4111323Cac44b70e1aE31c30e405802D") => true,
+      _ => false
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # 6. Ownership proof envelope
+  # ---------------------------------------------------------------------------
+
+  entity OwnershipProof {
+    proof_id: string
+
+    subject: OwnershipSubject
+    claim: OwnershipClaim
+
+    attestors: list<OwnershipAttestation>
+    consensus: ConsensusProof
+
+    governed_ref: GovernedDecisionEnvelopeRef
+
+    # Additional metadata for domain-specific uses (e.g., water/energy/material
+    # links, firmware channel id, etc.). [file:5]
+    metadata?: map<TagKey, TagValue>
+
+    created_at: datetime
+    last_updated_at?: datetime
+  }
+
+  # ---------------------------------------------------------------------------
+  # 7. Constraints
+  # ---------------------------------------------------------------------------
+
+  # 7.1 Whitelist enforcement: only your declared addresses are allowed
+  constraint OwnershipHolderMustBeWhitelisted(p: OwnershipProof) {
+    assert is_whitelisted_holder(p.claim),
+      "Ownership claim holder_address is not in the allowed Bostrom / safe alternate whitelist."
+  }
+
+  # 7.2 Scope: proofs must be local-attestor only
+  constraint OwnershipScopeMustBeLocal(p: OwnershipProof) {
+    assert p.claim.scope == LocalAttestorEnvelope,
+      "Ownership claim scope MUST be LocalAttestorEnvelope for Aletheion; global/disconnected proofs are forbidden."
+  }
+
+  # 7.3 Governed decision linkage: only approved decisions can grant ownership
+  constraint GovernedDecisionMustBeApproved(p: OwnershipProof) {
+    assert p.governed_ref.decision_outcome == Approved
+        || p.governed_ref.decision_outcome == ApprovedWithDerating,
+      "OwnershipProof can only attach to Approved / ApprovedWithDerating governed decisions; Rejected or PendingFpic are not allowed."
+  }
+
+  # 7.4 BirthSign validity: all referenced BirthSigns must be active
+  constraint BirthSignsMustBeActive(p: OwnershipProof) {
+    for bs_id in p.governed_ref.birth_sign_ids {
+      let eval = lookup_birthsign_evaluation(bs_id, p.created_at);  # imported helper from ALE-TRUST-GOVERNED-DECISION-TX-001 / BirthSign model [file:2]
+      assert eval.is_active,
+        "OwnershipProof references a BirthSign that is not active at the time of proof creation."
+    }
+  }
+
+  # 7.5 Multi-sig structure: require diversity of roles and minimum quorum
+  #
+  # - At least one System attestor. [file:5]
+  # - At least one HumanSteward attestor. [file:5]
+  # - Total attestors >= 2.
+  # - consensus.multisig_satisfied must be true.
+  constraint MultiSigDiversityAndQuorum(p: OwnershipProof) {
+    let total = len(p.attestors);
+    let system_count = count(p.attestors, |a| a.attestor_role == System);
+    let steward_count = count(p.attestors, |a| a.attestor_role == HumanSteward);
+
+    assert total >= 2,
+      "OwnershipProof requires at least 2 attestors.";
+
+    assert system_count >= 1,
+      "OwnershipProof requires at least one System attestor bound to Googolswarm history.";
+
+    assert steward_count >= 1,
+      "OwnershipProof requires at least one HumanSteward attestor (you or delegated steward).";
+
+    assert p.consensus.multisig_satisfied == true,
+      "OwnershipProof consensus.multisig_satisfied must be true (multi-sig quorum not met).";
+  }
+
+  # 7.6 Node security tier: sensitive assets may only be proven from secure nodes
+  #
+  # We distinguish two broad classes using subject_type:
+  # - High-sensitivity: WorkflowModule, FirmwareImage, PolicyBundle, DataSchema.
+  #   => NodeSecurityTier MUST be TeeBacked or HardenedFirmwareOnly. [file:2]
+  # - Lower-sensitivity: MaterialLedgerEntry, MetricsDefinition.
+  #   => NodeSecurityTier MUST be HardenedFirmwareOnly or better. [file:2]
+  #
+  # The actual NodeSecurityTier is loaded from the GovernedDecisionEnvelope
+  # context (e.g., via node_profile_id). [file:2]
+  constraint NodeSecurityTierAdequate(p: OwnershipProof) {
+    let ctx = lookup_governed_decision_context(p.governed_ref.governed_tx_id);  # imported helper [file:2]
+    let tier = ctx.node_security_tier;
+
+    if p.subject.subject_type == WorkflowModule
+       || p.subject.subject_type == FirmwareImage
+       || p.subject.subject_type == PolicyBundle
+       || p.subject.subject_type == DataSchema {
+
+      assert (tier == TeeBacked) || (tier == HardenedFirmwareOnly),
+        "High-sensitivity OwnershipProof must be issued from TeeBacked or HardenedFirmwareOnly nodes.";
+
+    } else {
+      # MaterialLedgerEntry, MetricsDefinition, etc.
+      assert tier != Basic,
+        "OwnershipProof for this subject must not be issued from Basic tier nodes.";
+    }
+  }
+
+  # 7.7 Temporal consistency: claim validity window must include created_at
+  constraint ClaimWindowMustCoverCreationTime(p: OwnershipProof) {
+    assert p.claim.valid_from <= p.created_at,
+      "OwnershipProof created_at must be >= claim.valid_from.";
+
+    if exists(p.claim.valid_until) {
+      assert p.created_at <= p.claim.valid_until,
+        "OwnershipProof created_at must be <= claim.valid_until when specified.";
+    }
+  }
+
+  # 7.8 Status coherence: Revoked / Invalid proofs cannot be Active at trust layer
+  constraint StatusCoherence(p: OwnershipProof) {
+    if p.claim.status == Revoked || p.claim.status == Invalid {
+      assert p.consensus.multisig_satisfied == true,
+        "Revocation or invalidation must itself be multi-sig confirmed.";
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # 8. API surface for other schemas / workflows
+  # ---------------------------------------------------------------------------
+
+  # This function is intended to be called by ERM and governance workflows
+  # before appending an OwnershipProof to the Googolswarm trust layer. [file:5]
+  #
+  # It encapsulates all constraints above so that calling code only has a single
+  # ALN invocation point.
+  fn validate_ownership_proof(p: OwnershipProof) -> bool {
+    OwnershipHolderMustBeWhitelisted(p);
+    OwnershipScopeMustBeLocal(p);
+    GovernedDecisionMustBeApproved(p);
+    BirthSignsMustBeActive(p);
+    MultiSigDiversityAndQuorum(p);
+    NodeSecurityTierAdequate(p);
+    ClaimWindowMustCoverCreationTime(p);
+    StatusCoherence(p);
+    true
+  }
+}
