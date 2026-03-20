@@ -1,0 +1,130 @@
+aln-schema ALE-TRUST-GSWARM-LOCAL-ATTEST-001 {
+  version: 1
+  title: "Googolswarm Local-Only Attestation Envelope for Aletheion"
+  description: """
+  Canonical ALN contract that constrains Googolswarm to act strictly as a local/offline attestor
+  for Aletheion governed decisions, with no policy, orchestration, scheduling, or optimization
+  authority. All workflows must embed this envelope when appending to Googolswarm.
+  """
+  namespace: "aletheion.trust.googolswarm.local_attest"
+
+  import ALE-TRUST-GOVERNED-DECISION-TX-001 from "aletheion/trust/schemas/ALE-TRUST-GOVERNED-DECISION-TX-001.aln"
+  import ALE-GOV-RIGHTS-TREATY-GRAMMAR-001 from "aletheion/governance/aln/ALE-GOV-RIGHTS-TREATY-GRAMMAR-001.aln"
+  import ALE-ERM-WORKFLOW-PATTERN-001 from "aletheion/erm/workflows/ALE-ERM-WORKFLOW-PATTERN-001.aln"
+
+  type GoogolswarmNodeId = string;
+  type AttestationId = string;
+
+  enum GoogolswarmAuthorityScope {
+    AttestationOnly,        // allowed
+    PolicyControl,          // forbidden
+    OrchestrationControl,   // forbidden
+    SchedulingControl,      // forbidden
+    WorkloadMutation,       // forbidden
+    DataHarvest,            // forbidden
+    KeyEscrow,              // forbidden
+  }
+
+  enum AttestorExecutionMode {
+    OfflineLocal,           // allowed
+    OnlineFederated,        // forbidden
+    CloudRemote,            // forbidden
+  }
+
+  enum AttestorSoftwareOrigin {
+    AletheionSigned,        // allowed
+    ThirdPartyUnsigned,     // forbidden
+    ThirdPartyUnknown,      // forbidden
+  }
+
+  enum AttestorControlPlane {
+    LocalHostOnly,          // allowed
+    RemoteApi,              // forbidden
+    MultiTenantShared,      // forbidden
+  }
+
+  enum AttestationOutcome {
+    Attested,
+    RejectedInvalidScope,
+    RejectedRemoteControl,
+    RejectedSoftwareOrigin,
+    RejectedMalformedEnvelope,
+  }
+
+  // Attestor capabilities advertised by a Googolswarm instance.
+  record GoogolswarmLocalProfile {
+    node_id: GoogolswarmNodeId,
+    authority_scope: GoogolswarmAuthorityScope,
+    execution_mode: AttestorExecutionMode,
+    software_origin: AttestorSoftwareOrigin,
+    control_plane: AttestorControlPlane,
+    is_air_gapped: bool,
+  }
+
+  // Minimal attestation envelope bound to ALE-TRUST-GOVERNED-DECISION-TX-001.
+  record GoogolswarmAttestationEnvelope {
+    attestation_id: AttestationId,
+    governed_tx: ALE-TRUST-GOVERNED-DECISION-TX-001.GovernedDecisionTx,
+    profile: GoogolswarmLocalProfile,
+    created_at: timestamp,
+    attestor_multisig: list<string>, // e.g. Bostrom + municipal + Indigenous attestors
+  }
+
+  // Core invariants: Googolswarm is a local-only, attestation-only component.
+  invariant googolswarm_must_be_local_attestor_only (p: GoogolswarmLocalProfile) {
+    p.authority_scope == GoogolswarmAuthorityScope.AttestationOnly
+      and p.execution_mode == AttestorExecutionMode.OfflineLocal
+      and p.control_plane == AttestorControlPlane.LocalHostOnly
+      and p.is_air_gapped == true
+  }
+
+  invariant googolswarm_must_be_aletheion_signed (p: GoogolswarmLocalProfile) {
+    p.software_origin == AttestorSoftwareOrigin.AletheionSigned
+  }
+
+  // No hidden control over workflows: Googolswarm cannot originate or mutate workflows.
+  invariant googolswarm_cannot_control_workflows (p: GoogolswarmLocalProfile) {
+    p.authority_scope != GoogolswarmAuthorityScope.PolicyControl
+      and p.authority_scope != GoogolswarmAuthorityScope.OrchestrationControl
+      and p.authority_scope != GoogolswarmAuthorityScope.SchedulingControl
+      and p.authority_scope != GoogolswarmAuthorityScope.WorkloadMutation
+  }
+
+  // Every attested decision must already conform to the canonical workflow pattern.
+  invariant governed_tx_must_follow_workflow_spine (env: GoogolswarmAttestationEnvelope) {
+    ALE-ERM-WORKFLOW-PATTERN-001.tx_conforms_to_spine(env.governed_tx)
+  }
+
+  // Attested decisions must include BirthSign + ALN norms, preserving sovereignty and treaties.
+  invariant governed_tx_must_be_jurisdiction_aware (env: GoogolswarmAttestationEnvelope) {
+    size(env.governed_tx.birth_sign_ids) >= 1
+      and size(env.governed_tx.applied_aln_norms) >= 1
+  }
+
+  // Evaluation: derive an outcome based on profile invariants.
+  rule evaluate_attestation (env: GoogolswarmAttestationEnvelope) -> AttestationOutcome {
+    let p = env.profile;
+
+    if not googolswarm_must_be_local_attestor_only(p) {
+      reject AttestationOutcome.RejectedRemoteControl;
+    }
+
+    if not googolswarm_must_be_aletheion_signed(p) {
+      reject AttestationOutcome.RejectedSoftwareOrigin;
+    }
+
+    if not googolswarm_cannot_control_workflows(p) {
+      reject AttestationOutcome.RejectedInvalidScope;
+    }
+
+    if not governed_tx_must_follow_workflow_spine(env) {
+      reject AttestationOutcome.RejectedMalformedEnvelope;
+    }
+
+    if not governed_tx_must_be_jurisdiction_aware(env) {
+      reject AttestationOutcome.RejectedMalformedEnvelope;
+    }
+
+    accept AttestationOutcome.Attested;
+  }
+}
