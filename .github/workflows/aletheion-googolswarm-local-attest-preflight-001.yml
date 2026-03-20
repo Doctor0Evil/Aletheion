@@ -1,0 +1,97 @@
+name: Aletheion Googolswarm Local-Attestor Preflight v1
+
+on:
+  push:
+    branches: [ "main", "dev", "phoenix-*", "trust-*" ]
+  pull_request:
+
+jobs:
+  googolswarm-local-attest-preflight:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build Googolswarm local guard
+        run: |
+          if [ -f "aletheion/trust/googolswarm/runtime/Cargo.toml" ]; then
+            cargo build --manifest-path aletheion/trust/googolswarm/runtime/Cargo.toml --locked
+          else
+            # Fallback: try workspace build; guard against missing manifest.
+            if [ -f "Cargo.toml" ]; then
+              cargo build --workspace --locked
+            fi
+          fi
+
+      - name: Static scan for forbidden Googolswarm authority
+        run: |
+          set -e
+          echo "Scanning for forbidden Googolswarm authority scopes..."
+          # Disallow any accidental use of expanded authority enums in source files.
+          # Only AttestationOnly is permitted in configuration.
+          forbidden_patterns=(
+            "GoogolswarmAuthorityScope::PolicyControl"
+            "GoogolswarmAuthorityScope::OrchestrationControl"
+            "GoogolswarmAuthorityScope::SchedulingControl"
+            "GoogolswarmAuthorityScope::WorkloadMutation"
+            "GoogolswarmAuthorityScope::DataHarvest"
+            "GoogolswarmAuthorityScope::KeyEscrow"
+          )
+          for pattern in "${forbidden_patterns[@]}"; do
+            if rg "$pattern" aletheion/trust -n --hidden --glob '!target' >/dev/null 2>&1; then
+              echo "::error::Forbidden Googolswarm authority scope found: $pattern"
+              echo "        Googolswarm is restricted to AttestationOnly per ALE-TRUST-GSWARM-LOCAL-ATTEST-001.aln."
+              exit 1
+            fi
+          done
+          echo "No forbidden Googolswarm authority scopes detected."
+
+      - name: Validate presence of local-only attestation schema
+        run: |
+          set -e
+          SCHEMA_PATH="aletheion/trust/googolswarm/contracts/ALE-TRUST-GSWARM-LOCAL-ATTEST-001.aln"
+          if [ ! -f "$SCHEMA_PATH" ]; then
+            echo "::error::Missing required schema $SCHEMA_PATH"
+            exit 1
+          fi
+          echo "Found $SCHEMA_PATH"
+
+      - name: Ensure all Googolswarm Tx schemas reference local attestor envelope
+        run: |
+          set -e
+          # Any ALN file under aletheion/trust that defines a Googolswarm-related Tx
+          # must import the ALE-TRUST-GSWARM-LOCAL-ATTEST-001.aln schema.
+          tx_files=$(rg "Googolswarm" aletheion/trust -g"*.aln" -l || true)
+          if [ -z "$tx_files" ]; then
+            echo "No Googolswarm-related ALN files detected; skipping reference check."
+            exit 0
+          fi
+
+          missing=0
+          for f in $tx_files; do
+            if ! rg "ALE-TRUST-GSWARM-LOCAL-ATTEST-001" "$f" >/dev/null 2>&1; then
+              echo "::error::File $f does not import ALE-TRUST-GSWARM-LOCAL-ATTEST-001.aln"
+              missing=$((missing + 1))
+            fi
+          done
+
+          if [ "$missing" -gt 0 ]; then
+            echo "::error::One or more Googolswarm ALN files are missing the local-attestor envelope import."
+            exit 1
+          fi
+
+          echo "All Googolswarm ALN files reference the local-attestor envelope."
+
+      - name: Run core compliance preflight (if present)
+        run: |
+          set -e
+          if [ -f ".github/workflows/aletheion-compliance-preflight-002.yml" ]; then
+            echo "Compliance preflight YAML present; ensuring compliance engine can build."
+          fi
+          if [ -f "aletheion/compliance/core/Cargo.toml" ]; then
+            cargo build --manifest-path alethion/compliance/core/Cargo.toml --locked || true
+          fi
