@@ -1,9 +1,11 @@
-// aletheion/governance/birthsigns/core/ALE-GOV-BIRTH-SIGN-MODEL-002.rs
-// Core Birth-Sign, governance envelope, and node-security types for Aletheion Phoenix.
-// This file is designed to (a) prevent silent-takeovers via explicit governance envelopes,
+// Core Birth-Sign, governance envelope, node-security, and Googolswarm attestation
+// types for Aletheion Phoenix.
+//
+// This file is designed to:
+// (a) prevent silent takeovers via explicit, typed governance envelopes,
 // (b) constrain Googolswarm to a local, offline-capable attestation role only,
 // (c) expose immutable provenance hooks for ALN / DID / KYC without hidden authorities,
-// and (d) keep augmented-citizen sovereignty central in all governed decisions.
+// (d) keep augmented-citizen sovereignty central in all governed decisions.
 
 use std::collections::HashMap;
 use std::time::{Duration, SystemTime};
@@ -12,18 +14,23 @@ use std::time::{Duration, SystemTime};
 // Core stable identifiers
 // -------------------------
 
+/// Spatial governance tile identifier (stable across repos).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BirthSignId(pub String);
 
+/// Stable identifier for an ALN norm.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AlnNormId(pub String);
 
+/// Stable identifier for Indigenous territory or protocol bundle.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct IndigenousTerritoryId(pub String);
 
+/// Stable identifier for a BioticTreaty record.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BioticTreatyId(pub String);
 
+/// Stable identifier for a micro-treaty or local rights grammar.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MicroTreatyId(pub String);
 
@@ -31,20 +38,25 @@ pub struct MicroTreatyId(pub String);
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Did(pub String);
 
+/// Stable identifier for a physical or logical asset.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssetId(pub String);
 
+/// Stable identifier for a workflow event (ingest, optimize, actuate, emergency).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorkflowEventId(pub String);
 
+/// Stable identifier for a workflow definition (e.g., AWP Water Allocation).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct WorkflowId(pub String);
 
+/// Stable identifier for a node profile in the edge orchestration layer.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct NodeProfileId(pub String);
 
 /// Local-only Googolswarm transaction identifier.
-/// Even though this may be mirrored to external infra later,
+///
+/// Even though this may be mirrored to external infrastructure later,
 /// the semantics here are strictly "attested provenance", not control.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TrustTxId(pub String);
@@ -58,6 +70,7 @@ pub struct AttestationSessionId(pub String);
 // Territorial + governance enums
 // -------------------------
 
+/// Domains where Birth-Signs can assert governance authority.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum GovernanceDomain {
     Land,
@@ -102,7 +115,7 @@ pub enum FpicRequirement {
 }
 
 /// Result of FPIC evaluation for a concrete action.
-/// Pending/Denied always block actuation for standard workflows.
+/// Pending / Denied always block actuation for standard workflows.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum FpicStatus {
     NotRequired,
@@ -168,7 +181,7 @@ pub struct LocalOverlay {
 }
 
 /// Unified Birth-Sign for a spatial tile and time range.
-/// This is the core "jurisdictional signature" object used across the ERM stack. [file:2]
+/// This is the core "jurisdictional signature" object used across the ERM stack.
 #[derive(Debug, Clone)]
 pub struct BirthSign {
     pub id: BirthSignId,
@@ -186,13 +199,13 @@ pub struct BirthSign {
     pub local_overlays: Vec<LocalOverlay>,
     /// Default enforcement mode for constraints derived from this Birth-Sign.
     pub default_constraint_mode: ConstraintMode,
-    /// Versioning + temporal validity for audit and forward-only evolution. [file:2]
+    /// Versioning + temporal validity for audit and forward-only evolution.
     pub version: u32,
     pub valid_from: SystemTime,
     pub valid_until: Option<SystemTime>,
 }
 
-/// Binding between Birth-Signs and assets / events, used by edge and state-model layers. [file:2]
+/// Binding between Birth-Signs and assets / events, used by edge and state-model layers.
 #[derive(Debug, Clone)]
 pub struct BirthSignBinding {
     pub birth_sign_id: BirthSignId,
@@ -222,6 +235,7 @@ pub struct GovernanceEvaluation {
     pub fpic_status: Option<FpicStatus>,
 }
 
+/// Canonical decision outcome used by optimization and actuation.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DecisionOutcome {
     Approved,
@@ -235,15 +249,15 @@ pub enum DecisionOutcome {
 // -------------------------
 
 /// Role that Googolswarm is allowed to play: strictly "AttestorLocalHost".
-/// Anything else is a compile-time violation if added to this enum.
+/// Anything else must be an explicit, breaking change to this enum.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum AttestationRole {
-    /// Local / host-only, offline-capable attestation of envelopes and transaction ordering. [file:2]
+    /// Local / host-only, offline-capable attestation of envelopes and transaction ordering.
     AttestorLocalHost,
 }
 
 /// Minimal description of an attestation result produced by Googolswarm.
-/// This struct is intentionally narrow: it cannot embed control hooks or policy changes. [file:2]
+/// This struct is intentionally narrow: it cannot embed control hooks or policy changes.
 #[derive(Debug, Clone)]
 pub struct GoogolswarmAttestation {
     pub session_id: AttestationSessionId,
@@ -261,7 +275,7 @@ pub struct GoogolswarmAttestation {
 }
 
 /// A governed decision envelope is the bridge between optimization, governance,
-/// and the trust layer, and the *only* structure that Googolswarm may attest. [file:2][file:5]
+/// and the trust layer, and the *only* structure that Googolswarm may attest.
 #[derive(Debug, Clone)]
 pub struct GovernedDecisionEnvelope {
     pub tx_id: TrustTxId,
@@ -300,11 +314,14 @@ pub struct GovernedDecisionEnvelope {
 // Node security profile
 // -------------------------
 
-/// Security posture of a node profile, used by orchestration and governance. [file:2]
+/// Security posture of a node profile, used by orchestration and governance.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum NodeSecurityTier {
+    /// TEE present; can host sensitive governance and consent logic.
     TeeBacked,
+    /// Hardened firmware only; no TEE but signed manifests, secure boot, secure transport.
     HardenedFirmwareOnly,
+    /// Basic node; suitable only for low-risk sensing or noncritical tasks.
     Basic,
 }
 
@@ -347,8 +364,7 @@ impl GovernanceEvaluation {
     pub fn is_strictly_satisfied(&self) -> bool {
         if let Some(fpic) = &self.fpic_status {
             match fpic {
-                FpicStatus::Pending { .. } => return false,
-                FpicStatus::Denied { .. } => return false,
+                FpicStatus::Pending { .. } | FpicStatus::Denied { .. } => return false,
                 FpicStatus::Granted { .. } | FpicStatus::NotRequired => {}
             }
         }
@@ -374,7 +390,7 @@ impl GovernanceEvaluation {
 
 impl NodeSecurityProfile {
     /// Returns true if this node is allowed to host highly sensitive governance workloads
-    /// such as consent processing, DID handling, or treaty evaluation. [file:2]
+    /// such as consent processing, DID handling, or treaty evaluation.
     pub fn can_host_sensitive_governance(&self) -> bool {
         matches!(self.tier, NodeSecurityTier::TeeBacked)
             && self.secure_boot
@@ -385,16 +401,16 @@ impl NodeSecurityProfile {
     /// Returns true if this node is suitable for generic ERM logic
     /// that is not biosignal- or identity-sensitive.
     pub fn can_host_general_erm(&self) -> bool {
-        match self.tier {
-            NodeSecurityTier::TeeBacked | NodeSecurityTier::HardenedFirmwareOnly => true,
-            NodeSecurityTier::Basic => false,
-        }
+        matches!(
+            self.tier,
+            NodeSecurityTier::TeeBacked | NodeSecurityTier::HardenedFirmwareOnly
+        )
     }
 }
 
 impl GoogolswarmAttestation {
     /// Returns true if this attestation conforms to the local/host-only role.
-    /// Any future role additions must be explicit here, preventing silent capability creep. [file:2]
+    /// Any future role additions must be explicit here, preventing silent capability creep.
     pub fn is_local_host_only(&self) -> bool {
         matches!(self.role, AttestationRole::AttestorLocalHost)
     }
@@ -468,20 +484,13 @@ impl GovernedDecisionEnvelope {
     }
 
     /// Tag the envelope with domain-specific metadata.
-    pub fn add_tag<S: Into<String>, T: Into<String>>(
-        &mut self,
-        key: S,
-        value: T,
-    ) {
+    pub fn add_tag<S: Into<String>, T: Into<String>>(&mut self, key: S, value: T) {
         self.tags.insert(key.into(), value.into());
     }
 
-    /// Attach a Googolswarm attestation, but only if it is strictly local/host-only.
-    /// This prevents any silent escalation of Googolswarm into a control-plane role. [file:2]
-    pub fn attach_local_attestation(
-        mut self,
-        attestation: GoogolswarmAttestation,
-    ) -> Self {
+    /// Attach a Googolswarm attestation, but only if it is strictly local/host-only
+    /// and refers to this envelope’s tx_id. This prevents escalation into control-plane role.
+    pub fn attach_local_attestation(mut self, attestation: GoogolswarmAttestation) -> Self {
         if attestation.is_local_host_only() && attestation.tx_id == self.tx_id {
             self.attestation = Some(attestation);
         }
@@ -489,7 +498,7 @@ impl GovernedDecisionEnvelope {
     }
 
     /// Decide the canonical DecisionOutcome from the evaluation and constraint mode.
-    /// FPIC status always takes precedence, then hard/soft violations. [file:2]
+    /// FPIC status always takes precedence, then hard/soft violations.
     pub fn derive_outcome(&mut self) {
         // FPIC precedence.
         if let Some(fpic) = &self.evaluation.fpic_status {
@@ -537,5 +546,5 @@ impl GovernedDecisionEnvelope {
 
 /// Convenience for expressing durations in hours.
 pub fn hours(h: u64) -> Duration {
-    Duration::from_secs(h * 3600)
+    Duration::from_secs(h * 3_600)
 }
