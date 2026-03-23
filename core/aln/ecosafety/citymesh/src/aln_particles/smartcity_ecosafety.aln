@@ -1,0 +1,251 @@
+
+aln_version "1.0.0"
+aln_namespace "smartcity.ecosafety.phoenix.v1"
+
+// -----------------------------------------------------------------------------
+// City object hierarchy
+// -----------------------------------------------------------------------------
+
+particle smartcity.region.grid.v1 {
+    id: koid.v1
+    name: str.v1
+    iso_country_code: str.v1
+    admin_level: u8.v1
+    geopolygon_wgs84: geo.polygon.v1
+    zoning_regime_id: ref.zoning.regime.v1
+    emf_budget_mw_per_km2: f64.v1
+    emissions_budget_kgco2e_per_year: f64.v1
+    utility_grid_links: list.ref.utility.grid.edge.v1
+    telemetry_bind: ref.telemetry.stream.group.v1
+}
+
+particle smartcity.block.topology.v1 {
+    id: koid.v1
+    region_id: ref.smartcity.region.grid.v1
+    block_code: str.v1
+    geopolygon_wgs84: geo.polygon.v1
+    right_of_way_class: enum.rightofway.class.v1
+    max_floor_area_ratio: f32.v1
+    zoning_bucket_id: ref.zoning.bucket.v1
+    emf_budget_mw_per_km2: f64.v1
+    emissions_budget_kgco2e_per_year: f64.v1
+    utility_grid_links: list.ref.utility.grid.edge.v1
+    telemetry_bind: ref.telemetry.stream.group.v1
+}
+
+particle smartcity.parcel.usage.v1 {
+    id: koid.v1
+    block_id: ref.smartcity.block.topology.v1
+    parcel_apn: str.v1
+    geopolygon_wgs84: geo.polygon.v1
+    zoning_class_id: ref.zoning.class.v1
+    occupancy_class: enum.occupancy.class.v1
+    max_occupants: u32.v1
+    construction_primary: enum.construction.material.v1
+    fire_rating_minutes: u16.v1
+    flood_risk_class: enum.flood.risk.class.v1
+    ecosafety_corridor_id: ref.ecosafety.corridor.set.v1
+    telemetry_bind: ref.telemetry.stream.group.v1
+}
+
+particle smartcity.structure.asset.v1 {
+    id: koid.v1
+    parcel_id: ref.smartcity.parcel.usage.v1
+    structure_tag: str.v1
+    structure_type: enum.structure.type.v1
+    stories: u8.v1
+    floor_area_m2: f64.v1
+    construction_primary: enum.construction.material.v1
+    fire_rating_minutes: u16.v1
+    occupancy_class: enum.occupancy.class.v1
+    design_occupants: u32.v1
+    ecosafety_corridor_id: ref.ecosafety.corridor.set.v1
+    telemetry_bind: ref.telemetry.stream.group.v1
+}
+
+particle smartcity.utility.node.v1 {
+    id: koid.v1
+    structure_id: ref.smartcity.structure.asset.v1
+    node_kind: enum.utility.node.kind.v1
+    provider_id: ref.utility.provider.v1
+    geopoint_wgs84: geo.point.v1
+    rated_capacity_kw: f64.v1
+    rated_flow_m3_per_h: f64.v1
+    rated_pressure_kpa: f64.v1
+    ecosafety_corridor_id: ref.ecosafety.corridor.set.v1
+    telemetry_bind: ref.telemetry.stream.group.v1
+}
+
+// -----------------------------------------------------------------------------
+// Ecosafety risk coordinates (0–1 normalized)
+// -----------------------------------------------------------------------------
+
+unitless in [0.0, 1.0] as risk.scalar.v1
+
+particle ecosafety.risk.coordinates.v1 {
+    id: koid.v1
+    material_code: str.v1
+    context_tag: str.v1
+    r_degrade: risk.scalar.v1
+    r_residualmass: risk.scalar.v1
+    r_microplastics: risk.scalar.v1
+    r_tox_acute: risk.scalar.v1
+    r_tox_chronic: risk.scalar.v1
+    r_shear: risk.scalar.v1
+    r_habitatload: risk.scalar.v1
+    derived_timestamp_utc: time.timestamp.v1
+    lab_protocol_ids: list.ref.lab.protocol.v1
+    field_telemetry_profile_id: ref.telemetry.profile.v1
+}
+
+// -----------------------------------------------------------------------------
+// Lyapunov residual on city objects
+// -----------------------------------------------------------------------------
+
+particle ecosafety.lyapunov.weightset.v1 {
+    id: koid.v1
+    label: str.v1
+    w_risk: f64.v1
+    w_coverage: f64.v1
+    w_density: f64.v1
+}
+
+particle ecosafety.state.snapshot.v1 {
+    id: koid.v1
+    object_id: koid.v1
+    timestamp_utc: time.timestamp.v1
+    risk_scalar_r_t: risk.scalar.v1
+    swarm_coverage_c_t: risk.scalar.v1
+    agent_density_rho: f64.v1
+    agent_density_max: f64.v1
+    v_obj_t: f64.v1
+    lyapunov_weightset_id: ref.ecosafety.lyapunov.weightset.v1
+}
+
+// -----------------------------------------------------------------------------
+// Ecosafety corridors and guards
+// -----------------------------------------------------------------------------
+
+particle ecosafety.corridor.scalar.v1 {
+    id: koid.v1
+    label: str.v1
+    min_allowed: f64.v1
+    max_allowed: f64.v1
+    target_band_center: f64.v1
+    hard_stop_delta: f64.v1
+}
+
+particle ecosafety.corridor.set.v1 {
+    id: koid.v1
+    name: str.v1
+    description: str.v1
+    r_degrade_corridor_id: ref.ecosafety.corridor.scalar.v1
+    r_residualmass_corridor_id: ref.ecosafety.corridor.scalar.v1
+    r_microplastics_corridor_id: ref.ecosafety.corridor.scalar.v1
+    r_tox_acute_corridor_id: ref.ecosafety.corridor.scalar.v1
+    r_tox_chronic_corridor_id: ref.ecosafety.corridor.scalar.v1
+    r_shear_corridor_id: ref.ecosafety.corridor.scalar.v1
+    r_habitatload_corridor_id: ref.ecosafety.corridor.scalar.v1
+    v_obj_corridor_id: ref.ecosafety.corridor.scalar.v1
+}
+
+particle ecosafety.guard.policy.v1 {
+    id: koid.v1
+    label: str.v1
+    rule_no_corridor_no_build: bool.v1
+    rule_violated_corridor_action: enum.guard.violation.action.v1
+    rule_nonincreasing_vobj_required: bool.v1
+    min_telemetry_freshness_seconds: u32.v1
+}
+
+enum enum.guard.violation.action.v1 {
+    DERATE,
+    STOP,
+    ALERT_AND_STOP
+}
+
+// -----------------------------------------------------------------------------
+// Governance: treaties, FPIC, neurorights
+// -----------------------------------------------------------------------------
+
+particle governance.treaty.region.binding.v1 {
+    id: koid.v1
+    region_id: ref.smartcity.region.grid.v1
+    treaty_id: koid.v1
+    protected_reach_ids: list.ref.geo.segment.v1
+    minimum_flow_lps: f64.v1
+    no_deployment_zones: list.ref.geo.polygon.v1
+    emergency_override_policy_id: ref.governance.override.policy.v1
+    indigenous_veto_policy_id: ref.governance.veto.policy.v1
+}
+
+particle governance.override.policy.v1 {
+    id: koid.v1
+    label: str.v1
+    allowed_hazard_classes: list.enum.hazard.class.v1
+    max_duration_minutes: u32.v1
+    requires_multisig_approvals: u8.v1
+}
+
+particle governance.veto.policy.v1 {
+    id: koid.v1
+    label: str.v1
+    quorum_required: u8.v1
+    approval_threshold_percent: u8.v1
+    appeal_window_days: u16.v1
+}
+
+particle governance.neurorights.policy.v1 {
+    id: koid.v1
+    label: str.v1
+    allowed_feature_space: list.enum.neuro.feature.v1
+    disallowed_inference_space: list.enum.neuro.inference.v1
+    retention_max_days: u32.v1
+    requires_birthsign_for_linkage: bool.v1
+}
+
+// -----------------------------------------------------------------------------
+// Data acquisition from utilities
+// -----------------------------------------------------------------------------
+
+particle utility.data.schema.v1 {
+    id: koid.v1
+    provider_id: ref.utility.provider.v1
+    feed_name: str.v1
+    field_name: str.v1
+    unit: str.v1
+    frequency_seconds: u32.v1
+    error_code_space: list.str.v1
+    erm_layer_tag: enum.erm.layer.v1
+}
+
+particle utility.data.mou.v1 {
+    id: koid.v1
+    provider_id: ref.utility.provider.v1
+    latency_sla_seconds: u32.v1
+    retention_days: u32.v1
+    outage_behavior_mode: enum.outage.mode.v1
+    fallback_regime_id: ref.utility.data.fallback.v1
+    sensor_rights_of_way_polygons: list.ref.geo.polygon.v1
+}
+
+particle utility.data.fallback.v1 {
+    id: koid.v1
+    label: str.v1
+    default_value_strategy: enum.fallback.strategy.v1
+    max_duration_minutes: u32.v1
+}
+
+enum enum.outage.mode.v1 {
+    FAIL_CLOSED,
+    FAIL_OPEN_DERATED,
+    HOLD_LAST_GOOD,
+    SWITCH_TO_MODEL
+}
+
+enum enum.fallback.strategy.v1 {
+    ZERO_ACTIVITY,
+    FRACTION_OF_LAST_GOOD,
+    USE_FORECAST_MODEL,
+    ESCALATE_AND_STOP
+}
