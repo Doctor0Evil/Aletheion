@@ -1,0 +1,37 @@
+
+aln_version "1.0.0"
+aln_namespace "ALE.MESH.GOVERNANCE.TREATY.V1"
+
+// -----------------------------------------------------------------------------
+// 2. GOD_TREATY header and predicates
+// -----------------------------------------------------------------------------
+
+particle GOD_TREATY_HEADER_V1 {
+    treaty_id: str.v1
+    name: str.v1
+    version: u32.v1
+    issuing_body: str.v1
+    jurisdiction_codes: list.str.v1
+    effective_from_utc: time.timestamp.v1
+    effective_to_utc: optional.time.timestamp.v1
+}
+
+particle GOD_TREATY_SCOPE_V1 {
+    header_id: ref.GOD_TREATY_HEADER_V1
+    protected_reach_polygons: list.geo.polygon.v1
+    sacred_site_points: list.geo.point.v1
+    critical_corridor_polylines: list.geo.polyline.v1
+    prohibited_operation_kinds: list.str.v1       // e.g. ["BCI_INFERENCE_X", "CYBO_DEPLOY_Y"]
+}
+
+particle GOD_TREATY_CONSENT_GATE_V1 {
+    header_id: ref.GOD_TREATY_HEADER_V1
+    gate_id: str.v1
+    fpik_kind: str.v1                             // "FPIC", "EMERGENCY_OVERRIDE", etc.
+    consent_required: bool.v1
+    consent_token_schema_id: str.v1
+    may_run_predicate_id: str.v1                  // ref into Rust guard kernel
+    must_halt_predicate_id: str.v1
+    roh_ceiling_0_1: f64.v1
+    psr_ceiling_0_1: f64.v1
+}
