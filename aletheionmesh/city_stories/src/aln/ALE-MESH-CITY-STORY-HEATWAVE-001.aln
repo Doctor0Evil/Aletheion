@@ -1,0 +1,32 @@
+
+aln_version "1.0.0"
+aln_namespace "ALE.MESH.CITY_STORY.HEATWAVE.V1"
+
+// -----------------------------------------------------------------------------
+// 3. Canonical city story: HEAT_WAVE_AWP_STRESS
+// -----------------------------------------------------------------------------
+
+particle CITY_STORY_HEAT_WAVE_HEADER_V1 {
+    story_id: str.v1                  // "HEAT_WAVE_AWP_STRESS_V1"
+    version: u32.v1
+    description: str.v1
+    participating_workflows: list.str.v1   // e.g. ["AWP_WATER_ALLOC", "THERMAL_FLOW", "MOBILITY_ROUTER", "EMERGENCY_HEAT"]
+    participating_superpowers: list.str.v1 // e.g. ["THERMAPHORA", "PRAXISWEAVE"]
+}
+
+particle CITY_STORY_HEAT_WAVE_PHASE_V1 {
+    header_id: ref.CITY_STORY_HEAT_WAVE_HEADER_V1
+    phase_id: str.v1                  // "PRE_WATCH", "ACTIVE", "STABILIZATION", "POST_MORTEM"
+    tick_seconds: u32.v1
+    max_total_latency_ms: u32.v1
+    max_agent_jitter_ms: u32.v1
+}
+
+particle CITY_STORY_HEAT_WAVE_METRICS_V1 {
+    header_id: ref.CITY_STORY_HEAT_WAVE_HEADER_V1
+    max_heatbudget_violation_rate: f64.v1         // per 1k people per day
+    max_treaty_violation_count: u32.v1
+    max_fpic_error_rate: f64.v1
+    max_vt_stability_violations: u32.v1
+    max_careload_imbalance: f64.v1               // normalized 0–1
+}
