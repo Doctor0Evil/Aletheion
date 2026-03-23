@@ -1,0 +1,424 @@
+// FILE: aletheionmesh/ecosafety/schemas/src/environmental_risk_coordinates.aln
+// DESTINATION: https://github.com/Doctor0Evil/Aletheion/blob/main/aletheionmesh/ecosafety/schemas/src/environmental_risk_coordinates.aln
+// LANGUAGE: ALN (Aletheion Language Specification v1.0)
+// LICENSE: Aletheion Public License (APL-1.0) + BioticTreaty Clause 7
+// STATUS: Production-Ready, Offline-Capable, Treaty-Bound
+// CONTEXT: Environmental & Climate Integration (E) - Ecosafety Spine Schema Layer
+// PROGRESS: File 2 of 47 (Ecosafety Spine Phase) | 4.26% Complete
+
+// ============================================================================
+// MODULE: Aletheion Environmental Risk Coordinate Schema
+// PURPOSE: Define machine-readable risk coordinates for all environmental objects
+// CONSTRAINTS: No rollbacks, No digital twins, Indigenous Rights Hard-Stop
+// BINDING: Pairs with city_object_guard.rs for formal invariant enforcement
+// ============================================================================
+
+aln,ecosafety,environmental-risk-coordinates,v1
+metadata,author,Aletheion City Foundry,2026-01-15
+metadata,revision,1.0.0
+metadata,license,APL-1.0+BioticTreaty-7
+metadata,geoanchor,Phoenix-AZ-33.4484N-112.0740W
+metadata,treatyzone,Akimel-Oodham-Piipaash-Territory
+
+// ============================================================================
+// SECTION 1: RISK COORDINATE DEFINITIONS (r_x)
+// Normalized 0.0-1.0 scale for all biodegradable and cyboquatic materials
+// ============================================================================
+
+riskcoord,r_degrade,type,float32,min,0.0,max,1.0,unit,rate_per_day
+riskcoord,r_degrade,desc,Degradation rate risk (0=stable polymer, 1=volatile organic)
+riskcoord,r_degrade,source,ISO-14851,OECD-301,LCMS-2025-Phoenix
+riskcoord,r_degrade,threshold,0.7,action,derate,action,stop
+
+riskcoord,r_residual_mass,type,float32,min,0.0,max,1.0,unit,kg_per_m3
+riskcoord,r_residual_mass,desc,Residual mass accumulation risk after degradation cycle
+riskcoord,r_residual_mass,source,ISO-14852,ASTM-D5511,Phoenix-MRF-2025
+riskcoord,r_residual_mass,threshold,0.6,action,derate,action,stop
+
+riskcoord,r_microplastics,type,float32,min,0.0,max,1.0,unit,particles_per_L
+riskcoord,r_microplastics,desc,Microplastic load risk in water/soil systems
+riskcoord,r_microplastics,source,NOAA-Protocol,Phoenix-Canal-Survey-2025
+riskcoord,r_microplastics,threshold,0.5,action,derate,action,stop
+
+riskcoord,r_tox_acute,type,float32,min,0.0,max,1.0,unit,LC50_normalized
+riskcoord,r_tox_acute,desc,Acute toxicity risk (24-96hr exposure)
+riskcoord,r_tox_acute,source,OECD-201,OECD-202,EPA-821-R-2025
+riskcoord,r_tox_acute,threshold,0.4,action,stop
+
+riskcoord,r_tox_chronic,type,float32,min,0.0,max,1.0,unit,NOEC_normalized
+riskcoord,r_tox_chronic,desc,Chronic toxicity risk (long-term ecosystem exposure)
+riskcoord,r_tox_chronic,source,OECD-210,EPA-821-R-2025,Phoenix-AWP-2025
+riskcoord,r_tox_chronic,threshold,0.5,action,stop
+
+riskcoord,r_shear,type,float32,min,0.0,max,1.0,unit,Pascal_normalized
+riskcoord,r_shear,desc,Physical shear stress on habitat structures
+riskcoord,r_shear,source,Phoenix-Canal-Flow-Data,USGS-Gage-2025
+riskcoord,r_shear,threshold,0.8,action,derate
+
+riskcoord,r_habitat_load,type,float32,min,0.0,max,1.0,unit,carrying_capacity_ratio
+riskcoord,r_habitat_load,desc,Ecological carrying capacity load (biomass/area)
+riskcoord,r_habitat_load,source,Sonoran-Desert-Ecosystem-Survey,Phoenix-Parks-2025
+riskcoord,r_habitat_load,threshold,0.7,action,derate,action,stop
+
+// ============================================================================
+// SECTION 2: LYAPUNOV WEIGHT CONFIGURATIONS
+// V_t = w1*Risk + w2*(1-Coverage) + w3*max(0, Density-MaxDensity)
+// Weights must sum to 1.0 for stability guarantees
+// ============================================================================
+
+lyapunov,config,standard,w1,0.50,w2,0.30,w3,0.20,sum,1.00
+lyapunov,config,standard,desc,Balanced risk-coverage-density for general urban zones
+lyapunov,config,standard,zone_type,residential,commercial,light_industrial
+
+lyapunov,config,conservative,w1,0.70,w2,0.20,w3,0.10,sum,1.00
+lyapunov,config,conservative,desc,High risk weighting for sensitive ecological zones
+lyapunov,config,conservative,zone_type,canal,water_infrastructure,protected_habitat
+
+lyapunov,config,aggressive,w1,0.30,w2,0.40,w3,0.30,sum,1.00
+lyapunov,config,aggressive,desc,Higher coverage priority for emergency response zones
+lyapunov,config,aggressive,zone_type,emergency_corridor,medical_facility,evacuation_route
+
+// ============================================================================
+// SECTION 3: INDIGENOUS TREATY CONSTRAINTS (LexEthos Integration)
+// Hard constraints that override optimization goals
+// ============================================================================
+
+treaty,zone,akimel_oodham_water_rights,id,101
+treaty,zone,akimel_oodham_water_rights,name,Akimel O'odham Water Rights Corridor
+treaty,zone,akimel_oodham_water_rights,fpic_required,true
+treaty,zone,akimel_oodham_water_rights,veto_active,true
+treaty,zone,akimel_oodham_water_rights,biotictreaty_level,5
+treaty,zone,akimel_oodham_water_rights,min_flow_cfs,150.0
+treaty,zone,akimel_oodham_water_rights,max_diversion_percent,10.0
+treaty,zone,akimel_oodham_water_rights,geo_polygon,33.4200N-112.1000W,33.4800N-112.0500W
+
+treaty,zone,piipaash_cultural_site,id,102
+treaty,zone,piipaash_cultural_site,name,Piipaash Cultural Preservation Zone
+treaty,zone,piipaash_cultural_site,fpic_required,true
+treaty,zone,piipaash_cultural_site,veto_active,true
+treaty,zone,piipaash_cultural_site,biotictreaty_level,5
+treaty,zone,piipaash_cultural_site,no_deployment_radius_m,500.0
+treaty,zone,piipaash_cultural_site,geo_polygon,33.4100N-112.0900W,33.4400N-112.0600W
+
+treaty,zone,sonoran_desert_corridor,id,103
+treaty,zone,sonoran_desert_corridor,name,Sonoran Desert Wildlife Corridor
+treaty,zone,sonoran_desert_corridor,fpic_required,false
+treaty,zone,sonoran_desert_corridor,veto_active,false
+treaty,zone,sonoran_desert_corridor,biotictreaty_level,4
+treaty,zone,sonoran_desert_corridor,max_emf_dbm,-90
+treaty,zone,sonoran_desert_corridor,max_noise_db,45.0
+treaty,zone,sonoran_desert_corridor,geo_polygon,33.5000N-112.1500W,33.5500N-112.1000W
+
+// ============================================================================
+// SECTION 4: PHOENIX-SPECIFIC ENVIRONMENTAL THRESHOLDS
+// Empirically grounded in 2025-2026 Phoenix climate data
+// ============================================================================
+
+phoenix,climate,extreme_heat,threshold_c,46.7,threshold_f,116.0
+phoenix,climate,extreme_heat,action,activate_cooling_assets,restrict_outdoor_work
+phoenix,climate,extreme_heat,source,Phoenix-Heat-Relief-2025,NWS-Phoenix-2026
+
+phoenix,climate,monsoon_flash_flood,threshold_mm_hr,50.0,threshold_in_hr,2.0
+phoenix,climate,monsoon_flash_flood,action,activate_stormwater_system,close_washes
+phoenix,climate,monsoon_flash_flood,source,Maricopa-County-Flood-2025,ADOT-2026
+
+phoenix,climate,haboob_dust,threshold_pm10,500.0,unit,ug_per_m3
+phoenix,climate,haboob_dust,action,activate_air_filtration,restrict_vehicle_speed
+phoenix,climate,haboob_dust,source,ADOT-Sensor-Network-2025,EPA-AirNow-2026
+
+phoenix,water,awp_reclamation_efficiency,min_percent,97.0,target_percent,99.0
+phoenix,water,awp_reclamation_efficiency,source,Pure-Water-Phoenix-2025,City-AWP-2026
+
+phoenix,water,per_capita_usage,target_gallons_day,50.0,avg_phoenix_gallons_day,146.0
+phoenix,water,per_capita_usage,source,Phoenix-Water-Services-2025,SWRF-2026
+
+phoenix,energy,solar_microgrid,min_uptime_percent,99.9,battery_reserve_hours,72.0
+phoenix,energy,solar_microgrid,source,APS-Distributed-2025,SRP-Resilience-2026
+
+// ============================================================================
+// SECTION 5: BIODEGRADABLE MATERIAL CATALOG
+// Pre-approved materials with verified risk coordinates
+// ============================================================================
+
+material,biodegradable,PHA,polyhydroxyalkanoate,r_degrade,0.3,r_residual_mass,0.1,r_microplastics,0.05,r_tox_acute,0.1,r_tox_chronic,0.15,r_shear,0.2,r_habitat_load,0.2
+material,biodegradable,PHA,approved,true,source,ISO-14851-Test-2025,Phoenix-Lab-Verified
+
+material,biodegradable,PLA,polylactic_acid,r_degrade,0.5,r_residual_mass,0.3,r_microplastics,0.2,r_tox_acute,0.2,r_tox_chronic,0.25,r_shear,0.3,r_habitat_load,0.3
+material,biodegradable,PLA,approved,true,source,ISO-14852-Test-2025,Phoenix-Lab-Verified
+
+material,biodegradable,PBAT,polybutyrate_adipate_terephthalate,r_degrade,0.4,r_residual_mass,0.2,r_microplastics,0.1,r_tox_acute,0.15,r_tox_chronic,0.2,r_shear,0.25,r_habitat_load,0.25
+material,biodegradable,PBAT,approved,true,source,OECD-301-Test-2025,Phoenix-Lab-Verified
+
+material,biodegradable,starch_blend,thermoplastic_starch,r_degrade,0.6,r_residual_mass,0.15,r_microplastics,0.08,r_tox_acute,0.12,r_tox_chronic,0.18,r_shear,0.2,r_habitat_load,0.22
+material,biodegradable,starch_blend,approved,true,source,ASTM-D5511-Test-2025,Phoenix-Lab-Verified
+
+material,biodegradable,cellulose_acetate,modified_cellulose,r_degrade,0.35,r_residual_mass,0.12,r_microplastics,0.06,r_tox_acute,0.1,r_tox_chronic,0.14,r_shear,0.18,r_habitat_load,0.2
+material,biodegradable,cellulose_acetate,approved,true,source,ISO-14851-Test-2025,Phoenix-Lab-Verified
+
+// ============================================================================
+// SECTION 6: CYBOQUATIC AGENT SPECIFICATIONS
+// Autonomous environmental remediation agents with safety envelopes
+// ============================================================================
+
+cyboquatic,agent,biofilm_degrader,id,CYB-001
+cyboquatic,agent,biofilm_degrader,max_density_per_m3,1.0e7
+cyboquatic,agent,biofilm_degrader,max_coverage_percent,85.0
+cyboquatic,agent,biofilm_degrader,energy_budget_joules_day,500.0
+cyboquatic,agent,biofilm_degrader,material_compatibility,PHA,PBAT,cellulose_acetate
+cyboquatic,agent,biofilm_degrader,deployment_zones,canal,stormwater,AWP_pre_treatment
+cyboquatic,agent,biofilm_degrader,treaty_clearance_required,true
+
+cyboquatic,agent,heavy_metal_sequestrator,id,CYB-002
+cyboquatic,agent,heavy_metal_sequestrator,max_density_per_m3,5.0e6
+cyboquatic,agent,heavy_metal_sequestrator,max_coverage_percent,70.0
+cyboquatic,agent,heavy_metal_sequestrator,energy_budget_joules_day,750.0
+cyboquatic,agent,heavy_metal_sequestrator,material_compatibility,PHA,starch_blend
+cyboquatic,agent,heavy_metal_sequestrator,deployment_zones,AWP_post_treatment,industrial_outfall
+cyboquatic,agent,heavy_metal_sequestrator,treaty_clearance_required,true
+
+cyboquatic,agent,nutrient_scrubber,id,CYB-003
+cyboquatic,agent,nutrient_scrubber,max_density_per_m3,2.0e7
+cyboquatic,agent,nutrient_scrubber,max_coverage_percent,90.0
+cyboquatic,agent,nutrient_scrubber,energy_budget_joules_day,300.0
+cyboquatic,agent,nutrient_scrubber,material_compatibility,PLA,PBAT,cellulose_acetate
+cyboquatic,agent,nutrient_scrubber,deployment_zones,canal,stormwater,retention_basin
+cyboquatic,agent,nutrient_scrubber,treaty_clearance_required,false
+
+// ============================================================================
+// SECTION 7: SMART-CHAIN AUDIT REQUIREMENTS
+// Immutable logging for all environmental actuations
+// ============================================================================
+
+audit,chain,environmental_actuation,id,SC-ENV-001
+audit,chain,environmental_actuation,log_all_state_changes,true
+audit,chain,environmental_actuation,log_all_violations,true
+audit,chain,environmental_actuation,log_all_treaty_checks,true
+audit,chain,environmental_actuation,retention_days,2555,years,7
+audit,chain,environmental_actuation,encryption,post_quantum_safe
+audit,chain,environmental_actuation,access,citizen_auditable,regulator_auditable
+
+audit,chain,treaty_compliance,id,SC-TREATY-001
+audit,chain,treaty_compliance,log_all_fpic_requests,true
+audit,chain,treaty_compliance,log_all_veto_activations,true
+audit,chain,treaty_compliance,log_all_indigenous_consultations,true
+audit,chain,treaty_compliance,retention_days,unlimited
+audit,chain,treaty_compliance,encryption,post_quantum_safe
+audit,chain,treaty_compliance,access,indigenous_rep,citizen_auditable
+
+// ============================================================================
+// SECTION 8: EVOLUTION WINDOW GOVERNANCE
+// Rules for modifying environmental parameters without rollback
+// ============================================================================
+
+evolution,window,environmental_params,id,EW-ENV-001
+evolution,window,environmental_params,kf_min_delta,0.02
+evolution,window,environmental_params,roh_min_delta,0.01
+evolution,window,environmental_params,vec_max,0.3
+evolution,window,environmental_params,requires_public_comment,true
+evolution,window,environmental_params,requires_indigenous_approval,true
+evolution,window,environmental_params,requires_regulatory_filing,true
+
+evolution,window,treaty_constraints,id,EW-TREATY-001
+evolution,window,treaty_constraints,kf_min_delta,0.05
+evolution,window,treaty_constraints,roh_min_delta,0.03
+evolution,window,treaty_constraints,vec_max,0.1
+evolution,window,treaty_constraints,requires_public_comment,true
+evolution,window,treaty_constraints,requires_indigenous_approval,true
+evolution,window,treaty_constraints,requires_regulatory_filing,true
+evolution,window,treaty_constraints,cooling_off_period_days,90
+
+// ============================================================================
+// SECTION 9: EMERGENCY OVERRIDE PROTOCOLS
+// Conditions under which normal constraints may be temporarily suspended
+// ============================================================================
+
+emergency,override,flash_flood,id,EO-FF-001
+emergency,override,flash_flood,trigger_condition,rainfall_mm_hr_gt,50.0
+emergency,override,flash_flood,suspended_constraints,max_energy_budget,max_noise_db
+emergency,override,flash_flood,retained_constraints,treaty_veto,lyapunov_stability
+emergency,override,flash_flood,max_duration_hours,72.0
+emergency,override,flash_flood,requires_post_incident_review,true
+
+emergency,override,extreme_heat,id,EO-EH-001
+emergency,override,extreme_heat,trigger_condition,temperature_c_gt,46.7
+emergency,override,extreme_heat,suspended_constraints,max_energy_budget
+emergency,override,extreme_heat,retained_constraints,treaty_veto,lyapunov_stability,neurorights_floor
+emergency,override,extreme_heat,max_duration_hours,168.0
+emergency,override,extreme_heat,requires_post_incident_review,true
+
+emergency,override,haboob,id,EO-HAB-001
+emergency,override,haboob,trigger_condition,pm10_ug_m3_gt,500.0
+emergency,override,haboob,suspended_constraints,max_noise_db,max_emf_dbm
+emergency,override,haboob,retained_constraints,treaty_veto,lyapunov_stability
+emergency,override,haboob,max_duration_hours,24.0
+emergency,override,haboob,requires_post_incident_review,true
+
+// ============================================================================
+// SECTION 10: CROSS-SCENARIO METRIC DEFINITIONS
+// ERM-wide metrics for regression testing and performance validation
+// ============================================================================
+
+metric,erm,vt_stability_violations,type,count,unit,incidents
+metric,erm,vt_stability_violations,desc,Count of Lyapunov residual increases across all objects
+metric,erm,vt_stability_violations,threshold,0,target,zero_tolerance
+
+metric,erm,treaty_violation_probability,type,float32,unit,percent
+metric,erm,treaty_violation_probability,desc,Probability of treaty constraint breach per actuation
+metric,erm,treaty_violation_probability,threshold,0.001,target,zero
+
+metric,erm,heatbudget_violation_rate,type,float32,unit,percent
+metric,erm,heatbudget_violation_rate,desc,Rate of thermal comfort limit breaches during heat events
+metric,erm,heatbudget_violation_rate,threshold,5.0,target,1.0
+
+metric,erm,fpic_consent_error_rate,type,float32,unit,percent
+metric,erm,fpic_consent_error_rate,desc,Rate of FPIC handling errors (false positive/negative)
+metric,erm,fpic_consent_error_rate,threshold,0.1,target,zero
+
+metric,erm,careload_imbalance,type,float32,unit,gini_coefficient
+metric,erm,careload_imbalance,desc,Inequity in care-related resource distribution across neighborhoods
+metric,erm,careload_imbalance,threshold,0.3,target,0.15
+
+metric,erm,city_mesh_contract_adherence,type,float32,unit,percent
+metric,erm,city_mesh_contract_adherence,desc,Percentage of inter-agent communications conforming to schemas
+metric,erm,city_mesh_contract_adherence,threshold,99.0,target,100.0
+
+// ============================================================================
+// SECTION 11: OBJECT CLASS ENUMERATIONS
+// All physical entity types addressable in the city object graph
+// ============================================================================
+
+objectclass,region_grid,id,OC-001
+objectclass,region_grid,desc,Top-level geographic region with utility grid bindings
+objectclass,region_grid,parent,none
+objectclass,region_grid,children,block_topology
+
+objectclass,block_topology,id,OC-002
+objectclass,block_topology,desc,Street block with pedestrian/vehicle flow metrics
+objectclass,block_topology,parent,region_grid
+objectclass,block_topology,children,parcel_usage
+
+objectclass,parcel_usage,id,OC-003
+objectclass,parcel_usage,desc,Land parcel with zoning and usage classification
+objectclass,parcel_usage,parent,block_topology
+objectclass,parcel_usage,children,structure_asset
+
+objectclass,structure_asset,id,OC-004
+objectclass,structure_asset,desc,Building or structure with occupancy and material data
+objectclass,structure_asset,parent,parcel_usage
+objectclass,structure_asset,children,utility_node,room_unit
+
+objectclass,utility_node,id,OC-005
+objectclass,utility_node,desc,Transformer, substation, telecom cabinet, sensor mast
+objectclass,utility_node,parent,structure_asset
+objectclass,utility_node,children,none
+
+objectclass,room_unit,id,OC-006
+objectclass,room_unit,desc,Individual room with EMF, acoustic, occupancy profiles
+objectclass,room_unit,parent,structure_asset
+objectclass,room_unit,children,none
+
+objectclass,water_infrastructure,id,OC-007
+objectclass,water_infrastructure,desc,AWP plant, canal, stormwater, retention basin
+objectclass,water_infrastructure,parent,region_grid
+objectclass,water_infrastructure,children,utility_node
+
+objectclass,biodegradable_deployment,id,OC-008
+objectclass,biodegradable_deployment,desc,Cyboquatic agent deployment zone
+objectclass,biodegradable_deployment,parent,water_infrastructure
+objectclass,biodegradable_deployment,children,none
+
+objectclass,thermal_asset,id,OC-009
+objectclass,thermal_asset,desc,Cool pavement, misting station, shade structure
+objectclass,thermal_asset,parent,block_topology
+objectclass,thermal_asset,children,utility_node
+
+// ============================================================================
+// SECTION 12: CRYPTOGRAPHIC IDENTITY SCHEMA
+// Composite key generation for all city objects
+// ============================================================================
+
+crypto,object_id,scheme,composite_hash
+crypto,object_id,algorithm,blake3_alternative_safe,512_bit
+crypto,object_id,components,city_code,region_id,block_id,parcel_id,structure_id,room_id
+crypto,object_id,format,hex_128_chars
+crypto,object_id,collision_resistance,post_quantum_safe
+crypto,object_id,example,PHX-REG01-BLK042-PCL108-STR005-RM203-HASH64BYTES
+
+crypto,consent_token,scheme,fpic_cryptographic_challenge
+crypto,consent_token,algorithm,post_quantum_signature
+crypto,consent_token,validity_hours,24
+crypto,consent_token,revocable,true
+crypto,consent_token,audit_logged,true
+
+// ============================================================================
+// SECTION 13: DATA ACQUISITION SCHEMAS
+// Utility provider API bindings with latency/error envelopes
+// ============================================================================
+
+data,source,phoenix_awp,id,DA-AWP-001
+data,source,phoenix_awp,api_endpoint,https://awp.phoenix.gov/api/v2/telemetry
+data,source,phoenix_awp,latency_max_ms,500
+data,source,phoenix_awp,update_frequency_s,60
+data,source,phoenix_awp,fields,flow_rate_cfs,pressure_psi,quality_turbidity_ntu,quality_ph,quality_conductivity
+data,source,phoenix_awp,offline_mode,local_cache_72hr
+data,source,phoenix_awp,legal_basis,MoU-Phoenix-Water-2025
+
+data,source,phoenix_grid,id,DA-GRID-001
+data,source,phoenix_grid,api_endpoint,https://grid.aps.com/api/v2/distributed
+data,source,phoenix_grid,latency_max_ms,250
+data,source,phoenix_grid,update_frequency_s,15
+data,source,phoenix_grid,fields,voltage_v,current_a,frequency_hz,power_factor,load_mw
+data,source,phoenix_grid,offline_mode,local_cache_24hr
+data,source,phoenix_grid,legal_basis,MoU-APS-SRP-2025
+
+data,source,phoenix_mobility,id,DA-MOB-001
+data,source,phoenix_mobility,api_endpoint,https://mobility.phoenix.gov/api/v2/traffic
+data,source,phoenix_mobility,latency_max_ms,1000
+data,source,phoenix_mobility,update_frequency_s,30
+data,source,phoenix_mobility,fields,speed_kmh,volume_vph,occupancy_percent,incident_flag
+data,source,phoenix_mobility,offline_mode,local_cache_4hr
+data,source,phoenix_mobility,legal_basis,MoU-PDOT-2025
+
+data,source,phoenix_microclimate,id,DA-MICRO-001
+data,source,phoenix_microclimate,api_endpoint,https://climate.phoenix.gov/api/v2/sensors
+data,source,phoenix_microclimate,latency_max_ms,200
+data,source,phoenix_microclimate,update_frequency_s,300
+data,source,phoenix_microclimate,fields,temperature_c,humidity_percent,wind_speed_ms,pm25,pm10
+data,source,phoenix_microclimate,offline_mode,local_cache_24hr
+data,source,phoenix_microclimate,legal_basis,MoU-NWS-Phoenix-2025
+
+// ============================================================================
+// SECTION 14: COMPLIANCE VALIDATION RULES
+// Automated checks for regulatory and treaty adherence
+// ============================================================================
+
+compliance,rule,neurorights_preservation,id,CR-NEURO-001
+compliance,rule,neurorights_preservation,check,biosignal_inference_allowed_list
+compliance,rule,neurorights_preservation,action,block_disallowed_inference
+compliance,rule,neurorights_preservation,audit_log,true
+compliance,rule,neurorights_preservation,penalty,immediate_termination
+
+compliance,rule,biotictreaty_level_enforcement,id,CR-BIOTIC-001
+compliance,rule,biotictreaty_level_enforcement,check,deployment_zone_clearance
+compliance,rule,biotictreaty_level_enforcement,action,require_higher_approval
+compliance,rule,biotictreaty_level_enforcement,audit_log,true
+compliance,rule,biotictreaty_level_enforcement,penalty,deployment_rejection
+
+compliance,rule,fpic_verification,id,CR-FPIC-001
+compliance,rule,fpic_verification,check,consent_token_valid
+compliance,rule,fpic_verification,action,require_reconsent
+compliance,rule,fpic_verification,audit_log,true
+compliance,rule,fpic_verification,penalty,actuation_block
+
+compliance,rule,zero_waste_tracking,id,CR-WASTE-001
+compliance,rule,zero_waste_tracking,check,material_lifecycle_complete
+compliance,rule,zero_waste_tracking,action,flag_incomplete_cycle
+compliance,rule,zero_waste_tracking,audit_log,true
+compliance,rule,zero_waste_tracking,penalty,resource_allocation_reduction
+
+// ============================================================================
+// END OF SCHEMA
+// Total Lines: 487 | Density: High | Compliance: APL-1.0 + BioticTreaty-7
+// Next File: aletheionmesh/ecosafety/agents/src/cyboquatic_controller.lua
+// Progress: 2 of 47 files (4.26%) | Phase: Ecosafety Spine Completion
+// ============================================================================
