@@ -1,0 +1,49 @@
+
+aln_version "1.0.0"
+aln_namespace "ALE.MESH.ECOSAFETY.MATERIAL.V1"
+
+// -----------------------------------------------------------------------------
+// 1. Canonical ecosafety material header (ECOSAFETY_MATERIAL)
+// -----------------------------------------------------------------------------
+
+particle ECOSAFETY_MATERIAL_HEADER_V1 {
+    material_id: str.v1                  // stable recipe / substrate ID
+    revision: u32.v1                     // schema-compatible material revision
+    iso_oecd_protocol_ids: list.str.v1   // e.g. ["ISO-14851", "OECD-201", "OECD-202"]
+    phoenix_context_tag: str.v1          // e.g. "CANAL", "MAR_VAULT", "SEWER_MAIN"
+    units_r_degrade: str.v1              // e.g. "fraction_mass_loss_over_180d"
+    units_r_microplastics: str.v1        // e.g. "mg_per_L"
+    units_r_tox: str.v1                  // e.g. "EC50_fraction"
+    units_r_residualmass: str.v1         // e.g. "fraction_initial_mass"
+    units_r_shear: str.v1                // e.g. "Pa"
+    units_r_habitatload: str.v1          // e.g. "dimensionless_index"
+    extrapolation_cap_days: f64.v1       // max days allowed beyond lab horizon
+}
+
+// normalized 0–1 coordinates, with validated physical range and caps
+particle ECOSAFETY_MATERIAL_COORDS_V1 {
+    header_id: ref.ECOSAFETY_MATERIAL_HEADER_V1
+    r_degrade_0_1: f64.v1
+    r_microplastics_0_1: f64.v1
+    r_tox_acute_0_1: f64.v1
+    r_tox_chronic_0_1: f64.v1
+    r_residualmass_0_1: f64.v1
+    r_shear_0_1: f64.v1
+    r_habitatload_0_1: f64.v1
+
+    // validated physical bands for back-reference
+    r_degrade_phys_min: f64.v1
+    r_degrade_phys_max: f64.v1
+    r_microplastics_phys_min: f64.v1
+    r_microplastics_phys_max: f64.v1
+    r_tox_acute_phys_min: f64.v1
+    r_tox_acute_phys_max: f64.v1
+    r_tox_chronic_phys_min: f64.v1
+    r_tox_chronic_phys_max: f64.v1
+    r_residualmass_phys_min: f64.v1
+    r_residualmass_phys_max: f64.v1
+    r_shear_phys_min: f64.v1
+    r_shear_phys_max: f64.v1
+    r_habitatload_phys_min: f64.v1
+    r_habitatload_phys_max: f64.v1
+}
