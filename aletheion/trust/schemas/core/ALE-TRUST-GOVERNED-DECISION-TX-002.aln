@@ -1,0 +1,184 @@
+# aletheion/trust/schemas/core/ALE-TRUST-GOVERNED-DECISION-TX-002.aln
+#
+# Canonical ALN schema for governed decision transactions in Aletheion.
+# Scope:
+#   - Local, offline-capable attestation is mandatory.
+#   - Googolswarm is optional and strictly limited to attestor role.
+#   - No decision logic or control rights may be delegated to Googolswarm.
+
+schema ALE.TRUST.GovernedDecisionTx.v2 {
+  @id         "ALE.TRUST.GovernedDecisionTx.v2"
+  @version    2
+  @namespace  "aletheion.trust.governedDecision"
+  @title      "Governed decision transaction envelope v2"
+
+  type TrustScope {
+    "record is stored locally only, never transmitted to Googolswarm"
+    LocalOnly,
+
+    "record may be appended to Googolswarm under multi-sig attestation only"
+    LocalAndGoogolswarm
+  }
+
+  type DecisionOutcome {
+    Approved,
+    ApprovedWithDerating,
+    Rejected,
+    PendingFpic
+  }
+
+  type NodeSecurityTier {
+    TeeBacked,
+    HardenedFirmwareOnly,
+    Basic
+  }
+
+  type NodeSecurityProfileRef {
+    nodeProfileId : String @required
+    tier          : NodeSecurityTier @required
+    secureBoot    : Bool @required
+    signedUpdates : Bool @required
+    secureTransport : Bool @required
+  }
+
+  type BirthSignRef {
+    birthSignId : String @required
+    version     : UInt32 @required
+  }
+
+  type AlnNormRef {
+    alnNormId : String @required
+  }
+
+  type BioticTreatyRef {
+    bioticTreatyId : String @required
+  }
+
+  type MicroTreatyRef {
+    microTreatyId : String @required
+  }
+
+  type DidRef {
+    did : String @required
+  }
+
+  type GovernanceDomain {
+    Land,
+    Water,
+    Air,
+    Materials,
+    Mobility,
+    Biosignals,
+    Augmentation,
+    Energy,
+    Culture,
+    Emergency
+  }
+
+  type FpicRequirement {
+    NotApplicable,
+    RequiredBeforePlanning,
+    RequiredBeforeExecution,
+    EmergencyOverrideWithAudit
+  }
+
+  type FpicStatus {
+    NotRequired,
+    Granted {
+      territoryId : String @required
+      grantedAt   : Timestamp @required
+      expiresAt   : Timestamp @optional
+    },
+    Pending {
+      territoryId : String @required
+      requestedAt : Timestamp @required
+    },
+    Denied {
+      territoryId : String @required
+      reason      : String @required
+    }
+  }
+
+  type ConstraintMode {
+    Hard,
+    HighPenalty
+  }
+
+  type ConstraintOutcome {
+    Satisfied,
+    SoftViolation {
+      alnNorm : AlnNormRef @required
+      message : String @required
+    },
+    HardViolation {
+      alnNorm : AlnNormRef @required
+      message : String @required
+    }
+  }
+
+  type GovernanceEvaluation {
+    birthSign         : BirthSignRef @required
+    constraintMode    : ConstraintMode @required
+    outcomes          : [ConstraintOutcome] @required
+    fpicStatus        : FpicStatus @optional
+  }
+
+  type GoogolswarmAttestorRef {
+    attestorDid : String @required
+    signature   : Bytes  @required
+    algo        : String @required
+  }
+
+  type TransactionBase {
+    txId          : String @required
+    createdAt     : Timestamp @required
+    workflowId    : String @required
+    workflowStage : String @required
+    domains       : [GovernanceDomain] @required
+    birthSigns    : [BirthSignRef] @required
+    inputsHash    : String @required
+    outputsHash   : String @required
+    subject       : DidRef @optional
+    operator      : DidRef @optional
+    nodeProfile   : NodeSecurityProfileRef @required
+    evaluation    : GovernanceEvaluation @required
+    outcome       : DecisionOutcome @required
+    explanation   : String @optional
+    tags          : Map<String,String> @optional
+  }
+
+  rule LocalOnlyScopeRequiresNoGoogolswarm {
+    when {
+      t : TransactionBase
+      s : TrustScope = LocalOnly
+    }
+    then {
+      forbid exists(GoogolswarmAttestorRef)
+    }
+  }
+
+  rule GoogolswarmScopeRequiresAttestors {
+    when {
+      t : TransactionBase
+      s : TrustScope = LocalAndGoogolswarm
+    }
+    then {
+      require count(GoogolswarmAttestorRef) >= 2
+    }
+  }
+
+  rule GoogolswarmNeverControlsOutcome {
+    when {
+      t : TransactionBase
+    }
+    then {
+      lock t.outcome
+    }
+  }
+
+  type GovernedDecisionTx {
+    base        : TransactionBase @required
+    trustScope  : TrustScope @required
+    attestors   : [GoogolswarmAttestorRef] @optional
+  }
+}
