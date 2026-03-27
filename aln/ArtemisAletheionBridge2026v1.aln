@@ -1,0 +1,8 @@
+aln ArtemisAletheionBridge2026v1
+  record CitizenNodeBinding2026v1
+    string aletheion_id
+    string bostrom_addr
+    string did
+    string artemis_nodeid
+    float  participation_ker_weight0to1
+    bool   offline_cache_allowed
