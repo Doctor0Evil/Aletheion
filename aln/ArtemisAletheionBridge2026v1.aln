@@ -1,8 +1,185 @@
-aln ArtemisAletheionBridge2026v1
+alnspec v1.0 ArtemisAletheionBridge2026v1
+description Augmented-citizen identity bridge for sovereign Artemis integration
+version 2026.03.28
+owner bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+jurisdiction us-az-maricopa-phx
+compliance-profile eu_ai_act_high_risk us_infrastructure_critical github_acceptable_use_v2025 neurorights_framework_v1
+
+bridge-identities
+  artemis-sovereign bostrom18sd2ujv24ual9c9pshtxys6j8knh6xaead9ye7
+  aletheion-gateway bostrom1ldgmtf20d6604a24ztr0jxht7xt7az4jhkmsrc
+  citizen-validator zeta12x0up66pzyeretzyku8p4ccuxrjqtqpdc4y4x8
+  did.method did:aln:aletheion:bridge:2026
+  brainip.mt6883 MT6883-CYBERNETIC-BI-0x4D4154485F574542
+
+citizen-binding-schema
   record CitizenNodeBinding2026v1
-    string aletheion_id
-    string bostrom_addr
-    string did
-    string artemis_nodeid
-    float  participation_ker_weight0to1
-    bool   offline_cache_allowed
+    field aletheion_id string required unique hexproof
+    field bostrom_addr string required validated bostrom-address
+    field did string required validated did-uri
+    field artemis_nodeid string required unique shard-bound
+    field participation_ker_weight0to1 float required range 0.0 1.0 default 0.5
+    field offline_cache_allowed bool required default false
+    field brainip_signature string required ed25519-bostrom
+    field consent_timestamp int64 required unix-epoch-seconds
+    field fpic_verified bool required default false
+    field snc_consent_hash string required blake3-256
+    field capability_set array string required monotone-superset
+    field upgrade_state string required versioned no-downgrade
+    field spectral_bounds array float required range 0.0 1.0 length 4
+    field eco_weight float required range 0.0 1.0 default 0.5
+    field healthcare_integration bool required default false
+    field nanoswarm_host bool required default false
+    field bci_stream_active bool required default false
+    field evolution_points int64 required non-negative default 0
+    field karma_score float required range -1.0 1.0 default 0.0
+    field vampiric_traits array string optional blacklisted-check
+    field evolution_gifts array string optional validated-constructs
+    field jurisdiction_scope string required iso-3166-1-alpha2
+    field data_sovereignty_zone string required validated-zone-id
+
+bridge-operations
+  operation bind-citizen-node
+    input CitizenNodeBinding2026v1
+    output binding_receipt hexproof signed
+    validation fpic-check snc-consent kernel-version-match
+    audit-log true
+    ledger-anchor true
+
+  operation update-capability-set
+    input aletheion_id new_capabilities array string
+    validation monotone-superset-check no-downgrade-verify
+    output capability_receipt hexproof signed
+    audit-log true
+    ledger-anchor true
+
+  operation inject-citizen-signal
+    input aletheion_id signal_type signal_data hexproof
+    validation binding-verified ker-threshold-pass roh-veco-bounds
+    output signal_receipt hexproof timestamped
+    audit-log true
+    ledger-anchor false
+
+  operation query-citizen-state
+    input aletheion_id query_fields array string
+    validation consent-verified jurisdiction-check
+    output citizen_state redacted hexproof
+    audit-log true
+    ledger-anchor false
+
+  operation revoke-binding
+    input aletheion_id revocation_reason hexproof
+    validation sovereign-signature audit-trail-complete
+    output revocation_receipt hexproof anchored
+    audit-log true
+    ledger-anchor true
+
+offline-modes
+  mode OFFLINE_STRICT
+    allow-citizen-bindings cached-only
+    allow-signal-injection local-validation-only
+    disallow-new-consent true
+    disallow-capability-changes true
+    require-hexproof true
+    require-kernel-match true
+    cached-binding-ttl-seconds 86400
+    signal-queue-max-size 1000
+
+  mode OFFLINE_DIAGNOSTIC
+    allow-telemetry-logs true
+    allow-citizen-state-query true
+    disallow-signal-injection true
+    disallow-capability-changes true
+    require-hexproof true
+    diagnostic-window-seconds 86400
+
+  mode ONLINE_GOVERNED
+    allow-new-consent true
+    allow-capability-changes true
+    allow-fpic-verification true
+    allow-snc-consent true
+    require-hexproof true
+    require-ledger-anchor true
+
+compliance-mappings
+  eu_ai_act_high_risk
+    article-10-logging audit-log binding-receipt signal-receipt
+    article-11-transparency citizen-binding-schema public-verifiability
+    article-12-human-oversight fpic-verified snc-consent-hash
+    article-13-accuracy brainip-signature consent-timestamp
+    article-14-security offline-modes hexproof-requirements
+    evidence-location Aletheion/aln/ArtemisAletheionBridge2026v1.aln
+
+  us_infrastructure_critical
+    section-cip-001 sovereign-identities artemis-sovereign
+    section-cip-002 citizen-binding-schema field-requirements
+    section-cip-003 bridge-operations audit-requirements
+    section-cip-004 offline-modes OFFLINE_STRICT
+    evidence-location Aletheion/configs/citizen-identity-mapping.aln
+
+  github_acceptable_use_v2025
+    policy-lawful-use disallow-new-consent offline-modes
+    policy-privacy hexproof-requirements redacted-output
+    policy-supply-chain kernel-version-match artifact-attestation
+    policy-no-harm coercive-channel-block hidden-control-path-block
+    evidence-location .github/workflows/artemis-kernel-shard-ci.yml
+
+  neurorights_framework_v1
+    principle-cognitive-liberty fpic-verified snc-consent-hash
+    principle-mental-privacy spectral-bounds data-sovereignty-zone
+    principle-psychological-continuity capability-set monotone-superset
+    principle-fair-access participation-ker-weight0to1 eco-weight
+    principle-protection-from-algorithmic-harm karma-score blacklisted-check
+    evidence-location Aletheion/specs/neurorights-enforcement.aln
+
+identity-validation
+  bostrom-address-format bech32 validated
+  did-uri-format did:aln: validated
+  brainip-format MT6883-CYBERNETIC-BI-0x validated
+  ed25519-signature-verification true
+  blake3-256-hash-verification true
+  consent-timestamp-unix-epoch true
+  jurisdiction-iso-3166-validated true
+
+capability-enforcement
+  monotone-superset-required true
+  downgrade-prohibition true
+  vampiric-trait-blacklist vampiric-drain coercive-extraction hidden-override
+  evolution-gifts-whitelist eco-restoration capability-expansion sovereignty-enhancement
+  capability-change-audit true
+  capability-ledger-anchor true
+
+signal-processing
+  signal-types bio-sensing cognition city-systems healthcare nanoswarm
+  signal-validation ker-threshold-pass roh-veco-bounds
+  signal-queue-max-size 1000
+  signal-ttl-seconds 3600
+  signal-hexproof-required true
+  signal-ledger-anchor-optional true
+
+data-sovereignty
+  citizen-data-owner citizen
+  artemis-data-processor artemis-sovereign
+  data-access-consent-required true
+  data-portability-supported true
+  data-deletion-supported conditional-audit-trail
+  cross-jurisdiction-transfer fpic-verified snc-consent
+
+audit-trail
+  event-type all-binding-operations
+  event-type all-capability-changes
+  event-type all-signal-injections
+  event-type all-consent-verifications
+  event-type all-identity-validations
+  retention-period-years 10
+  tamper-evidence blake3-256-chain
+  public-verifiability conditional-redaction
+
+kernel-versioning
+  bridge-kernel-id BRIDGEKERNEL-2026-03-28-V1
+  binding-validator-id BINDINGVALIDATOR-2026-03-28-V1
+  signal-processor-id SIGNALPROCESSOR-2026-03-28-V1
+  consent-verifier-id CONSENTVERIFIER-2026-03-28-V1
+  policy-header-hash 0x4252494447455F414C45544845494F4E5F534F5645524549474E
+
+groundinghex 0x4252494447455F414C45544845494F4E5F534F5645524549474E5F434954495A454E5F42494E44494E475F4E4555524F5249474854535F465049435F534E435F434F4E53454E54
