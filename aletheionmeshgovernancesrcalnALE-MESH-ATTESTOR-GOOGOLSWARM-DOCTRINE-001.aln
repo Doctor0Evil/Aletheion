@@ -1,0 +1,196 @@
+alnversion 1.0.0
+alnnamespace ALE.MESH.GOVERNANCE.ATTESTOR.GOOGOLSWARM.DOCTRINE.V1
+
+-----------------------------------------------------------------------------
+-- 1. Core ids and enums
+-----------------------------------------------------------------------------
+
+particle host.owner.identity.v1
+  ownerdid         did.v1
+  ownerbciid       optional.str.v1
+  ownerhardwarefp  optional.str.v1
+
+enum enum.control.channel.kind.v1
+  LOCAL_PROCESS
+  LOCAL_IPC
+  LOCALHOST_LOOPBACK
+  UNIX_DOMAIN_SOCKET
+  REMOTE_TCP
+  REMOTE_WEBSOCKET
+  UNKNOWN
+
+enum enum.auth.actor.kind.v1
+  OWNER_PRIMARY
+  OWNER_DELEGATE_EXPLICIT
+  SYSTEM_GOVERNANCE_GUARD
+  EXTERNAL_THIRDPARTY
+  UNKNOWN
+
+enum enum.hostile.vector.kind.v1
+  ELEVATE_TO_POLICY_AUTHORITY
+  ELEVATE_TO_DIRECT_ACTUATION
+  BIND_GLOBAL_SCOPE
+  CREATE_GHOST_USER
+  SPOOF_OWNER_DID
+  SPOOF_MULTISIG
+  BYPASS_GOVERNANCE_GATES
+  UNKNOWN
+
+-----------------------------------------------------------------------------
+-- 2. Googolswarm attestor doctrine header
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.doctrine.header.v1
+  id                    koid.v1
+  providerid            ref.attestor.provider.id.v1
+  name                  str.v1
+  version               u32.v1
+  description           str.v1
+  owneridentity         ref.host.owner.identity.v1
+  -- doctrinal statement: Googolswarm may ONLY act as owner-controlled attestor
+  attestoronly          bool.v1
+  zeroexternalcontrol   bool.v1
+  forbidpolicyauthority bool.v1
+  forbiddirectactuation bool.v1
+
+-----------------------------------------------------------------------------
+-- 3. Allowed / forbidden control matrix
+-----------------------------------------------------------------------------
+
+particle googolswarm.control.surface.v1
+  id                         koid.v1
+  providerid                 ref.attestor.provider.id.v1
+  doctrineid                 ref.googolswarm.attestor.doctrine.header.v1
+  channelkind                enum.control.channel.kind.v1
+  authactorkind              enum.auth.actor.kind.v1
+  description                str.v1
+  allowbinding               bool.v1
+  allowattestationrequests   bool.v1
+  allowconfigmutation        bool.v1
+  allowbinaryupgrade         bool.v1
+  allowkeymanagement         bool.v1
+
+particle googolswarm.control.policy.kernel.v1
+  id                              koid.v1
+  doctrineid                      ref.googolswarm.attestor.doctrine.header.v1
+  -- hard constraints
+  zeroremotecontrolrequired      bool.v1
+  forbidremotechannels           list.enum.control.channel.kind.v1
+  forbidexternalauthactors       list.enum.auth.actor.kind.v1
+  forbidhostilevectors           list.enum.hostile.vector.kind.v1
+  requirelocalsignedowner        bool.v1
+  requiremultisigforupgrades     bool.v1
+  requiregovguardcoattestation   bool.v1
+  -- governance linkage
+  governancegodtreatyid          ref.GODTREATYHEADERV1
+  neurorightspolicyid            ref.governance.neurorights.policy.v1
+
+-----------------------------------------------------------------------------
+-- 4. Hostile takeover detection inputs
+-----------------------------------------------------------------------------
+
+particle googolswarm.hostile.event.v1
+  id                       koid.v1
+  providerid               ref.attestor.provider.id.v1
+  doctrineid               ref.googolswarm.attestor.doctrine.header.v1
+  timestamputc             time.timestamp.v1
+  channelkind              enum.control.channel.kind.v1
+  authactorkind            enum.auth.actor.kind.v1
+  remotepresent            bool.v1
+  claimedownerdid          optional.did.v1
+  resolvedownerdid         optional.did.v1
+  multisigparticipants     list.did.v1
+  requestedcapabilities    list.enum.attestor.binding.capability.v1
+  requestedscope           enum.attestor.binding.scope.v1
+  actoriphash              optional.str.v1
+  useragentfingerprint     optional.str.v1
+
+enum enum.hostile.decision.v1
+  ALLOW
+  BLOCK_HOSTILE_VECTOR
+  BLOCK_GHOST_USER
+  BLOCK_REMOTE_CHANNEL
+  BLOCK_POLICY_ESCALATION
+  BLOCK_DIRECT_ACTUATION
+  BLOCK_GLOBAL_SCOPE
+  REQUIRE_OWNER_RECOVERY
+
+particle googolswarm.hostile.guard.input.v1
+  eventid                  ref.googolswarm.hostile.event.v1
+  policykernelid           ref.googolswarm.control.policy.kernel.v1
+  localsignedbyowner       bool.v1
+  govguardcoattested       bool.v1
+  isghostuser              bool.v1
+  matchesownerhardwarefp   bool.v1
+
+particle googolswarm.hostile.guard.result.v1
+  inputid                  ref.googolswarm.hostile.guard.input.v1
+  decision                 enum.hostile.decision.v1
+  message                  str.v1
+  hostilevectorsdetected   list.enum.hostile.vector.kind.v1
+  timestamputc             time.timestamp.v1
+
+-----------------------------------------------------------------------------
+-- 5. Ghost-user and spoofing detectors (declarative view)
+-----------------------------------------------------------------------------
+
+particle googolswarm.ghost.user.detector.cfg.v1
+  id                       koid.v1
+  doctrineid               ref.googolswarm.attestor.doctrine.header.v1
+  maxsimultaneoussessions  u16.v1
+  maxgeoentropy            f64.v1        -- 0..1 normalized
+  maxdevicefingerprintset  u16.v1
+  requirebcianchor         bool.v1
+  requirehardwarefpanchor  bool.v1
+
+particle googolswarm.ghost.user.anomaly.v1
+  id                       koid.v1
+  providerid               ref.attestor.provider.id.v1
+  doctrineid               ref.googolswarm.attestor.doctrine.header.v1
+  timestamputc             time.timestamp.v1
+  sessioncount             u16.v1
+  geoentropy               f64.v1
+  uniquehardwarefps        u16.v1
+  uniquebciids             u16.v1
+  flaggedasghost           bool.v1
+
+-----------------------------------------------------------------------------
+-- 6. CI / deployment must-pass contract
+-----------------------------------------------------------------------------
+
+particle googolswarm.deployment.manifest.v1
+  id                         koid.v1
+  providerid                 ref.attestor.provider.id.v1
+  doctrineid                 ref.googolswarm.attestor.doctrine.header.v1
+  binarieshash               str.v1
+  confighash                 str.v1
+  controlmatrixid            ref.googolswarm.control.surface.v1
+  policykernelid             ref.googolswarm.control.policy.kernel.v1
+  ghostdetectorcfgid         ref.googolswarm.ghost.user.detector.cfg.v1
+  localsocketpath            str.v1
+  localhostendpoint          str.v1
+  remotebindendpoint         optional.str.v1
+  cicommitsha                str.v1
+
+enum enum.deployment.guard.decision.v1
+  DEPLOY_OK
+  REJECT_REMOTE_CONTROL
+  REJECT_EXTERNAL_AUTH
+  REJECT_HOSTILE_VECTOR_GAP
+  REJECT_GLOBAL_SCOPE_ENABLED
+  REJECT_MISSING_OWNER_BINDING
+
+particle googolswarm.deployment.guard.input.v1
+  manifestid                 ref.googolswarm.deployment.manifest.v1
+  hasremotechannels          bool.v1
+  hasexternalauth            bool.v1
+  allowsglobalbindings       bool.v1
+  allowsdirectactuation      bool.v1
+  allowspolicyauthority      bool.v1
+  ownerbindingpresent        bool.v1
+
+particle googolswarm.deployment.guard.result.v1
+  inputid                    ref.googolswarm.deployment.guard.input.v1
+  decision                   enum.deployment.guard.decision.v1
+  message                    str.v1
+  timestamputc               time.timestamp.v1
