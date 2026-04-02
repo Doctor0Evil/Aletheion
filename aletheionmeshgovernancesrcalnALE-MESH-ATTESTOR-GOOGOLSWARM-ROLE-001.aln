@@ -1,0 +1,189 @@
+alnversion 1.0.0
+alnnamespace ALE.MESH.GOVERNANCE.ATTESTOR.GOOGOLSWARM.V1
+
+-----------------------------------------------------------------------------
+-- 1. Core attestor identifiers and enums
+-----------------------------------------------------------------------------
+
+particle attestor.provider.id.v1
+  id          str.v1
+  label       str.v1
+  version     u32.v1
+
+enum enum.attestor.role.kind.v1
+  ATTESTOR_ONLY
+  UNKNOWN
+
+enum enum.attestor.binding.scope.v1
+  LOCAL_HOST_ONLY
+  NODE_LOCAL
+  CLUSTER_LOCAL
+  GLOBAL_FORBIDDEN
+
+enum enum.attestor.binding.capability.v1
+  SIGN_PROOF_OF_OWNERSHIP
+  SIGN_PROOF_OF_WORKFLOW_INTEGRITY
+  SIGN_PROOF_OF_CONSENT_BINDING
+  VERIFY_PROOF
+  APPEND_AUDIT_LOG
+  DIRECT_ACTUATION_FORBIDDEN
+  POLICY_AUTHORITY_FORBIDDEN
+
+enum enum.attestor.binding.status.v1
+  ACTIVE
+  PENDING_REVIEW
+  REVOKED
+  REJECTED
+
+-----------------------------------------------------------------------------
+-- 2. Googolswarm attestor definition (static role header)
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.role.header.v1
+  providerid          ref.attestor.provider.id.v1
+  roletype            enum.attestor.role.kind.v1
+  description         str.v1
+  -- hardcoded invariants for Googolswarm in Aletheion:
+  -- 1) attestation-only role
+  -- 2) no policy or actuation authority
+  -- 3) bindings confined to local/host or node-local scope
+  maxbindingspernode  u16.v1
+  offlinecapable      bool.v1
+
+-----------------------------------------------------------------------------
+-- 3. Binding corridor to restrict Googolswarm to attestor-only scope
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.binding.corridor.v1
+  id                       koid.v1
+  providerid               ref.attestor.provider.id.v1
+  roletype                 enum.attestor.role.kind.v1
+  scope                    enum.attestor.binding.scope.v1
+  allowedcapabilities      list.enum.attestor.binding.capability.v1
+  forbiddencapabilities    list.enum.attestor.binding.capability.v1
+  -- Corridor scoping to prevent global or silent bindings.
+  boundcityobjectids       list.koid.v1
+  boundcorridorids         list.ref.ecosafety.corridor.set.v1
+  boundtreatyregionids     list.ref.governance.treaty.region.binding.v1
+  -- Governance linkage: every binding must have explicit treaty + neurorights context.
+  neurorightspolicyid      ref.governance.neurorights.policy.v1
+  createdbydid             did.v1
+  createdtimestamputc      time.timestamp.v1
+  lastreviewtimestamputc   optional.time.timestamp.v1
+
+-----------------------------------------------------------------------------
+-- 4. Concrete Googolswarm provider instance for Aletheion
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.provider.instance.v1
+  headerid         ref.attestor.provider.id.v1
+  canonicalname    str.v1
+  networklabel     str.v1
+  -- Local / host-only, offline-first requirement:
+  localhostendpoint str.v1          -- e.g., "http://127.0.0.1:7345"
+  datadirpath       str.v1          -- e.g., "/var/lib/aletheion/googolswarm"
+  offlinefirst      bool.v1
+  allowremotepeers  bool.v1         -- must be false for strict offline-only
+  maxpeerconnections u16.v1
+  notes             str.v1
+
+-----------------------------------------------------------------------------
+-- 5. Attestor binding record: how a workflow requests Googolswarm attestation
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.binding.request.v1
+  id                       koid.v1
+  providerid               ref.attestor.provider.id.v1
+  roletype                 enum.attestor.role.kind.v1
+  requestedscope           enum.attestor.binding.scope.v1
+  requestedcapabilities    list.enum.attestor.binding.capability.v1
+  targetworkflowid         str.v1                -- e.g., "ALE-RM-WATER-ALLOCATION-001"
+  targetcityobjectids      list.koid.v1          -- specific KOs, never empty
+  targetcorridorids        list.ref.ecosafety.corridor.set.v1
+  targettreatyregionids    list.ref.governance.treaty.region.binding.v1
+  neurorightspolicyid      ref.governance.neurorights.policy.v1
+  requestedbydid           did.v1
+  requestedtimestamputc    time.timestamp.v1
+
+particle googolswarm.attestor.binding.record.v1
+  id                       koid.v1
+  requestid                ref.googolswarm.attestor.binding.request.v1
+  status                   enum.attestor.binding.status.v1
+  approvedscope            enum.attestor.binding.scope.v1
+  approvedcapabilities     list.enum.attestor.binding.capability.v1
+  approverdid              did.v1
+  approvedtimestamputc     time.timestamp.v1
+  revokedtimestamputc      optional.time.timestamp.v1
+  revocationreason         optional.str.v1
+  -- Invariants snapshot at approval time, for audit:
+  invariant_attestor_only          bool.v1
+  invariant_no_policy_authority    bool.v1
+  invariant_no_direct_actuation    bool.v1
+  invariant_not_global_scope       bool.v1
+
+-----------------------------------------------------------------------------
+-- 6. Static policy kernel for Googolswarm attestor role (machine-checkable)
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.policy.kernel.v1
+  id                         koid.v1
+  providerid                 ref.attestor.provider.id.v1
+  roletype                   enum.attestor.role.kind.v1
+  -- Allowed scopes:
+  allowlocalscope            bool.v1       -- LOCAL_HOST_ONLY
+  allownodelocalscope        bool.v1       -- NODE_LOCAL
+  allowclusterlocalscope     bool.v1       -- CLUSTER_LOCAL
+  allowglobalscope           bool.v1       -- must be false for Googolswarm
+  -- Capability bitflags:
+  allowsignpo                bool.v1       -- ProofOfOwnership
+  allowsignworkflow          bool.v1       -- ProofOfWorkflowIntegrity
+  allowsignconsent           bool.v1       -- ProofOfConsentBinding
+  allowverify                bool.v1
+  allowappendaudit           bool.v1
+  allowdirectactuation       bool.v1       -- must be false
+  allowpolicyauthority       bool.v1       -- must be false
+  -- Governance integration:
+  require_treaty_binding     bool.v1
+  require_neurorights_policy bool.v1
+  require_ecosafety_corridor bool.v1
+
+-----------------------------------------------------------------------------
+-- 7. Evaluation input and decision for Rust guard (bridge schema)
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.guard.input.v1
+  requestid                ref.googolswarm.attestor.binding.request.v1
+  providerid               ref.attestor.provider.id.v1
+  roletype                 enum.attestor.role.kind.v1
+  requestedscope           enum.attestor.binding.scope.v1
+  requestedcapabilities    list.enum.attestor.binding.capability.v1
+  has_treaty_binding       bool.v1
+  has_neurorights_policy   bool.v1
+  has_ecosafety_corridor   bool.v1
+
+enum enum.attestor.guard.decision.v1
+  APPROVE
+  REJECT_SCOPE_FORBIDDEN
+  REJECT_CAPABILITY_FORBIDDEN
+  REJECT_MISSING_GOVERNANCE_BINDINGS
+  REJECT_GLOBAL_SCOPE_FORBIDDEN
+  REJECT_ROLE_NOT_ATTESTOR_ONLY
+
+particle googolswarm.attestor.guard.result.v1
+  inputid                  ref.googolswarm.attestor.guard.input.v1
+  decision                 enum.attestor.guard.decision.v1
+  message                  str.v1
+  evaluatedtimestamputc    time.timestamp.v1
+
+-----------------------------------------------------------------------------
+-- 8. Canonical, pinned instance for Googolswarm in Aletheion
+-----------------------------------------------------------------------------
+
+particle googolswarm.attestor.static.instance.v1
+  providerid               ref.attestor.provider.id.v1
+  roleheaderid             ref.googolswarm.attestor.role.header.v1
+  policykernelid           ref.googolswarm.attestor.policy.kernel.v1
+  -- This particle is a pinned reference in QPU.Datashards and used by
+  -- Rust guards to enforce invariants at runtime and in CI.
+  enabled                  bool.v1
+  lastpolicyreviewtimestamputc  optional.time.timestamp.v1
