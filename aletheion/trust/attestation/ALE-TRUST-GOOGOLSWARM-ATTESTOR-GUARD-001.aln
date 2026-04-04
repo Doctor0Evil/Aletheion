@@ -1,0 +1,238 @@
+# Aletheion Trust Layer – Googolswarm Attestor Guard
+# File: aletheion/trust/attestation/ALE-TRUST-GOOGOLSWARM-ATTESTOR-GUARD-001.aln
+# Role: Canonical ALN schema that limits Googolswarm to offline-capable, host-local attestation only;
+#       prevents any policy, control, or workflow mutation from being initiated by Googolswarm;
+#       encodes multi-sig, sovereignty, and anti–silent-takeover rules for all governed decisions.
+
+schema ALE_TRUST_GOOGOLSWARM_ATTESTOR_GUARD_001 {
+
+  import ALE_TRUST_GOVERNED_DECISION_TX_001 as GovTx;        # canonical governed decision envelope [file:3]
+  import ALE_GOV_RIGHTS_TREATY_GRAMMAR_001 as Rights;        # rights / treaty base grammar [file:3]
+  import ALE_GOV_BIRTH_SIGN_MODEL_001 as Birth;              # BirthSign + jurisdiction [file:3]
+
+  # ---------------------------------------------------------------------------
+  # Core identifiers (reused, never redefined)
+  # ---------------------------------------------------------------------------
+
+  type GoogolswarmNodeId        = string;    # logical attestor node id
+  type GoogolswarmLedgerId      = string;    # logical ledger / shard id
+  type LocalHostAttestorId      = string;    # host-only attestor binding (node + machine profile)
+  type AttestationSessionId     = string;    # per-run attestation scope
+  type SovereignDomainId        = string;    # e.g., "ALETHEION_PHOENIX_CORE"
+  type AttestationProfileId     = string;    # profile for what is being attested
+
+  enum AttestorRole {
+    # Googolswarm is strictly limited to "Attestor" – no scheduling, no control, no policy-authority.
+    ATTTESTOR_ONLY;
+  }
+
+  enum AttestationScope {
+    HOST_LOCAL_OFFLINE;          # required: attestation MUST be possible without WAN or remote trust [file:3]
+    HOST_LOCAL_WITH_CACHE;       # allowed: uses cached Googolswarm proofs, but decisions remain local-first
+  }
+
+  enum AttestationKind {
+    GOVERNED_DECISION_TX;        # attest a GovTx.GovernedDecisionEnvelope only [file:3]
+    BIRTH_SIGN_SNAPSHOT;         # attest a fixed Birth.BirthSign set for a tile/time [file:3]
+    RIGHTS_SCHEMA_VERSION;       # attest Rights schema version + hash [file:3]
+    FIRMWARE_PROFILE;            # attest a NodeSecurityProfile / firmware tuple [file:3]
+  }
+
+  enum SovereigntyAnchor {
+    AUGMENTED_CITIZEN_SOVEREIGN, # explicit citizen or collective DID retains final say [file:3][file:6]
+    INDIGENOUS_TERRITORY_SOVEREIGN,
+    MUNICIPAL_CHARTER_SOVEREIGN,
+    ECOSAFETY_SPINE_SOVEREIGN
+  }
+
+  enum AttestationOutcome {
+    ATTESTATION_ACCEPTED;
+    ATTESTATION_REJECTED;
+    ATTESTATION_INDETERMINATE;   # e.g., offline-only host cannot complete, MUST fail safe
+  }
+
+  # ---------------------------------------------------------------------------
+  # Authority and capability constraints (anti–silent-takeover)
+  # ---------------------------------------------------------------------------
+
+  enum GoogolswarmCapability {
+    # What Googolswarm MAY do:
+    CAP_PROVIDE_IMMUTABLE_LOG;            # append-only, hash-linked records [file:3]
+    CAP_PROVIDE_ORDERING_PROOF;           # proof of transaction ordering only
+    CAP_PROVIDE_MULTISIG_EVIDENCE;        # multi-sig verification, no single-signer control
+    CAP_PROVIDE_CONSISTENCY_PROOF;        # proofs that ledger view is prefix of host-local log
+
+    # What Googolswarm is explicitly FORBIDDEN to do (never granted in any policy):
+    CAP_FORBIDDEN_POLICY_AUTHORITY;       # MUST NEVER be granted – policy stays in Aletheion ALN
+    CAP_FORBIDDEN_DEVICE_CONTROL;         # MUST NEVER be granted – no actuation, no routing
+    CAP_FORBIDDEN_CODE_DEPLOY;            # MUST NEVER push firmware or workflows
+    CAP_FORBIDDEN_DATA_MUTATION;          # MUST NEVER mutate ERM state models directly [file:3][file:6]
+  }
+
+  rule GoogolswarmAuthorityConstraint (caps: set<GoogolswarmCapability>) {
+    # Googolswarm may only log, prove, and attest – never control.
+    require not (CAP_FORBIDDEN_POLICY_AUTHORITY in caps);
+    require not (CAP_FORBIDDEN_DEVICE_CONTROL in caps);
+    require not (CAP_FORBIDDEN_CODE_DEPLOY in caps);
+    require not (CAP_FORBIDDEN_DATA_MUTATION in caps);
+  }
+
+  # ---------------------------------------------------------------------------
+  # Local / offline-only attestation binding
+  # ---------------------------------------------------------------------------
+
+  record HostLocalAttestorBinding {
+    id:              LocalHostAttestorId;
+    sovereignDomain: SovereignDomainId;
+    googolswarmNode: GoogolswarmNodeId;
+    googolswarmLedger: GoogolswarmLedgerId;
+    scope:           AttestationScope;
+    allowedKinds:    set<AttestationKind>;
+    allowedCaps:     set<GoogolswarmCapability>;
+    sovereigntyAnchors: set<SovereigntyAnchor>;
+    # hash of the local, append-only host log that mirrors Googolswarm (for offline verification)
+    localLogRootHash: string;
+  }
+
+  rule HostLocalBindingMustBeOfflineCapable (b: HostLocalAttestorBinding) {
+    # Attestation MUST remain host-local and offline-capable.
+    require b.scope == HOST_LOCAL_OFFLINE or b.scope == HOST_LOCAL_WITH_CACHE;
+  }
+
+  rule HostLocalBindingCapabilitiesAreSafe (b: HostLocalAttestorBinding) {
+    # Caps must pass global GoogolswarmAuthorityConstraint.
+    require GoogolswarmAuthorityConstraint(b.allowedCaps);
+  }
+
+  rule HostLocalBindingHasSovereigntyAnchors (b: HostLocalAttestorBinding) {
+    # There MUST be at least one sovereignty anchor and it MUST NOT be Googolswarm.
+    require size(b.sovereigntyAnchors) >= 1;
+  }
+
+  # ---------------------------------------------------------------------------
+  # Multi-sig attestation for governed decisions (GovTx envelope) [file:3]
+  # ---------------------------------------------------------------------------
+
+  record AttestorSignature {
+    attestor:        GoogolswarmNodeId;
+    session:         AttestationSessionId;
+    ledger:          GoogolswarmLedgerId;
+    txId:            GovTx.TrustTxId;
+    birthSignIds:    list<Birth.BirthSignId>;
+    normsApplied:    list<Rights.AlnNormId>;
+    # hash over envelope core fields (txId, workflowId, birthSigns, norms, inputs/outputs)
+    envelopeHash:    string;
+    timestamp:       datetime;
+  }
+
+  record MultiSigAttestation {
+    binding:         HostLocalAttestorBinding;
+    envelope:        GovTx.GovernedDecisionEnvelope;
+    signatures:      list<AttestorSignature>;
+    outcome:         AttestationOutcome;
+    requiredSigners: integer;
+  }
+
+  rule GovernedDecisionMustBeLocalFirst (m: MultiSigAttestation) {
+    # Decisions MUST be derived from local ERM state; Googolswarm can only attest.
+    require m.envelope.outcome in {
+      GovTx.DecisionOutcome.APPROVED,
+      GovTx.DecisionOutcome.APPROVED_WITH_DERATING,
+      GovTx.DecisionOutcome.REJECTED,
+      GovTx.DecisionOutcome.PENDING_FPIC
+    };
+  }
+
+  rule MultiSigThresholdRespected (m: MultiSigAttestation) {
+    # Multi-sig: number of signatures MUST meet or exceed requiredSigners.
+    require size(m.signatures) >= m.requiredSigners;
+  }
+
+  rule MultiSigBirthSignsMatchEnvelope (m: MultiSigAttestation) {
+    # Every signature MUST match the envelope’s BirthSign set exactly [file:3].
+    foreach sig in m.signatures {
+      require set(sig.birthSignIds) == set(m.envelope.birthSignIds);
+    }
+  }
+
+  rule MultiSigNormsMatchEnvelope (m: MultiSigAttestation) {
+    # Every signature MUST match the envelope’s ALN norms exactly.
+    foreach sig in m.signatures {
+      require set(sig.normsApplied) == set(m.envelope.appliedAlnNorms);
+    }
+  }
+
+  rule MultiSigOutcomeIsDerivedLocally (m: MultiSigAttestation) {
+    # Googolswarm MAY NOT change the decision outcome; it only confirms consistency.
+    when m.outcome == ATTESTATION_ACCEPTED {
+      require m.envelope.outcome in {
+        GovTx.DecisionOutcome.APPROVED,
+        GovTx.DecisionOutcome.APPROVED_WITH_DERATING,
+        GovTx.DecisionOutcome.REJECTED,
+        GovTx.DecisionOutcome.PENDING_FPIC
+      };
+    }
+    when m.outcome == ATTESTATION_REJECTED {
+      # Rejection means the attestation failed, NOT that the local decision is invalid.
+      # Local workflows MUST treat this as "no additional proof" and MAY require manual review.
+      true;
+    }
+  }
+
+  # ---------------------------------------------------------------------------
+  # Anti–silent-takeover & anti–silent-reinvention invariants
+  # ---------------------------------------------------------------------------
+
+  enum SilentTakeoverRiskFlag {
+    RISK_NONE;
+    RISK_LEDGER_DEFAULT_AUTHORITY;      # Googolswarm accidentally treated as source-of-truth
+    RISK_REMOTE_CONTROL_CHANNEL;        # any remote control from ledger into infra
+    RISK_HIDDEN_MALWARE_PATTERN;        # data contamination, hidden exfil, or covert channel
+    RISK_POLICY_DRIFT_FROM_ALN;         # silent schema or norm changes outside ALN repos
+  }
+
+  record SilentTakeoverAssessment {
+    binding:        HostLocalAttestorBinding;
+    profiles:       list<AttestationProfileId>;
+    riskFlags:      set<SilentTakeoverRiskFlag>;
+    notes:          string;
+  }
+
+  rule NoLedgerAsControlPlane (a: SilentTakeoverAssessment) {
+    # Googolswarm MUST NEVER be a control-plane or single source of authority.
+    require not (RISK_LEDGER_DEFAULT_AUTHORITY in a.riskFlags);
+    require not (RISK_REMOTE_CONTROL_CHANNEL in a.riskFlags);
+  }
+
+  rule NoHiddenMalwareOrPolicyDrift (a: SilentTakeoverAssessment) {
+    require not (RISK_HIDDEN_MALWARE_PATTERN in a.riskFlags);
+    require not (RISK_POLICY_DRIFT_FROM_ALN in a.riskFlags);
+  }
+
+  # ---------------------------------------------------------------------------
+  # Integration with governed decision transactions (GovTx) [file:3]
+  # ---------------------------------------------------------------------------
+
+  record GoogolswarmAttestedDecision {
+    decision:       GovTx.GovernedDecisionEnvelope;
+    attestation:    MultiSigAttestation;
+    riskAssessment: SilentTakeoverAssessment;
+  }
+
+  rule AttestedDecisionMustRespectBirthSigns (g: GoogolswarmAttestedDecision) {
+    # BirthSigns remain mandatory jurisdictional precondition [file:3].
+    require size(g.decision.birthSignIds) >= 1;
+  }
+
+  rule AttestedDecisionMustPreserveSovereignty (g: GoogolswarmAttestedDecision) {
+    # Sovereignty anchors must never be delegated to Googolswarm.
+    require not (INDIGENOUS_TERRITORY_SOVEREIGN in g.riskAssessment.riskFlags);
+    # The presence of sovereignty anchors is enforced at binding-level.
+  }
+
+  rule AttestedDecisionIsAppendOnly (g: GoogolswarmAttestedDecision) {
+    # This schema is designed for append-only use; no updates in-place.
+    # Any change MUST be represented as a new transaction with its own txId.
+    true;
+  }
+}
